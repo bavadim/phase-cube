@@ -3,84 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Музыкальная головоломка: поворачивай кубик, сравнивай фразы с образцом и собери грув. Работает целиком в браузере.">
+  <meta name="description" content="Собери музыкальный кубик: три рейв-композиции из живых Strudel-паттернов.">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%23225a43'/%3E%3Cpath d='M32 15 49 25v17L32 52 15 42V25Z' fill='none' stroke='%23e1eaad' stroke-width='4'/%3E%3C/svg%3E">
-  <title>Цех горного короля — музыкальный кубик</title>
-  <link rel="stylesheet" href="style.css?v=steel5">
+  <title>Музыкальный кубик</title>
+  <link rel="stylesheet" href="style.css?v=compositions1">
 </head>
-<body>
-<main class="app">
-  <header class="topbar">
-    <a class="wordmark" href="#" aria-label="Фазовый кубик, начало"><span class="mark">◈</span> БЮРО ЗВУКА <span class="stamp">ЛАБ. 02</span></a>
-    <span class="topnote"><i class="led" id="engine-led"></i><span id="engine-label">Загружаем звук…</span></span>
-  </header>
-
-  <section class="intro">
-    <div><p class="eyebrow">МУЗЫКАЛЬНОЕ ДЕМО · INDUSTRIAL RAVE · 140 BPM</p><h1>Цех горного короля<span class="title-dot">.</span></h1>
-      <p class="subtitle">Вся песня звучит целиком. Кубик меняет только постоянный рифф; кольцо — четыре такта подложки.</p></div>
-    <div class="completion"><span id="correct-count">0<span>/8</span></span><span id="completion-label">деталей на месте</span></div>
-  </section>
-
-  <section class="workbench" aria-label="Кубик и кольцевой секвенсор">
-    <div id="celebration" class="celebration" aria-hidden="true" hidden></div>
-    <div class="panel-top"><span class="eyebrow">ФАЗОВЫЙ КУБИК · 2 × 2</span><div class="panel-badges"><span class="small-tag" id="mode-badge">Мой микс</span><span class="small-tag" id="state-badge">Перемешан</span></div></div>
-    <div class="listening-bar">
-      <button id="listen-target" class="target-button" aria-pressed="false"><span aria-hidden="true">◎</span><span id="listen-target-label">Прослушать цель</span></button>
-      <p id="audio-status" role="status">Загружаем звук…</p>
-      <div class="sound-controls"><label class="tempo-control">ТЕМП <input id="tempo" type="range" min="96" max="168" step="1" value="144"><output id="tempo-value">144 BPM</output></label><label class="volume-control">ЗВУК <input id="volume" type="range" min="0" max="1" step="0.01" value="0.65"><output id="volume-value">65%</output></label></div>
-    </div>
-    <div class="compact-track-controls" aria-label="Управление выбранной партией"><label>Партия <select id="track-select" aria-label="Выбрать партию"></select></label><button id="track-solo" aria-pressed="false">Соло <kbd>S</kbd></button><button id="track-mute" aria-pressed="false">Выключить</button></div>
-    <div class="song-form"><span id="song-position">ЗАПУСК · 01 / 48</span><span>Форма песни · 82 с</span><label class="song-seek"><span class="sr-only">Позиция в песне</span><input id="song-seek" type="range" min="0" max="47.75" step="0.25" value="0" aria-label="Позиция в песне" aria-valuetext="Начало песни"></label></div>
-    <div class="cube-guide" id="cube-guide">
-      <div class="keyboard-guide" role="group" aria-label="Все клавиши управления">
-        <div class="face-keys"><button class="face-binding" data-face="U"><kbd>U</kbd> верх</button><button class="face-binding" data-face="R"><kbd>R</kbd> справа</button><button class="face-binding" data-face="F"><kbd>F</kbd> спереди</button><button class="face-binding" data-face="D"><kbd>D</kbd> низ</button><button class="face-binding" data-face="L"><kbd>L</kbd> слева</button><button class="face-binding" data-face="B"><kbd>B</kbd> сзади</button></div>
-        <div class="extra-keys"><span>Буква — ↷ · <kbd>Shift</kbd> + буква — ↶</span><span><kbd>Пробел</kbd> пауза</span><span><kbd>S</kbd> соло партии</span><span><kbd>Esc</kbd> отмена подсказки</span><span><kbd>Ctrl Z</kbd> отмена хода</span></div>
-      </div>
-      <div class="pointer-guide"><span class="click-guide"><svg viewBox="0 0 56 30" aria-hidden="true"><rect x="1" y="1" width="54" height="28" rx="6"/><path d="M28 3v24"/><text x="14" y="21">↶</text><text x="42" y="21">↷</text></svg><span class="desktop-pointer-help">Левая / правая половина плитки — поворот · потяни кубик — осмотр</span><span class="touch-pointer-help">Коснись грани — выбор · стрелки — поворот · потяни — осмотр</span></span><span class="move-preview" id="move-preview" role="status"></span></div>
-    </div>
+<body data-phase="ready">
+<main class="app" aria-label="Музыкальный кубик">
+  <section class="playfield" aria-label="Головоломка и музыкальный рисунок">
     <div class="orbital-workspace" id="orbital-workspace">
+      <aside class="completion" aria-label="Прогресс сборки">
+        <span id="correct-count">0<span>/8</span></span>
+        <span>деталей<br>на месте</span>
+      </aside>
+      <aside class="orbit-legend" aria-label="Обозначения рисунка">
+        <span><i class="legend-note" aria-hidden="true"></i>сейчас</span>
+        <span><i class="legend-ghost" aria-hidden="true"></i>цель</span>
+      </aside>
       <div class="orbit-sequencer" id="orbit-sequencer">
-        <svg id="orbit-score" viewBox="0 0 760 760" role="group" aria-label="Кольцевой секвенсор. Восемь фрагментов риффа, четыре такта по часовой стрелке. Нажмите дорожку для выбора."></svg>
-        <div class="cube-stage" id="cube-stage" tabindex="0" aria-describedby="cube-guide" aria-label="Трёхмерный кубик. Левая половина плитки — против часовой стрелки, правая — по часовой. Потяните для осмотра."><div id="cube-view"></div><svg id="cube-input" aria-label="Половины плиток и направление поворота"></svg><div id="view-error" hidden>3D недоступно. Используй кнопки U/R/F/D/L/B над кубиком.</div></div>
-        <div id="session-overlay" class="session-overlay" role="dialog" aria-modal="false" aria-labelledby="session-title" aria-describedby="session-description">
-          <span class="session-mark" aria-hidden="true">◈</span><h2 id="session-title">Цех ждёт</h2><p id="session-description">Послушай цель и верни фразы на место.</p><button id="start" class="primary-button" disabled>Начать</button>
+        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели. Время идёт по часовой стрелке."></svg>
+        <div class="cube-stage" id="cube-stage" tabindex="0" aria-label="Кубик. Касание выбирает грань, перетаскивание меняет ракурс. Повороты — кнопками внизу.">
+          <div id="cube-view"></div>
+          <svg id="cube-input" aria-label="Выбранная грань и направление поворота"></svg>
+          <div id="view-error" hidden>3D недоступно</div>
         </div>
-        <div class="cycle-readout"><span id="cycle-position">01<span>/24</span></span><span>ОДИН ОБОРОТ · ЧЕТЫРЕ ТАКТА</span></div>
-        <div class="stage-caption"><span>Потяни — осмотр</span><button id="view-reset" class="text-button" aria-label="Вернуть исходный ракурс">Сбросить ракурс</button></div>
-
       </div>
-        <div class="cube-command" aria-label="Поворот выбранной грани">
-          <button id="turn-left" class="turn-button" aria-label="F: против часовой стрелки"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 10a10 10 0 1 1-2 11M9 4v8H1"/></svg></button>
-          <label class="touch-face-control"><span class="sr-only">Грань для поворота</span><select id="touch-face" aria-label="Грань для поворота"><option value="U">Сверху</option><option value="R">Справа</option><option value="F" selected>Спереди</option><option value="D">Снизу</option><option value="L">Слева</option><option value="B">Сзади</option></select></label>
-          <button id="turn-right" class="turn-button" aria-label="F: по часовой стрелке"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M23 10a10 10 0 1 0 2 11M23 4v8h8"/></svg></button>
-        </div>
-      <div class="orbit-controls" id="tracks" aria-label="Партии. Выбор дорожки, соло и выключение"></div>
+      <div id="celebration" class="celebration" aria-hidden="true" hidden></div>
     </div>
-    <div class="orbit-legend"><span><i class="legend-note"></i> сейчас</span><label><input id="show-target" type="checkbox" checked><i class="legend-ghost"></i> цель</label><span id="preview-legend" hidden><i class="legend-preview"></i> после хода</span><span class="cycle-direction">12 часов — начало · время идёт по кругу ↻</span><label class="foundation-control"><input id="foundation" type="checkbox" checked> Остальные 13 партий</label></div>
-    <div class="puzzle-actions" role="group" aria-label="Управление игрой">
-      <button id="scramble" class="action-button"><span aria-hidden="true">↻</span> Перемешать</button>
-      <button id="hint" class="action-button" disabled><span aria-hidden="true">◎</span> Подсказать</button>
-      <button id="pause" class="action-button" aria-pressed="false" disabled><span id="pause-icon" aria-hidden="true">Ⅱ</span> <span id="pause-label">Пауза</span></button>
-    </div>
-    <p id="hint-text" class="hint-line" role="status"></p>
   </section>
-  <footer><span>МУЗЫКАЛЬНОЕ ДЕМО · ГРИГ × INDUSTRIAL RAVE</span><span>Полная песня 48 тактов · рифф 4 такта · <a href="https://github.com/bavadim/phase-cube">Исходники</a> · <a href="LICENSE">AGPL-3.0-or-later</a></span></footer>
+
+  <section class="controls-dock" aria-label="Управление">
+    <label class="song-seek">
+      <span class="sr-only">Позиция в композиции</span>
+      <input id="song-seek" type="range" min="0" max="1" step="0.25" value="0" aria-label="Позиция в композиции" aria-valuetext="Начало композиции">
+    </label>
+    <div class="cube-command" role="group" aria-label="Поворот выбранной грани">
+      <button id="turn-left" class="turn-button" aria-label="Повернуть выбранную грань против часовой стрелки" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 10a10 10 0 1 1-2 11M9 4v8H1"/></svg></button>
+      <label class="touch-face-control"><span class="sr-only">Выбранная грань</span><select id="touch-face" aria-label="Выбранная грань" disabled><option value="U">Сверху</option><option value="R">Справа</option><option value="F" selected>Спереди</option><option value="D">Снизу</option><option value="L">Слева</option><option value="B">Сзади</option></select></label>
+      <button id="turn-right" class="turn-button" aria-label="Повернуть выбранную грань по часовой стрелке" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M23 10a10 10 0 1 0 2 11M23 4v8h8"/></svg></button>
+    </div>
+    <div class="secondary-actions">
+      <button id="undo" class="secondary-button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Отменить</span></button>
+      <button id="pause" class="secondary-button" aria-pressed="false" disabled><span id="pause-icon" aria-hidden="true">Ⅱ</span><span id="pause-label">Пауза</span></button>
+    </div>
+  </section>
 </main>
+
+<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title" aria-describedby="song-meta session-feedback">
+  <div class="record-mark" aria-hidden="true"><span>◈</span></div>
+  <label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled><option>Загрузка…</option></select></label>
+  <h1 id="session-title">Музыкальный кубик</h1>
+  <p id="song-meta" class="song-meta"></p>
+  <p id="song-details" class="song-details"></p>
+  <p id="session-feedback" class="session-feedback" role="status">Загружаем звук…</p>
+  <button id="start" class="primary-button" disabled>Начать</button>
+</dialog>
+
+<dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title" aria-describedby="result-song">
+  <div class="result-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="m10 21 7 7 14-16"/></svg></div>
+  <p class="result-caption">Композиция собрана</p>
+  <h2 id="result-title">Композиция собрана</h2>
+  <p id="result-song" class="song-meta"></p>
+  <a id="download-mp3" class="primary-button" href="#" download>Скачать трек · MP3</a>
+  <button id="play-again" class="outline-button">Ещё раз</button>
+  <button id="choose-song" class="outline-button">Выбрать композицию</button>
+</dialog>
 <output id="audio-diagnostics" hidden aria-hidden="true"></output>
 <script src="vendor/three-0.160.1.min.js"></script>
 <script src="vendor/cube-1.3.2.js"></script>
 <script src="vendor/strudel-web-1.3.0.js"></script>
-<script src="song-assets.js"></script>
-<script src="model.js?v=steel5"></script>
-<script src="config.js?v=steel5"></script>
-<script src="session.js?v=steel5"></script>
-<script src="music.js?v=steel5"></script>
-<script src="transport.js?v=steel5"></script>
-<script src="orbit.js?v=steel5"></script>
-<script src="cube-input.js?v=steel5"></script>
-<script src="cube-view.js?v=steel5"></script>
-<script src="celebration.js?v=steel5"></script>
-<script src="app.js?v=steel5"></script>
+<script src="audio-bank.js?v=compositions1"></script>
+<script src="composition-loader.js?v=compositions1"></script>
+<script src="model.js?v=mobile6"></script>
+<script src="config.js?v=compositions1"></script>
+<script src="session.js?v=mobile6"></script>
+<script src="music.js?v=compositions1"></script>
+<script src="transport.js?v=compositions1"></script>
+<script src="orbit.js?v=mobile6"></script>
+<script src="cube-input.js?v=mobile6"></script>
+<script src="cube-view.js?v=mobile6"></script>
+<script src="celebration.js?v=mobile6"></script>
+<script src="app.js?v=compositions1"></script>
 </body>
 </html>

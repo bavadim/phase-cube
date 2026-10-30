@@ -31,5 +31,17 @@ CC0-1.0, revision c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e:
 https://github.com/sgossner/VCSL
 https://creativecommons.org/publicdomain/zero/1.0/
 
-song-assets.js embeds the derived 13-part backing and eight riff fragments.
-audio-manifest.json records source hashes and the adaptation.
+The editable compositions are in compositions/*.strudel.mjs. In addition to Grieg,
+they use Wolfgang Amadeus Mozart, Rondo Alla Turca KV 331/III, Mutopia 108, and
+Ludwig van Beethoven, Fuer Elise WoO 59, Mutopia 931 (Public Domain editions).
+https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=108
+https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931
+
+assets/samples contains the selected raw VCSL CC0 instruments and the existing
+project kick/hat. Playback is synthesized/sequenced by Strudel, not a song recording.
+The Godot supersaw patch is adapted to the browser sawtooth/unison controls.
+
+The downloadable MP3 files are listening exports, not inputs to gameplay.
+Mozart/Elise are studio masters from the project composition pipeline; Steel Shift
+retains the earlier game export. Their source and licenses are preserved in the
+project output/music and resources/composer directories.

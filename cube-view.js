@@ -2,7 +2,7 @@
 /* Three.js scene and animation. State and audio stay in their own modules. */
 window.PhaseCubeView=(()=>{
   'use strict';
-  function create({T,M,colors,view,stage,svg,getState,getSelected,isBusy,onMove,onPreview,onError,onSelect,selectOnly}) {
+  function create({T,M,colors,view,stage,svg,getState,getSelected,getSelectedFace,isBusy,onMove,onPreview,onError,onSelect,selectOnly}) {
     let inputView,renderCube,animateTurn,resetView,focusFace;
     if(!T)throw new Error('Three.js не загрузился');
     const scene=new T.Scene(), camera=new T.PerspectiveCamera(34,1,.1,100);
@@ -43,7 +43,7 @@ window.PhaseCubeView=(()=>{
         const body=new T.Mesh(geo,materials.body);body.castShadow=true;group.add(body);
         group.add(new T.LineSegments(edgeGeo,materials.edge));
         for(const sticker of M.stickers(s,slot)){
-          const material=new T.MeshStandardMaterial({map:stickerTexture(sticker.color,sticker.id),roughness:.74,metalness:0,emissive:sticker.id===getSelected()?0x293c1c:0x000000,emissiveIntensity:.24});
+          const material=new T.MeshStandardMaterial({map:stickerTexture(sticker.color,sticker.id),roughness:.74,metalness:0,emissive:sticker.face===getSelectedFace()?0x293c1c:0x000000,emissiveIntensity:.24});
           const plane=new T.Mesh(stickerGeo,material), normal=new T.Vector3(...normals[sticker.face]);
           plane.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);plane.position.copy(normal.multiplyScalar(.493));
           plane.userData={face:sticker.face,id:sticker.id};group.add(plane);stickers.push(plane);
@@ -70,7 +70,7 @@ window.PhaseCubeView=(()=>{
     const observer=new ResizeObserver(resize);observer.observe(view);resize();
     let frameId;
     inputView=new PhaseCubeInput.Input({T,stage,view,svg,root,camera,getStickers:()=>stickers,isBusy,
-      onMove,onPreview,onSelect,selectOnly,onDrag:()=>{viewTween=null;}});
+      onMove,onPreview,onSelect,selectOnly,getSelectedFace,onDrag:()=>{viewTween=null;}});
     function frame(now){
       if(viewTween){const v=viewTween,t=Math.min(1,(now-v.start)/v.duration);root.quaternion.slerpQuaternions(v.from,v.to,t*t*(3-2*t));if(t===1)viewTween=null;}
       if(anim){

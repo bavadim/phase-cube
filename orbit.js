@@ -5,7 +5,7 @@
   else root.PhaseCubeOrbit = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=168, STEP=22;
+  const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=204, STEP=17;
   const mod=n=>((n%1)+1)%1;
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
@@ -32,20 +32,12 @@
         const c=point(337,t/24),d=point(t%6===0?347:342,t/24);
         node('line',{x1:c[0],y1:c[1],x2:d[0],y2:d[1],'class':'ruler-tick'},grid);
       }
-      ['0','¼','½','¾'].forEach((text,i)=>{const p=point(362,i/4),label=node('text',{x:p[0],y:p[1]+4,'text-anchor':'middle','class':'orbit-time'},grid);label.textContent=text;});
       voices.forEach((v,id)=>{
-        const r=INNER+id*STEP,g=node('g',{'class':'orbit-track', 'data-id':id,tabindex:0,role:'button','aria-label':`Выбрать партию ${id+1}: ${v.name}`,style:`--track-color:${v.color}`},svg);
+        const r=INNER+id*STEP,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
         const title=node('title',{},g);title.textContent=`${id+1}. ${v.name} — выбрать дорожку`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
         node('circle',{cx:CENTER,cy:CENTER,r:r+5.5,'class':'orbit-target-rail'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g),preview=node('g',{'class':'orbit-preview','aria-hidden':'true'},g);
-        const p=point(r,.965),badge=node('g',{'class':'orbit-number','aria-hidden':'true'},g);
-        node('circle',{cx:p[0],cy:p[1],r:7},badge);node('text',{x:p[0],y:p[1]+3,'text-anchor':'middle'},badge).textContent=id+1;
-        node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-hit-area'},g);
-        g.addEventListener('click',()=>onSelect(id));
-        g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect(id);}});
-        g.addEventListener('pointerenter',()=>svg.dataset.hover=id);
-        g.addEventListener('pointerleave',()=>delete svg.dataset.hover);
         this.rows.push({g,r,target,current,preview});
       });
       const sweep=node('g',{'id':'clock-hand','class':'orbit-sweep','aria-hidden':'true'},svg);
@@ -86,7 +78,7 @@
         const p=point(r+1,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:2.5,'class':'preview-onset'},parent);
       }
     }
-    update({rows,target,phases,selected,muted,solo,mode,showTarget=true,pending=false,forecast=null}){
+    update({rows,target,phases,selected,muted,solo,mode,showTarget=true,pending=false,forecast=null,affected=[]}){
       this.svg.classList.toggle('hide-target',!showTarget);
       this.svg.classList.toggle('audition-target',mode==='target');
       this.svg.classList.toggle('has-move-preview',!!forecast);
@@ -98,12 +90,12 @@
         const changed=!!forecast?.changed.includes(id);
         this.drawPreview(row.preview,changed?forecast.rows[id]:[],row.r);
         row.g.classList.toggle('will-change',changed);
+        row.g.classList.toggle('just-changed',affected.includes(id));
         if(forecast)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
         row.g.classList.toggle('selected',id===selected);
         row.g.classList.toggle('is-muted',muted.includes(id)||(solo>=0&&solo!==id));
         row.g.classList.toggle('aligned',phases[id].ticks===0);
-        row.g.setAttribute('aria-pressed',id===selected?'true':'false');
-        row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. Сдвиг ${phases[id].ticks} из 24. ${phases[id].ticks===0?'Фаза совпадает с целью. ':''}Выбрать партию`);
+        row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${phases[id].ticks===0?'Совпадает с целью.':'Не совпадает с целью.'}`);
         row.g.dataset.phase=phases[id].ticks;
       });
       this.svg.classList.toggle('is-pending',pending);

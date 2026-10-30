@@ -1,1 +1,1 @@
-{"name":"steel-shift-cube-local-demo","private":true,"license":"AGPL-3.0-or-later","scripts":{"check":"node check.mjs","test":"node --test test-model.cjs test-session.cjs","export":"node export.mjs"}}
+{"name":"phase-cube-compositions","private":true,"license":"AGPL-3.0-or-later","scripts":{"check":"node check.mjs","test":"node --test test-model.cjs test-session.cjs test-compositions.cjs","export":"node export.mjs"}}

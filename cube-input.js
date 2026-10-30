@@ -19,8 +19,8 @@
   const path=points=>points.length?'M'+points.map(p=>p.join(',')).join(' L')+' Z':'';
   function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);parent?.append(e);return e;}
   class Input {
-    constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,selectOnly=()=>false}){
-      Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,selectOnly});
+    constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace=()=>null,selectOnly=()=>false}){
+      Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace,selectOnly});
       this.ray=new T.Raycaster();this.pointer=null;this.hover=null;this.hint=null;this.buttonMove=null;this.dirty=true;this.signature='';
       const defs=el('defs',{},svg),marker=el('marker',{id:'cube-arrowhead',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:4,markerHeight:4,orient:'auto-start-reverse'},defs);
       el('path',{d:'M1 1 L9 5 L1 9 Z',fill:'currentColor'},marker);
@@ -63,7 +63,7 @@
       this.hover=hit;this.stage.style.cursor=hit?'pointer':'grab';this.notify();
     }
     notify(){
-      const move=this.buttonMove||this.hover?.move||this.hint;
+      const move=this.buttonMove||(!this.selectOnly()?this.hover?.move:null)||this.hint;
       this.onPreview(move,this.buttonMove?'button':this.hover?'tile':this.hint?'hint':null);
       this.drawFeedback();
     }
@@ -84,10 +84,11 @@
     drawFeedback(){
       this.feedback.replaceChildren();
       delete this.svg.dataset.previewMove;this.svg.classList.remove('hint-preview');
-      const move=this.buttonMove||this.hover?.move||this.hint;if(!move||this.isBusy())return;
-      const face=move[0];if(!this.visibleFaces?.has(face))return;
+      const move=this.buttonMove||(!this.selectOnly()?this.hover?.move:null)||this.hint;if(this.isBusy())return;
+      const face=move?.[0]||this.getSelectedFace();if(!this.visibleFaces?.has(face))return;
       const quad=[[-1.015,1.015],[1.015,1.015],[1.015,-1.015],[-1.015,-1.015]].map(([x,y])=>this.facePoint(face,x,y));
       el('path',{d:path(quad),'class':'cube-face-outline'},this.feedback);
+      if(!move){this.svg.dataset.selectedFace=face;return;}
       if(this.hover&&!this.buttonMove){
         const tile=this.visibleTiles?.find(t=>t.face===face&&t.id===this.hover.id);
         if(tile)el('path',{d:path(halfPolygon(tile.points,tile.center[0],this.hover.left)),'class':'cube-half-highlight'},this.feedback);
@@ -101,7 +102,7 @@
     }
     update(){
       this.svg.classList.toggle('is-busy',this.isBusy());
-      const signature=[...this.root.quaternion.toArray(),this.view.clientWidth,this.view.clientHeight,this.isBusy(),this.selectOnly()].join(',');
+      const signature=[...this.root.quaternion.toArray(),this.view.clientWidth,this.view.clientHeight,this.isBusy(),this.selectOnly(),this.getSelectedFace()].join(',');
       if(!this.dirty&&signature===this.signature)return;
       this.signature=signature;this.dirty=false;this.root.updateMatrixWorld(true);this.hits.replaceChildren();
       this.hits.setAttribute('aria-hidden',String(this.selectOnly()));

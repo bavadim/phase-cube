@@ -22,34 +22,30 @@
       });
     }
     attach(repl) { this.repl=repl; }
-    startBacking() {
-      if(!this.backingBuffer)return;
-      const ctx=this.S.getAudioContext(),origin=this.timeAt(this.baseCycle),now=ctx.currentTime;
-      const source=ctx.createBufferSource();source.buffer=this.backingBuffer;source.loop=true;
-      source.loopStart=0;source.loopEnd=48*240/140;
-      this.backingGain=ctx.createGain();this.backingGain.gain.value=1;
-      source.connect(this.backingGain);this.backingGain.connect(this.master);
-      source.start(Math.max(now,origin),(this.baseCycle*240/140+Math.max(0,now-origin))%source.loopEnd);
-      this.backingSource=source;this.backingStarts=(this.backingStarts||0)+1;this.backingId=this.backingStarts;
-      this.record('backing-start',{backingId:this.backingId,origin,loopSeconds:source.loopEnd});
-    }
-    stopBacking() {
-      if(this.backingSource){try{this.backingSource.stop();}catch{}this.backingSource.disconnect();this.backingSource=null;}
-      this.backingGain?.disconnect();this.backingGain=null;
+    setComposition(song) {
+      if(this.want||this.running)throw new Error('Сначала остановите проигрывание');
+      this.song=song;this.cursor=0;this.baseCycle=0;
     }
     setBackingMix({foundation=true,solo=-1}) {
-      if(this.backingGain)this.backingGain.gain.setTargetAtTime(foundation&&solo<0?1:0,this.S.getAudioContext().currentTime,.008);
+      if(this.backingEntry)this.backingEntry.bus.output.gain.setTargetAtTime(foundation&&solo<0?1:0,this.S.getAudioContext().currentTime,.008);
     }
     continueAt(entry,cycle) {
-      // Restart only the edited sampler lane at its current sample offset.
-      // This resumes partial samples instead of waiting for their next 4-bar onset.
-      for(const h of entry.pattern.queryArc(cycle,cycle+1e-7)){
+      // Resume held notes at the current musical phase. New onsets are scheduled
+      // by Cyclist; the immutable backing entry and its existing voices are retained.
+      for(const h of entry.pattern.queryArc(cycle-this.song.stats.maxGateBars,cycle+1e-7)){
         const start=Number(h.whole.begin),duration=Number(h.duration),elapsed=cycle-start;
         if(elapsed<=1e-8||elapsed>=duration-1e-8)continue;
-        const remaining=duration-elapsed,begin=(h.value.begin||0)+elapsed/duration*(1-(h.value.begin||0));
+        const remaining=duration-elapsed;
         const span=new this.S.TimeSpan(cycle,cycle+remaining);
-        const partial=new this.S.Hap(span,span,{...h.value,begin,duration:remaining});
-        this.record('continue-sample',{revision:entry.id,cycle,sample:h.value.s,begin,remaining});
+        const value={...h.value,duration:remaining};
+        const sound=this.S.getSound(value.s);
+        if(sound?.type==='sample'){
+          const info=this.S.getSampleInfo(value,sound.samples),buffer=this.S.getLoadedBuffer(info.url);
+          if(buffer)value.begin=(value.begin||0)+elapsed/this.repl.scheduler.cps*info.playbackRate/buffer.duration;
+          if(value.begin>=1)continue;
+        }
+        const partial=new this.S.Hap(span,span,value);
+        this.record('continue-note',{revision:entry.id,cycle,sound:h.value.s,remaining});
         this.output(partial.withSpan(span=>span.withTime(t=>t.sub(this.baseCycle))),0,remaining/this.repl.scheduler.cps,this.repl.scheduler.cps,this.timeAt(cycle)).catch(this.onError);
       }
     }
@@ -132,11 +128,16 @@
         // The first scheduler callback may run before start() resolves.
         // Its audio has a native lead-in, so open this first bus now.
         entry.bus.output.gain.setValueAtTime(1,ctx.currentTime);
-        this.entries=[entry];this.retired=[];this.active=entry;this.pending=null;
+        const backing=this.entry(this.song.backing,this.baseCycle,{kind:'backing',songId:this.song.id});
+        backing.kind='backing';backing.bus.output.gain.setValueAtTime(1,ctx.currentTime);
+        this.backingEntry=backing;this.backingStarts=(this.backingStarts||0)+1;this.backingId=backing.id;
+        this.entries=[backing,entry];this.retired=[];this.active=entry;this.pending=null;
         this.repl.scheduler.setCps(bpm/240);
         await this.repl.setPattern(this.router,true);
         if(!this.want||token!==this.token){this.repl.stop();return;}
-        entry.audioBegin=this.timeAt(this.baseCycle);this.running=true;this.startBacking();this.continueAt(entry,this.baseCycle);
+        entry.audioBegin=this.timeAt(this.baseCycle);backing.audioBegin=entry.audioBegin;this.running=true;
+        this.record('backing-start',{backingId:backing.id,origin:backing.audioBegin,bars:this.song.bars});
+        this.continueAt(backing,this.baseCycle);this.continueAt(entry,this.baseCycle);
         this.record('start',{revision:entry.id,bpm,origin:entry.audioBegin});this.onChange();
       }).catch(e=>{this.stop();this.onError(e);});
       return this.lifecycle;
@@ -144,9 +145,11 @@
     stop() {
       this.cursor=this.clock();
       this.want=false;this.running=false;++this.token;
-      this.stopBacking();this.repl?.stop();
+      this.repl?.stop();
       for(const e of this.entries)this.silence(e);
-      this.entries=[];this.active=null;this.pending=null;
+      this.entries=[];this.active=null;this.pending=null;this.backingEntry=null;
+      for(const e of this.retired){e.bus.disconnect();delete this.S.getSuperdoughAudioController().nodes[e.id];}
+      this.retired=[];
       this.S.resetGlobalEffects();this.connectMaster();this.setVolume(0);
       this.record('stop');this.onChange();
       const token=this.token;
@@ -188,7 +191,7 @@
         this.record('apply',{revision:this.active.id,cycle:this.active.begin,targetAudio:this.active.audioBegin,observedDelay:now-this.active.audioBegin});
         this.onChange();
       }
-      const expired=this.entries.filter(e=>e!==this.active&&e!==this.pending&&e.audioEnd<now-.25);
+      const expired=this.entries.filter(e=>e!==this.active&&e!==this.pending&&e!==this.backingEntry&&e.audioEnd<now-.25);
       this.entries=this.entries.filter(e=>!expired.includes(e));
       this.retired.push(...expired);
       for(const e of this.retired){
@@ -197,7 +200,7 @@
       this.retired=this.retired.filter(e=>!e.cleaned);
     }
     info() {
-      return {wanted:this.want,running:this.running,token:this.token,cycle:this.clock(),
+      return {wanted:this.want,running:this.running,token:this.token,cycle:this.clock(),songId:this.song?.id,backingRevision:this.backingEntry?.id??null,
         activeRevision:this.active?.id??null,
         pending:this.pending?{revision:this.pending.id,cycle:this.pending.begin,audioTime:this.pending.audioBegin,seconds:Math.max(0,this.pending.audioBegin-this.S.getAudioContext().currentTime)}:null};
     }
