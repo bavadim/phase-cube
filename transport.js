@@ -5,8 +5,9 @@
 (() => {
   'use strict';
   class PhaseCubeTransport {
-    constructor(S, {onChange=()=>{}, onError=console.error}={}) {
+    constructor(S, {onChange=()=>{}, onError=console.error,outputGain=1}={}) {
       this.S=S;this.onChange=onChange;this.onError=onError;
+      this.outputGain=outputGain;
       this.want=false;this.running=false;this.token=0;this.revision=0;
       this.entries=[];this.retired=[];this.active=null;this.pending=null;
       this.lifecycle=Promise.resolve();this.stopPromise=Promise.resolve();
@@ -43,7 +44,7 @@
       const master=this.S.getSuperdoughAudioController().output.destinationGain;
       const now=this.S.getAudioContext().currentTime;
       master.gain.cancelScheduledValues(now);
-      master.gain.setValueAtTime(this.want?value:0,now);
+      master.gain.setValueAtTime(this.want?value*this.outputGain:0,now);
     }
     entry(pattern, begin, meta) {
       const id=++this.revision, epoch=this.token;
@@ -88,7 +89,7 @@
         const ctx=this.S.getAudioContext();
         await ctx.resume();await this.S.initAudio();
         if(!this.want||token!==this.token)return;
-        this.repl.stop();this.S.resetGlobalEffects();this.connectMaster();this.setVolume(volume);
+        this.repl.stop();this.S.resetGlobalEffects();this.connectMaster();this.setVolume(this.volume);
         const initial=typeof pattern==='function'?pattern():{pattern,meta};
         const entry=this.entry(initial.pattern,0,initial.meta);
         // The first scheduler callback may run before start() resolves.

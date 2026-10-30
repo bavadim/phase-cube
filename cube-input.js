@@ -19,8 +19,8 @@
   const path=points=>points.length?'M'+points.map(p=>p.join(',')).join(' L')+' Z':'';
   function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);parent?.append(e);return e;}
   class Input {
-    constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag}){
-      Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag});
+    constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,selectOnly=()=>false}){
+      Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,selectOnly});
       this.ray=new T.Raycaster();this.pointer=null;this.hover=null;this.hint=null;this.buttonMove=null;this.dirty=true;this.signature='';
       const defs=el('defs',{},svg),marker=el('marker',{id:'cube-arrowhead',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:4,markerHeight:4,orient:'auto-start-reverse'},defs);
       el('path',{d:'M1 1 L9 5 L1 9 Z',fill:'currentColor'},marker);
@@ -45,7 +45,10 @@
         if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId);
         if(p.moved||this.isBusy())return;
         const hit=this.pick(e.clientX,e.clientY);
-        if(hit){svg.dataset.lastMove=hit.move;svg.dataset.lastHalf=hit.left?'left':'right';this.onMove(hit.move,hit.id);}
+        if(hit){
+          if(e.pointerType==='touch'||this.selectOnly())this.onSelect?.(hit.face,hit.id);
+          else{svg.dataset.lastMove=hit.move;svg.dataset.lastHalf=hit.left?'left':'right';this.onMove(hit.move,hit.id);}
+        }
       });
       const cancel=()=>{this.pointer=null;this.setHover(null);};
       stage.addEventListener('pointercancel',cancel);stage.addEventListener('lostpointercapture',()=>{if(this.pointer)cancel();});
@@ -98,9 +101,10 @@
     }
     update(){
       this.svg.classList.toggle('is-busy',this.isBusy());
-      const signature=[...this.root.quaternion.toArray(),this.view.clientWidth,this.view.clientHeight,this.isBusy()].join(',');
+      const signature=[...this.root.quaternion.toArray(),this.view.clientWidth,this.view.clientHeight,this.isBusy(),this.selectOnly()].join(',');
       if(!this.dirty&&signature===this.signature)return;
       this.signature=signature;this.dirty=false;this.root.updateMatrixWorld(true);this.hits.replaceChildren();
+      this.hits.setAttribute('aria-hidden',String(this.selectOnly()));
       this.svg.setAttribute('viewBox',`0 0 ${this.view.clientWidth} ${this.view.clientHeight}`);
       this.visibleTiles=[];this.visibleFaces=new Set();
       if(this.isBusy()){this.feedback.replaceChildren();return;}
@@ -113,7 +117,10 @@
         for(const left of [true,false]){
           const move=tile.face+(left?"'":''),shape=halfPolygon(points,tile.center[0],left);
           const target=el('path',{d:path(shape),'class':'cube-hit',role:'button',tabindex:-1,'data-face':tile.face,'data-id':tile.id,'data-half':left?'left':'right','data-move':move,'aria-label':`${tile.face}: ${left?'против часовой стрелки':'по часовой стрелке'}, ${left?'левая':'правая'} половина плитки ${tile.id+1}`},this.hits);
-          const activate=()=>{if(!this.isBusy()){this.svg.dataset.lastMove=move;this.svg.dataset.lastHalf=left?'left':'right';this.onMove(move,tile.id);}};
+          const activate=()=>{if(!this.isBusy()){
+            if(this.selectOnly())this.onSelect?.(tile.face,tile.id);
+            else{this.svg.dataset.lastMove=move;this.svg.dataset.lastHalf=left?'left':'right';this.onMove(move,tile.id);}
+          }};
           target.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.repeat){e.preventDefault();e.stopPropagation();activate();}});
           target.addEventListener('click',e=>{if(e.detail===0)activate();});
         }

@@ -19,5 +19,6 @@
     { name:'Хэты', notes:'hat*8', sound:null, gain:.075, attack:0, decay:0, sustain:1, release:.01, pan:.66, color:'#588c91', source:'after_hours · hat' },
     { name:'Пульс', notes:'c2 ~ c2 ~', sound:'square', gain:.025, attack:.002, decay:.08, sustain:0, release:.03, lpf:550, pan:.40, color:'#ab7270', source:'segment_rave · bass_alt' }
   ];
-  return Object.freeze({voices,colors,names,bpm:144,volume:.65,scrambleLength:3});
+  // Calibrated +12.04 dB output trim; individual voice balance stays unchanged.
+  return Object.freeze({voices,colors,names,bpm:144,volume:.65,outputGain:4,scrambleLength:3});
 });

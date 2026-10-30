@@ -277,3 +277,78 @@ footer a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+/* One short CSS firework burst when an unsolved cube becomes solved. */
+.workbench { position: relative; }
+.celebration { position: absolute; inset: 0; z-index: 10; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.firework { position: absolute; width: 0; height: 0; }
+.firework-spark { position: absolute; left: 0; top: 0; width: 4px; height: 10px; border-radius: 3px; background: var(--spark-color); opacity: 0; animation: firework-spark 1250ms cubic-bezier(.12,.65,.25,1) var(--delay) both; }
+.firework::after { content: ''; position: absolute; inset: -34px; border: 2px solid var(--spark-color); border-radius: 50%; opacity: 0; animation: firework-ring 850ms ease-out var(--delay) both; }
+@keyframes firework-spark {
+  0% { opacity: 0; transform: translate(0, 15px) scale(.2); }
+  12% { opacity: 1; }
+  65% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--angle)) scale(.35); }
+}
+@keyframes firework-ring {
+  0% { opacity: .7; transform: scale(.1); }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+@media (prefers-reduced-motion: reduce) { .celebration { display: none !important; } }
+/* Touch layout keeps listening and game actions within reach on iPhone screens. */
+.touch-pointer-help, .touch-face-control { display: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#orbital-workspace { scroll-margin: 84px 0 100px; }
+@media (max-width: 760px), (max-width: 960px) and (max-height: 500px) {
+  body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+  .app { padding-top: env(safe-area-inset-top); padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .topbar { height: 40px; }
+  .intro { padding: 11px 0; }
+  .intro .eyebrow, .subtitle, .panel-top, .keyboard-guide, .desktop-pointer-help, .click-guide > svg { display: none; }
+  h1 { font-size: 28px; }
+  .completion { max-width: 100px; }
+  .workbench { padding: 0 12px 13px; }
+  .listening-bar { position: sticky; top: env(safe-area-inset-top); z-index: 12; padding: 9px 0 7px; background: var(--panel); }
+  .target-button { min-height: 44px; }
+  .sound-controls .tempo-control { display: none; }
+  .sound-controls .volume-control { min-width: 80px; min-height: 44px; }
+  .sound-controls input { max-width: 90px; height: 30px; }
+  .compact-track-controls { gap: 6px; padding-top: 8px; }
+  .compact-track-controls label { flex: 1; min-width: 0; }
+  .compact-track-controls select { width: 100%; max-width: none; min-height: 44px; font-size: 16px; }
+  .compact-track-controls button { min-width: 44px; min-height: 44px; }
+  .cube-guide { padding: 7px 0 0; gap: 0; }
+  .touch-pointer-help { display: inline; }
+  .pointer-guide { font-size: 10px; gap: 3px; }
+  .move-preview { flex-basis: 100%; min-height: 16px; }
+  .orbit-controls { display: none; }
+  .orbit-sequencer { width: min(100%, 440px); }
+  .cube-command { position: relative; top: auto; left: auto; right: auto; gap: 12px; margin: -2px auto 12px; align-items: center; }
+  .turn-button { width: 44px; height: 44px; padding: 10px; flex-shrink: 0; }
+  .touch-face-control { display: block; }
+  .touch-face-control select { min-width: 140px; min-height: 44px; padding: 8px 12px; border: 1px solid #bbcab0; border-radius: 9px; color: var(--green); background: #f5f8eb; font-size: 16px; }
+  .stage-caption { top: 3%; left: 3%; right: auto; }
+  .stage-caption > span { display: none; }
+  .stage-caption button { width: 44px; height: 44px; border: 1px solid #d7dfcc; border-radius: 50%; background: #fffdf4e8; font-size: 0; text-decoration: none; }
+  .stage-caption button::before { content: '↺'; font-size: 23px; }
+  .puzzle-actions { position: fixed; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: max(9px, env(safe-area-inset-bottom)); z-index: 30; max-width: none; margin: 0; padding: 8px; border: 1px solid #ccd7bd; border-radius: 14px; background: #fffdf2f5; box-shadow: 0 3px 18px #304d3526; backdrop-filter: blur(10px); }
+  .action-button { min-height: 44px; }
+  .session-overlay { width: 154px; padding: 12px; }
+  .session-overlay .primary-button { min-height: 44px; }
+}
+@media (max-width: 960px) and (max-height: 500px) {
+  .intro, .topbar { display: none; }
+  .app { padding-top: env(safe-area-inset-top); }
+  .listening-bar { flex-wrap: nowrap; }
+  #audio-status { flex: 1; order: 0; }
+  .target-button { flex: none; }
+  .compact-track-controls { max-width: 440px; margin: auto; }
+  .orbit-sequencer { width: max(220px, min(46vw, calc(100svh - 180px))); }
+  .stage-caption { top: 0; left: 0; }
+}
+@media (max-width: 760px), (max-width: 960px) and (max-height: 500px) {
+  .compact-track-controls { display: flex; align-items: center; justify-content: center; font-size: 10px; }
+}
+@media (max-width: 760px), (max-width: 960px) and (max-height: 500px) {
+  .compact-track-controls label { font-size: 0; gap: 0; }
+  .compact-track-controls select { min-width: 0; flex: 1; }
+}

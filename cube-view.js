@@ -2,7 +2,7 @@
 /* Three.js scene and animation. State and audio stay in their own modules. */
 window.PhaseCubeView=(()=>{
   'use strict';
-  function create({T,M,colors,view,stage,svg,getState,getSelected,isBusy,onMove,onPreview,onError}) {
+  function create({T,M,colors,view,stage,svg,getState,getSelected,isBusy,onMove,onPreview,onError,onSelect,selectOnly}) {
     let inputView,renderCube,animateTurn,resetView,focusFace;
     if(!T)throw new Error('Three.js не загрузился');
     const scene=new T.Scene(), camera=new T.PerspectiveCamera(34,1,.1,100);
@@ -70,7 +70,7 @@ window.PhaseCubeView=(()=>{
     const observer=new ResizeObserver(resize);observer.observe(view);resize();
     let frameId;
     inputView=new PhaseCubeInput.Input({T,stage,view,svg,root,camera,getStickers:()=>stickers,isBusy,
-      onMove,onPreview,onDrag:()=>{viewTween=null;}});
+      onMove,onPreview,onSelect,selectOnly,onDrag:()=>{viewTween=null;}});
     function frame(now){
       if(viewTween){const v=viewTween,t=Math.min(1,(now-v.start)/v.duration);root.quaternion.slerpQuaternions(v.from,v.to,t*t*(3-2*t));if(t===1)viewTween=null;}
       if(anim){

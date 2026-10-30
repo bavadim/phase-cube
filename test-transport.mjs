@@ -19,13 +19,13 @@ class Param {
   get value(){return this.valueAt(ctx.currentTime);}
 }
 function freshController(){return {nodes:{},output:{destinationGain:{gain:new Param(),connect(){}}},getOrbit(id){return this.nodes[id]??=( {output:{gain:new Param()},disconnected:false,disconnect(){this.disconnected=true;}} );}};}
-function fixture(){
+function fixture(options={}){
   ctx={currentTime:0,state:'suspended',resume:async()=>{ctx.state='running';},suspend:async()=>{ctx.state='suspended';},createAnalyser:()=>({fftSize:2048})};
   controller=freshController();events=[];
   const S={Pattern,getAudioContext:()=>ctx,getSuperdoughAudioController:()=>controller,initAudio:async()=>{},
     resetGlobalEffects:()=>{Object.values(controller.nodes).forEach(b=>b.disconnect());controller=freshController();},
     webaudioOutput:async(h,deadline,duration,cps,t)=>{events.push({h,t,duration,bus:controller.getOrbit(h.value.orbit)});}};
-  const tr=new Transport(S);
+  const tr=new Transport(S,options);
   const scheduler=new Cyclist({getTime:()=>ctx.currentTime,onTrigger:(...a)=>tr.output(...a),
     setInterval:cb=>{intervalCallback=cb;return 1;},clearInterval:()=>{intervalCallback=null;}});
   const repl={scheduler,stop:()=>scheduler.stop(),setPattern:(p,start)=>scheduler.setPattern(p,start)};
@@ -88,6 +88,25 @@ await entered;
 const stopping=tr.stop();releaseInit();await startup;await stopping;
 check(!tr.want&&!tr.running&&!tr.repl.scheduler.started,'stop wins against outstanding async start');
 check(ctx.state==='suspended','async initialization cannot resume a stopped context');
+
+// A slider change while first-time audio initialization is pending must survive.
+({tr}=fixture());
+let releaseVolumeInit,enteredVolumeInit;
+const volumeEntered=new Promise(resolve=>enteredVolumeInit=resolve);
+tr.S.initAudio=()=>{enteredVolumeInit();return new Promise(resolve=>releaseVolumeInit=resolve);};
+const volumeStartup=tr.start(P,144,.65,{name:'volume-during-start'},Promise.resolve());
+await volumeEntered;tr.setVolume(1);releaseVolumeInit();await volumeStartup;
+check(controller.output.destinationGain.gain.value===1,'latest slider value survives asynchronous audio initialization');
+await tr.stop();
+({tr}=fixture({outputGain:4}));
+await tr.start(P,144,1,{name:'calibrated-output'},Promise.resolve());
+check(controller.output.destinationGain.gain.value===4,'100 percent uses calibrated output gain');
+tr.setVolume(.5);
+check(controller.output.destinationGain.gain.value===2,'50 percent scales calibrated output linearly');
+tr.setVolume(0);
+check(controller.output.destinationGain.gain.value===0&&tr.running,'zero volume mutes without stopping the transport');
+await tr.stop();
+check(controller.output.destinationGain.gain.value===0,'pause remains silent with output amplification');
 const result={status:'PASS',checks:checks.length,cases:checks,scope:'upstream Strudel Pattern/Cyclist, deterministic native timing, fixture AudioParam/mixer; PCM is separate'};
 fs.mkdirSync(new URL('./qa/',import.meta.url),{recursive:true});
 fs.writeFileSync(new URL('./qa/transport-report.json',import.meta.url),JSON.stringify(result,null,2)+'\n');

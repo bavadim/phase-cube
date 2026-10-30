@@ -6,13 +6,16 @@
   const $=id=>document.getElementById(id), cube=new Cube();
   const identity=M.snapshot(new Cube()), params=new URLSearchParams(location.search);
   const debug=params.has('debug'), {voices,colors,names}=C;
+  const isTouchLayout=()=>matchMedia('(max-width: 760px), (max-width: 960px) and (max-height: 500px)').matches;
+  const celebration=PhaseCubeCelebration.create($('celebration'));
+  let wasSolved=false;
   let session=S.initial(), path=[], scrambleMoves=[], userMoves=[], undoStack=[];
   let selected=0, solo=-1, muted=new Set(), foundation=true, showTarget=true;
   let bpm=C.bpm, volume=C.volume, seed=Number(params.get('seed'))||1730;
   let busy=false, view=null, orbit, music=null, repl, soundReady, fatal=null;
   let selectedFace='F', hintMove=null, previewMoveValue=null, forecast=null;
   let currentRows=[], targetRows=[], visualPhase=0, lastDiagnostics=0, analysisData;
-  const transport=new PhaseCubeTransport(strudel,{onChange:refreshTransport,onError:reportError});
+  const transport=new PhaseCubeTransport(strudel,{onChange:refreshTransport,onError:reportError,outputGain:C.outputGain});
   const mix=()=>({foundation,solo,muted:[...muted]});
   const requestedMeta=()=>({state:session.mode==='target'?structuredClone(identity):M.snapshot(cube),mode:session.mode,...mix()});
   const heardMeta=()=>transport.running&&transport.active?transport.active.meta:requestedMeta();
@@ -48,6 +51,11 @@
     orbit=new PhaseCubeOrbit.Score($('orbit-score'),voices,selectVoice);
   }
   function selectVoice(id){selected=id;updateUI();renderCube();}
+  function selectFace(face,id){
+    clearHint();selectedFace=face;
+    if(id!=null)selected=id;
+    updateUI();renderCube();
+  }
   function toggleSolo(id){solo=solo===id?-1:id;updateUI();updateAudio();}
   function toggleMute(id){muted.has(id)?muted.delete(id):muted.add(id);updateUI();updateAudio();}
   function requestPreview(move){view?.input?view.input.previewMove(move):previewMove(move);}
@@ -59,6 +67,7 @@
   function clearHint(){hintMove=null;view?.input.resetPreview();previewMove(null);updateMoveControls();}
   function updateMoveControls(){
     const disabled=busy||!S.canMove(session);
+    $('touch-face').value=selectedFace;$('touch-face').disabled=disabled;
     document.querySelectorAll('.face-binding').forEach(button=>{
       button.style.setProperty('--binding-color',colors[button.dataset.face]);
       button.classList.toggle('is-active',button.dataset.face===selectedFace);button.disabled=disabled;
@@ -97,6 +106,11 @@
   function updateUI(){
     if(!orbit)return;
     const state=M.snapshot(cube),done=M.solved(state),heard=heardMeta();
+    if(!busy){
+      if(done&&!wasSolved&&session.phase!=='ready')celebration.play();
+      if(!done)celebration.clear();
+      wasSolved=done;
+    }
     const phases=M.phases(transport.running&&heard.mode==='current'?heard.state:state),active=S.canMove(session);
     document.body.dataset.phase=session.phase;
     $('correct-count').innerHTML=`${M.correct(state)}<span>/8</span>`;
@@ -112,6 +126,7 @@
     $('start').textContent=session.phase==='paused'?'Продолжить':'Начать';
     $('start').disabled=!music||!!fatal;
     $('cube-stage').inert=!active;$('cube-stage').setAttribute('aria-disabled',!active);
+    $('cube-stage').setAttribute('aria-label',isTouchLayout()?'Кубик: коснись грани для выбора, потяни для осмотра. Повороты — стрелками под кубиком.':'Кубик: левая половина плитки — против часовой стрелки, правая — по часовой. Потяни для осмотра.');
     $('cube-stage').setAttribute('aria-busy',String(busy));
     $('pause').disabled=session.phase==='ready';$('pause').setAttribute('aria-pressed',session.phase==='paused');
     $('pause-label').textContent=session.phase==='paused'?'Продолжить':'Пауза';
@@ -136,7 +151,9 @@
   async function dispatch(action){
     session=S.transition(session,action);
     if(!S.canMove(session))clearHint();
-    updateUI();await syncAudio();
+    updateUI();
+    if(action==='start'&&isTouchLayout())$('orbital-workspace').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+    await syncAudio();
   }
   function makePattern(state=session.mode==='target'?identity:M.snapshot(cube),respectMix=true){
     if(!music)throw new Error('Звук ещё загружается');
@@ -181,6 +198,7 @@
     if(!S.canMove(session)||!path.length||busy)return;
     hintMove=M.inverse(path[path.length-1]);selectedFace=hintMove[0];
     view?.focus(selectedFace);view?.input.setHint(hintMove);if(!view)previewMove(hintMove);updateUI();
+    if(isTouchLayout())$('orbital-workspace').scrollIntoView({block:'center',behavior:'smooth'});
   }
   function initSound(){
     return strudel.initStrudel({sync:false,miniAllStrings:true,
@@ -199,11 +217,11 @@
       analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);
       for(const value of analysisData){peak=Math.max(peak,Math.abs(value));rms+=value*value;}rms=Math.sqrt(rms/analysisData.length);
     }
-    return {build:'client-app/1 · bar-transport/2',sessionPhase:session.phase,context:strudel.getAudioContext().state,
+    return {build:'client-app/2 · bar-transport/3',sessionPhase:session.phase,context:strudel.getAudioContext().state,
       playing:transport.running,requested:transport.want,mode:session.mode,heardMode:heard.mode,bpm,...mix(),
       selectedVoice:selected,selectedFace,hint:hintMove,moves:[...userMoves],busy,phases:M.phases(M.snapshot(cube)).map(p=>p.ticks),
       preview:forecast?{move:forecast.move,changed:forecast.changed,phaseChanged:forecast.phaseChanged,phases:forecast.phases.map(p=>p.ticks)}:null,
-      ...transport.info(),masterGain:transport.master?.gain.value??0,peak,rms,error:fatal,changes:transport.changes,log:transport.log.slice(-30)};
+      ...transport.info(),volume,outputGain:C.outputGain,masterGain:transport.master?.gain.value??0,peak,rms,error:fatal,changes:transport.changes,log:transport.log.slice(-30)};
   }
   function tick(){
     transport.poll();if(transport.running)visualPhase=M.mod(transport.clock(),1);
@@ -220,7 +238,8 @@
   createControls();
   try{view=PhaseCubeView.create({T:window.THREE,M,colors,view:$('cube-view'),stage:$('cube-stage'),svg:$('cube-input'),
     getState:()=>M.snapshot(cube),getSelected:()=>selected,isBusy:()=>busy||!S.canMove(session),
-    onMove:(move,id)=>{selected=id;turn(move);},onPreview:previewMove,onError:()=>{$('view-error').hidden=false;}});
+    onMove:(move,id)=>{selected=id;turn(move);},onSelect:selectFace,selectOnly:isTouchLayout,
+    onPreview:previewMove,onError:()=>{$('view-error').hidden=false;}});
   }catch(error){console.error(error);$('view-error').hidden=false;}
   $('start').onclick=()=>dispatch('start').catch(reportError);
   $('listen-target').onclick=()=>dispatch('target').catch(reportError);
@@ -238,6 +257,7 @@
     $(id).onpointerleave=$(id).onblur=()=>requestPreview(null);
   }
   $('view-reset').onclick=()=>view?.reset();
+  $('touch-face').onchange=event=>{selectFace(event.target.value);view?.focus(selectedFace);};
   $('foundation').onchange=event=>{foundation=event.target.checked;updateUI();updateAudio();};
   $('show-target').onchange=event=>{showTarget=event.target.checked;updateUI();};
   $('tempo').oninput=event=>{bpm=Number(event.target.value);$('tempo-value').textContent=bpm+' BPM';repl?.scheduler.setCps(bpm/240);updateUI();};
