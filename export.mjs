@@ -10,5 +10,5 @@ for(const match of [...html.matchAll(/<script src="([^"]+)"><\/script>/g)]){
   const code=(await readFile(new URL(match[1].split('?')[0],root),'utf8')).replace(/<\/script/gi,'<\\/script');
   html=html.replace(match[0],()=>`<script>\n${code}\n</script>`);
 }
-const output=new URL('phase-cube.html',root);await writeFile(output,html);
+const output=new URL('steel-shift-cube.html',root);await writeFile(output,html);
 console.log(`${fileURLToPath(output)} (${Buffer.byteLength(html)} bytes)`);

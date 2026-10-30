@@ -1,57 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Native Strudel patterns, event comparison and read-only move forecasts. */
+/* Only the four-bar repeating riff is editable. The song is a separate lane. */
 window.PhaseCubeMusic=(()=>{
-  'use strict';
-  const controls=['gain','attack','decay','sustain','release','lpf','hpf','pan'];
-  function eventsOf(pattern){
-    return pattern.queryArc(0,1).filter(h=>h.hasOnset()).map(h=>({
-      start:Number(h.whole.begin),duration:Number(h.whole.end.sub(h.whole.begin)),value:h.value
-    }));
+  const eventKey=rows=>JSON.stringify(rows);
+  function eventsOf(p,bars=4){return p.queryArc(0,bars).filter(h=>h.hasOnset()).map(h=>({start:Number(h.whole.begin)/bars,duration:Number(h.duration)/bars,value:h.value}));}
+  class Music{
+    constructor(S,M,Cube,voices){Object.assign(this,{S,M,Cube,voices});this.localBars=PhaseCubeConfig.localBars;
+      this.basePatterns=voices.map((v,id)=>S.s(v.sound).slow(4).late(S.Fraction([id,2])).duration(.5).gain(1).attack(.002).release(.005).withValue(v=>({...v,_steelVoice:id})));
+    }
+    shifted(state){const ps=this.M.phases(state);return this.basePatterns.map((p,id)=>p.late(this.S.Fraction([ps[id].ticks*4,24])));}
+    rows(s){return this.shifted(s).map(p=>eventsOf(p,4));}
+    predict(move,state,currentRows){const c=new this.Cube();this.M.restore(c,state);c.move(move);const next=this.M.snapshot(c),phases=this.M.phases(next),before=this.M.phases(state),rows=this.rows(next);return{move,phases,rows,phaseChanged:phases.filter((p,i)=>p.ticks!==before[i].ticks).map(p=>p.id),changed:rows.map((r,i)=>eventKey(r)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};}
+    pattern(state,{solo=-1,muted=[]},respectMix=true){const ps=this.shifted(state).filter((p,id)=>!respectMix||(!muted.includes(id)&&(solo<0||solo===id)));return ps.length?this.S.stack(...ps):this.S.silence;}
+    code(state,mix,bpm){const phases=this.M.phases(state);return [`// Вся песня: 48 тактов. Редактируется только riffThemeALoop, 4 такта.`,`setcpm(${bpm}/4)`,'stack(',...this.voices.map((v,i)=>`  s("${v.sound}").slow(4).duration(0.5).late(${i}/2 + ${phases[i].ticks}*4/24),`),')','// Остальные 13 партий исполняются отдельной непрерывной дорожкой.'].join('\n');}
   }
-  function eventKey(events){
-    return events.map(e=>JSON.stringify([Math.round(e.start*1e9),Math.round(e.duration*1e9),e.value])).sort().join('|');
-  }
-  class Music {
-    constructor(S,M,Cube,voices){
-      Object.assign(this,{S,M,Cube,voices});
-      this.basePatterns=voices.map(v=>{
-        let p=v.sound?S.note(v.notes).s(v.sound):S.s(v.notes);
-        for(const k of controls)if(v[k]!=null)p=p[k](v[k]);
-        return p;
-      });
-    }
-    shifted(state){
-      const phases=this.M.phases(state);
-      return this.basePatterns.map((p,id)=>p.late(this.S.Fraction([phases[id].ticks,24])));
-    }
-    rows(state){return this.shifted(state).map(eventsOf);}
-    predict(move,state,currentRows){
-      const next=new this.Cube();this.M.restore(next,state);next.move(move);
-      const before=this.M.phases(state),phases=this.M.phases(this.M.snapshot(next));
-      const rows=this.rows(this.M.snapshot(next));
-      return {move,phases,rows,
-        phaseChanged:phases.filter((p,id)=>p.ticks!==before[id].ticks).map(p=>p.id),
-        changed:rows.map((r,id)=>eventKey(r)!==eventKey(currentRows[id])?id:-1).filter(id=>id>=0)};
-    }
-    pattern(state,{foundation=true,solo=-1,muted=[]},respectMix=true){
-      const layers=[];
-      if(foundation&&(!respectMix||solo<0))layers.push(this.S.s('kick*4').gain(.22));
-      this.shifted(state).forEach((p,id)=>{
-        if(!respectMix||(!muted.includes(id)&&(solo<0||solo===id)))layers.push(p);
-      });
-      return layers.length?this.S.stack(...layers):this.S.silence;
-    }
-    code(state,{foundation,solo,muted},bpm){
-      const phases=this.M.phases(state),lines=[`setcps(${bpm} / 240)`,'stack('];
-      if(foundation&&solo<0)lines.push('  s("kick*4").gain(0.22),');
-      this.voices.forEach((v,id)=>{
-        const params=controls.filter(k=>v[k]!=null).map(k=>`.${k}(${v[k]})`).join('');
-        let line=`  ${v.sound?'note':'s'}(${JSON.stringify(v.notes)})${v.sound?`.s(${JSON.stringify(v.sound)})`:''}${params}.late(${phases[id].ticks}/24)`;
-        if(muted.includes(id)||(solo>=0&&solo!==id))line+='.gain(0)';
-        lines.push(line+`, // ${id+1}: ${v.name}`);
-      });
-      return [...lines,')'].join('\n');
-    }
-  }
-  return {Music,eventsOf};
+  return {Music,eventsOf,eventKey};
 })();

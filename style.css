@@ -352,3 +352,21 @@ footer a { color: inherit; }
   .compact-track-controls label { font-size: 0; gap: 0; }
   .compact-track-controls select { min-width: 0; flex: 1; }
 }
+
+/* Steel Shift: song form is separate from the two-bar musical puzzle. */
+.song-form {display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px;margin:10px 0;color:var(--muted);font-size:10px;letter-spacing:.04em;}
+.song-form > span:first-child {color:var(--green);font-weight:700;}
+.song-line {flex-basis:100%;height:3px;background:var(--line);border-radius:2px;overflow:hidden;}
+.song-line i {display:block;height:100%;width:0;background:var(--orange);}
+.track.waiting::after {content:'после доли';}
+@media(max-width:760px){h1 {font-size:28px;letter-spacing:-1px;}.subtitle{font-size:11px;}.song-form{margin:7px 0;}.completion{max-width:104px;}}
+
+.qa-tools{margin:16px 0;font-size:12px}.qa-tools button,.qa-tools a{margin:10px 12px 10px 0}.qa-tools output{display:block;max-height:240px;overflow:auto;white-space:pre-wrap;font:11px monospace}
+
+.song-seek{flex-basis:100%;display:flex;align-items:center;min-height:32px;margin:-4px 0;}
+.song-seek input{width:100%;height:32px;margin:0;accent-color:var(--orange);touch-action:pan-y;}
+@media(pointer:coarse){.song-seek,.song-seek input{min-height:44px;height:44px;}}
+
+@media(max-width:760px){.song-seek,.song-seek input{min-height:44px;height:44px;}}
+
+@media(max-width:960px) and (max-height:500px){.song-seek,.song-seek input{min-height:44px;height:44px;}}

@@ -12,7 +12,7 @@
   let session=S.initial(), path=[], scrambleMoves=[], userMoves=[], undoStack=[];
   let selected=0, solo=-1, muted=new Set(), foundation=true, showTarget=true;
   let bpm=C.bpm, volume=C.volume, seed=Number(params.get('seed'))||1730;
-  let busy=false, view=null, orbit, music=null, repl, soundReady, fatal=null;
+  let busy=false, seeking=false, draggingSeek=false, view=null, orbit, music=null, repl, soundReady, fatal=null;
   let selectedFace='F', hintMove=null, previewMoveValue=null, forecast=null;
   let currentRows=[], targetRows=[], visualPhase=0, lastDiagnostics=0, analysisData;
   const transport=new PhaseCubeTransport(strudel,{onChange:refreshTransport,onError:reportError,outputGain:C.outputGain});
@@ -22,11 +22,11 @@
   const renderCube=()=>{if(!busy)view?.render();};
 
   function refreshTransport(){
-    $('tempo').disabled=transport.want;
+    $('tempo').disabled=true;
     $('tempo').title=transport.want?'Меняется во время паузы':'';
     if(fatal)$('audio-status').textContent=fatal;
     else if(transport.want&&!transport.running)$('audio-status').textContent='Включаем звук…';
-    else if(transport.pending)$('audio-status').textContent='Изменение прозвучит со следующего такта.';
+    else if(transport.pending)$('audio-status').textContent='Переключаем фразы на общей доле.';
     else if(transport.running)$('audio-status').textContent=session.mode==='target'?'Слушаешь цель. Сравни её со своим рисунком.':'Наведи на плитку, чтобы спланировать ход.';
     else $('audio-status').textContent=session.phase==='paused'?'Игра на паузе. Кубик сохранён.':'Прослушай цель или начни игру.';
     updateUI();
@@ -66,7 +66,7 @@
   }
   function clearHint(){hintMove=null;view?.input.resetPreview();previewMove(null);updateMoveControls();}
   function updateMoveControls(){
-    const disabled=busy||!S.canMove(session);
+    const disabled=busy||seeking||!!transport.pending||!S.canMove(session);
     $('touch-face').value=selectedFace;$('touch-face').disabled=disabled;
     document.querySelectorAll('.face-binding').forEach(button=>{
       button.style.setProperty('--binding-color',colors[button.dataset.face]);
@@ -99,13 +99,13 @@
     $('preview-legend').hidden=!forecast?.changed.length;
     $('move-preview').classList.toggle('has-move',!!previewMoveValue);
     if(previewMoveValue){
-      const detail=forecast?(forecast.changed.length?`изменятся партии ${forecast.changed.map(id=>id+1).join(', ')}`:'рисунок не изменится'):busy?'поворот…':'прогноз после границы такта';
+      const detail=forecast?(forecast.changed.length?`изменятся партии ${forecast.changed.map(id=>id+1).join(', ')}`:'рисунок не изменится'):busy?'поворот…':'прогноз после переключения';
       $('move-preview').textContent=`${previewMoveValue[0]} ${previewMoveValue.endsWith("'")?'↶':'↷'} · ${detail}`;
     }else $('move-preview').textContent=S.canMove(session)?'Наведи на половину плитки — увидишь результат хода':'Цель — вернуть музыкальные фразы на место';
   }
   function updateUI(){
     if(!orbit)return;
-    const state=M.snapshot(cube),done=M.solved(state),heard=heardMeta();
+    const state=M.snapshot(cube),heard=heardMeta(),done=M.solved(state)&&!transport.pending;
     if(!busy){
       if(done&&!wasSolved&&session.phase!=='ready')celebration.play();
       if(!done)celebration.clear();
@@ -116,7 +116,7 @@
     $('correct-count').innerHTML=`${M.correct(state)}<span>/8</span>`;
     $('state-badge').textContent=done?'Собран':'Перемешан';$('state-badge').classList.toggle('success',done);
     $('completion-label').textContent=done?'композиция собрана':'деталей на месте';
-    $('mode-badge').textContent=transport.pending?'После такта':heard.mode==='target'?'Звучит цель':session.phase==='ready'?'Готов к старту':session.phase==='paused'?'Пауза':'Твой микс';
+    $('mode-badge').textContent=transport.pending?'После доли':heard.mode==='target'?'Звучит цель':session.phase==='ready'?'Готов к старту':session.phase==='paused'?'Пауза':'Твой микс';
     const target=session.mode==='target';
     $('listen-target').setAttribute('aria-pressed',target);$('listen-target').classList.toggle('selected',target);
     $('listen-target-label').textContent=target?(active?'Вернуться к игре':'Остановить образец'):'Прослушать цель';
@@ -163,8 +163,9 @@
     if(!S.shouldPlay(session)){if(transport.want||transport.running)await transport.stop();return;}
     if(transport.want){updateAudio();return;}
     await transport.start(()=>({pattern:makePattern(),meta:requestedMeta()}),bpm,volume,null,soundReady);
+    transport.setBackingMix(mix());
   }
-  function updateAudio(){if(transport.running&&music)transport.queue(makePattern(),requestedMeta());}
+  function updateAudio(){transport.setBackingMix(mix());if(transport.running&&music)transport.queue(makePattern(),requestedMeta());}
   function newPuzzle(){
     if(busy)return;
     clearHint();cube.identity();scrambleMoves=M.scramble(seed++,C.scrambleLength);cube.move(scrambleMoves.join(' '));
@@ -172,7 +173,7 @@
     renderCube();updateUI();syncAudio().catch(reportError);
   }
   async function turn(move,origin='player'){
-    if(busy||!S.canMove(session)||!/^([URFDLB])('|2)?$/.test(move))return;
+    if(busy||transport.pending||!S.canMove(session)||!/^([URFDLB])('|2)?$/.test(move))return;
     clearHint();selectedFace=move[0];
     const previous={state:M.snapshot(cube),path:[...path],moves:[...userMoves],move};
     busy=true;view?.input.refresh();
@@ -181,16 +182,18 @@
       const animation=view?.animate(move);
       cube.move(move);path=M.appendPath(path,move);userMoves.push(move);session=S.transition(session,'move');
       updateUI();updateAudio();await animation;
+      while(transport.pending)await new Promise(requestAnimationFrame);
     }catch(error){reportError(error);}
     finally{busy=false;renderCube();updateUI();}
   }
   async function undo(){
-    if(busy||!S.canMove(session)||!undoStack.length)return;
+    if(busy||transport.pending||!S.canMove(session)||!undoStack.length)return;
     const previous=undoStack.pop();clearHint();selectedFace=previous.move[0];busy=true;
     try{
       const animation=view?.animate(M.inverse(previous.move));
       M.restore(cube,previous.state);path=previous.path;userMoves=previous.moves;session=S.transition(session,'move');
       updateUI();updateAudio();await animation;
+      while(transport.pending)await new Promise(requestAnimationFrame);
     }catch(error){reportError(error);}
     finally{busy=false;renderCube();updateUI();}
   }
@@ -203,9 +206,10 @@
   function initSound(){
     return strudel.initStrudel({sync:false,miniAllStrings:true,
       setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
-      prebake:()=>strudel.samples(PHASE_CUBE_SAMPLES),defaultOutput:(...args)=>transport.output(...args),
+      prebake:()=>strudel.samples(STEEL_AUDIO.samples),defaultOutput:(...args)=>transport.output(...args),
       onUpdateState:state=>{if(state.error)reportError(state.error);}
-    }).then(instance=>{
+    }).then(async instance=>{
+      transport.backingBuffer=await strudel.getAudioContext().decodeAudioData(await (await fetch(STEEL_AUDIO.backing)).arrayBuffer());
       repl=instance;transport.attach(repl);repl.scheduler.setCps(bpm/240);
       music=new PhaseCubeMusic.Music(strudel,M,Cube,voices);targetRows=music.rows(identity);
       $('engine-led').className='led ready';$('engine-label').textContent='Звук готов';refreshTransport();return instance;
@@ -217,14 +221,17 @@
       analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);
       for(const value of analysisData){peak=Math.max(peak,Math.abs(value));rms+=value*value;}rms=Math.sqrt(rms/analysisData.length);
     }
-    return {build:'client-app/2 · bar-transport/3',sessionPhase:session.phase,context:strudel.getAudioContext().state,
+    return {build:'steel-shift-cube/3',songBars:C.bars,localBars:C.localBars,backingStarts:transport.backingStarts||0,backingId:transport.backingId||0,section:C.sections.find(s=>M.mod(transport.clock(),C.bars)>=s.from&&M.mod(transport.clock(),C.bars)<s.to)?.name,sessionPhase:session.phase,context:strudel.getAudioContext().state,
       playing:transport.running,requested:transport.want,mode:session.mode,heardMode:heard.mode,bpm,...mix(),
       selectedVoice:selected,selectedFace,hint:hintMove,moves:[...userMoves],busy,phases:M.phases(M.snapshot(cube)).map(p=>p.ticks),
       preview:forecast?{move:forecast.move,changed:forecast.changed,phaseChanged:forecast.phaseChanged,phases:forecast.phases.map(p=>p.ticks)}:null,
       ...transport.info(),volume,outputGain:C.outputGain,masterGain:transport.master?.gain.value??0,peak,rms,error:fatal,changes:transport.changes,log:transport.log.slice(-30)};
   }
   function tick(){
-    transport.poll();if(transport.running)visualPhase=M.mod(transport.clock(),1);
+    transport.poll();if(transport.running)visualPhase=M.mod(transport.clock()/C.localBars,1);
+    const songBar=M.mod(transport.clock(),C.bars),section=C.sections.find(s=>songBar>=s.from&&songBar<s.to)||C.sections[0];
+    $('song-position').textContent=`${section.name} · ${String(Math.floor(songBar)+1).padStart(2,'0')} / ${C.bars}`;
+    if(!draggingSeek){$('song-seek').value=Math.min(47.75,songBar);$('song-seek').setAttribute('aria-valuetext',`${(songBar*240/bpm).toFixed(1)} с из ${(C.bars*240/bpm).toFixed(1)} с`);}
     $('cycle-position').innerHTML=`${String(Math.min(23,Math.floor(visualPhase*24))).padStart(2,'0')}<span>/24</span>`;
     const heard=heardMeta(),rows=heard.mode==='target'?targetRows:currentRows;
     if(transport.pending)$('audio-status').textContent=`Новый рисунок через ${Math.max(0,transport.pending.audioBegin-strudel.getAudioContext().currentTime).toFixed(1)} с`;
@@ -258,6 +265,14 @@
   }
   $('view-reset').onclick=()=>view?.reset();
   $('touch-face').onchange=event=>{selectFace(event.target.value);view?.focus(selectedFace);};
+  async function seekSong(bar){
+    if(busy||seeking||transport.pending)return;
+    seeking=true;const wasPlaying=transport.want;
+    try{await transport.stop();transport.cursor=Math.max(0,Math.min(C.bars-.25,bar));if(wasPlaying)await syncAudio();}
+    finally{seeking=false;updateUI();}
+  }
+  $('song-seek').oninput=()=>{draggingSeek=true;};
+  $('song-seek').onchange=async event=>{const bar=Number(event.target.value);draggingSeek=false;await seekSong(bar).catch(reportError);};
   $('foundation').onchange=event=>{foundation=event.target.checked;updateUI();updateAudio();};
   $('show-target').onchange=event=>{showTarget=event.target.checked;updateUI();};
   $('tempo').oninput=event=>{bpm=Number(event.target.value);$('tempo-value').textContent=bpm+' BPM';repl?.scheduler.setCps(bpm/240);updateUI();};
@@ -278,11 +293,12 @@
     if(M.FACES.includes(key)){event.preventDefault();turn(key+(event.shiftKey?"'":''));}
   });
   window.addEventListener('pagehide',event=>{session=S.transition(session,'pause');transport.stop();if(!event.persisted)view?.destroy();});
+  $('tempo').value=bpm;$('tempo-value').textContent=bpm+' BPM';$('volume').value=volume;$('volume-value').textContent=Math.round(volume*100)+'%';
   soundReady=initSound();newPuzzle();requestAnimationFrame(tick);
   if(debug)window.phaseCubeApp={
     ready:soundReady,state:()=>M.snapshot(cube),phases:()=>M.phases(M.snapshot(cube)),turn,undo,
     reset:()=>{clearHint();M.restore(cube,identity);path=[];userMoves=[];undoStack=[];renderCube();updateUI();updateAudio();},
     makePattern,eventsOf:PhaseCubeMusic.eventsOf,code:()=>music.code(M.snapshot(cube),mix(),bpm),
-    diagnostics:()=>diagnosticSnapshot(heardMeta()),getSourcePattern:id=>music.basePatterns[id],getRepl:()=>repl,getTransport:()=>transport
+    diagnostics:()=>diagnosticSnapshot(heardMeta()),getSourcePattern:id=>music.basePatterns[id],getMusic:()=>music,sampleAudio:()=>{if(!transport.analyser)return null;const a=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(a);return Array.from(a);},getRepl:()=>repl,getTransport:()=>transport,seekSong
   };
 })();
