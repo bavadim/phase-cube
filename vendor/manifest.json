@@ -1,0 +1,65 @@
+[
+  {
+    "package": "@strudel/web",
+    "version": "1.3.0",
+    "source": "https://registry.npmjs.org/@strudel/web/-/web-1.3.0.tgz",
+    "file": "strudel-web-1.3.0.js",
+    "bytes": 655936,
+    "sha256": "265cae9cf769a7dc2c1ac253784fce80fef5062db9a1aac5be7fa5f205af5e86",
+    "integrity": "sha512-iob9+OrZMM5oMQmDNQAXc6+CYnzKaOUeARs8fcRRxDDSvCxewmZf/ancwyqVSCJsVzgCgw+I9PkpFyhSpLS3FQ=="
+  },
+  {
+    "package": "@strudel/web",
+    "version": "1.3.0",
+    "source": "https://registry.npmjs.org/@strudel/web/-/web-1.3.0.tgz",
+    "file": "STRUDEL-LICENSE",
+    "bytes": 34523,
+    "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+    "integrity": "sha512-iob9+OrZMM5oMQmDNQAXc6+CYnzKaOUeARs8fcRRxDDSvCxewmZf/ancwyqVSCJsVzgCgw+I9PkpFyhSpLS3FQ=="
+  },
+  {
+    "package": "cubejs",
+    "version": "1.3.2",
+    "source": "https://registry.npmjs.org/cubejs/-/cubejs-1.3.2.tgz",
+    "file": "cube-1.3.2.js",
+    "bytes": 22432,
+    "sha256": "450a53a9acf5033fde7ca23be8fd08ac37d30f04c58aac63f053a1c05a7f5802",
+    "integrity": "sha512-NuHpWIR/mpjrP3YpU6OaXAbo34idWlzo86GnAqGDG96OHDKyavTAelMyruZ77SgPhQ8l9IcP6/rzXoNcAy9OaQ=="
+  },
+  {
+    "package": "cubejs",
+    "version": "1.3.2",
+    "source": "https://registry.npmjs.org/cubejs/-/cubejs-1.3.2.tgz",
+    "file": "CUBEJS-LICENSE",
+    "bytes": 1118,
+    "sha256": "c067e8c9a595d13f5644f94388f2ad32c725bcb4a5b1851fe769b9bccd46a1fd",
+    "integrity": "sha512-NuHpWIR/mpjrP3YpU6OaXAbo34idWlzo86GnAqGDG96OHDKyavTAelMyruZ77SgPhQ8l9IcP6/rzXoNcAy9OaQ=="
+  },
+  {
+    "package": "three",
+    "version": "0.160.1",
+    "source": "https://registry.npmjs.org/three/-/three-0.160.1.tgz",
+    "file": "three-0.160.1.min.js",
+    "bytes": 669884,
+    "sha256": "170c6789f43217c96b3170f4b42fafe135de7f7cd48497a4218f9757ee1d49fa",
+    "integrity": "sha512-Bgl2wPJypDOZ1stAxwfWAcJ0WQf7QzlptsxkjYiURPz+n5k4RBDLsq+6f9Y75TYxn6aHLcWz+JNmwTOXWrQTBQ=="
+  },
+  {
+    "package": "three",
+    "version": "0.160.1",
+    "source": "https://registry.npmjs.org/three/-/three-0.160.1.tgz",
+    "file": "THREE-LICENSE",
+    "bytes": 1081,
+    "sha256": "852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d",
+    "integrity": "sha512-Bgl2wPJypDOZ1stAxwfWAcJ0WQf7QzlptsxkjYiURPz+n5k4RBDLsq+6f9Y75TYxn6aHLcWz+JNmwTOXWrQTBQ=="
+  },
+  {
+    "package": "@strudel/web",
+    "version": "1.3.0",
+    "source": "https://registry.npmjs.org/@strudel/web/-/web-1.3.0.tgz",
+    "file": "assets/clockworker-ZDiUtESR.js",
+    "bytes": 1251,
+    "sha256": "effd682665d000035c72c378e9b6338ab996c0a13d847910caaaef0fec20984a",
+    "integrity": "sha512-iob9+OrZMM5oMQmDNQAXc6+CYnzKaOUeARs8fcRRxDDSvCxewmZf/ancwyqVSCJsVzgCgw+I9PkpFyhSpLS3FQ=="
+  }
+]

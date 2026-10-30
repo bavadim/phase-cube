@@ -1,0 +1,12 @@
+{
+  "name": "phase-cube",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Client-side musical cube puzzle with Strudel",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "check": "node check.mjs",
+    "test": "node --test test-model.cjs test-session.cjs",
+    "export": "node export.mjs"
+  }
+}
