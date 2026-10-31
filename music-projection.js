@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Common result contract; each puzzle family keeps its own musical action. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./phase-map.js'),require('./puzzles/fourier/binding.js'));else root.PuzzleProjection=factory(root.PhaseCubeLibrary,root.PuzzlePhases,root.FourierBinding);})(globalThis,function(L,Phases,Fourier){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./phase-map.js'),require('./puzzles/fourier/binding.js'),require('./puzzles/scratch/binding.js'));else root.PuzzleProjection=factory(root.PhaseCubeLibrary,root.PuzzlePhases,root.FourierBinding,root.ScratchBinding);})(globalThis,function(L,Phases,Fourier,Scratch){
   'use strict';
-  const spectral=spec=>spec.schema==='music-puzzle/2'&&spec.projection===Fourier.VERSION;
-  const version=spec=>spectral(spec)?Fourier.VERSION:Phases.VERSION;
-  const validate=(binding,spec)=>spectral(spec)?Fourier.validate(binding,spec):Phases.validateTable(binding,spec);
-  const prepare=args=>spectral(args.puzzle.manifest)?Fourier.prepare(args):Phases.fitPhaseMap(args);
+  const bindings=[Fourier,Scratch];
+  function strategy(spec){const binding=bindings.find(b=>b.VERSION===spec.projection);if(!binding)throw new Error('Неизвестная музыкальная проекция: '+spec.projection);return binding;}
+  const spectral=spec=>spec.schema==='music-puzzle/2';
+  const version=spec=>spectral(spec)?strategy(spec).VERSION:Phases.VERSION;
+  const validate=(binding,spec)=>spectral(spec)?strategy(spec).validate(binding,spec):Phases.validateTable(binding,spec);
+  const prepare=args=>spectral(args.puzzle.manifest)?strategy(args.puzzle.manifest).prepare(args):Phases.fitPhaseMap(args);
   function nativeEvents(S,events,bars){
     const fraction=x=>S.Fraction([Math.round(x*1e9),1e9]);
     const source=events.map(e=>({at:fraction(e.start*bars),duration:fraction(typeof e.value.duration!=='number'&&typeof e.value.clip==='number'?e.duration*bars/e.value.clip:e.duration*bars),value:e.value}));
@@ -22,8 +24,8 @@
   function project(S,prepared,state){
     const {phaseMap:binding,puzzle,fragments:game}=prepared;
     if(spectral(puzzle.manifest)){
-      const result=Fourier.project(binding,puzzle,state,game);
-      const patterns=puzzle.model.solved(state)?game.basePatterns:result.rows.map(row=>nativeEvents(S,row,game.periodBars));
+      const result=strategy(puzzle.manifest).project(binding,puzzle,state,game);
+      const patterns=result.rows.map((row,id)=>row===game.targetRows[id]?game.basePatterns[id]:nativeEvents(S,row,game.periodBars));
       return{schema:'music-projection/1',...result,patterns};
     }
     const parts=Phases.projectMusic(binding,puzzle,state).map(p=>({...p,kind:'pose-shift/1',aligned:p.ticks===0}));
@@ -31,5 +33,6 @@
     const rows=game.targetRows.map((row,id)=>row.map(e=>({...e,start:((e.start+parts[id].ticks/binding.gridSteps)%1+1)%1})));
     return{schema:'music-projection/1',parts,patterns,rows};
   }
-  return{version,validate,prepare,project,nativeEvents,analyzePattern:Phases.analyzePattern};
+  function preview(prepared,state,point){const {phaseMap,puzzle,fragments}=prepared;return strategy(puzzle.manifest).preview(phaseMap,puzzle,state,fragments,point);}
+  return{version,validate,prepare,project,preview,nativeEvents,analyzePattern:Phases.analyzePattern};
 });

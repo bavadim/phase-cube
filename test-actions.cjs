@@ -5,7 +5,7 @@ test('every model supplies named/icon actions and callbacks dispatch rather than
   const model=module.create(),moves=[],previews=[];
   for(const choice of model.choices()){
    model.select(choice.key);const actions=Actions.validate(model.actions({perform:move=>moves.push(move),preview:move=>previews.push(move)}));
-   assert.equal(actions.length,module.id==='fourier'?4:2);
+   assert.equal(actions.length,{fourier:4,scratch:3,twiddle:2,rubik:2}[module.id]);
    for(const action of actions){
     const before=model.snapshot();action.onInvoke();assert.deepEqual(model.snapshot(),before);
     assert.equal(action.enabled,model.validMove(action.move));

@@ -12,8 +12,10 @@
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
     if(spec.schema==='music-puzzle/2'){
-      if(spec.projection!=='complex-riff/2'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
-      if(!Number.isInteger(model.count)||model.count!==spec.fragments)throw new Error('Независимым рифам нужен один коэффициент на фрагмент');
+      if(!['complex-riff/2','fourier-scratch/1'].includes(spec.projection)||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+      const controls=spec.controls??spec.fragments;
+      if(!Number.isInteger(controls)||controls<1||model.count!==controls||model.choices().length!==controls)throw new Error('Число органов управления не совпадает с манифестом');
+      if(spec.projection==='complex-riff/2'&&controls!==spec.fragments)throw new Error('Независимым рифам нужен один коэффициент на фрагмент');
       return{manifest:spec,model};
     }
     for(const field of ['pieceIds','poseIds'])if(!Array.isArray(spec[field])||!spec[field].length||new Set(spec[field]).size!==spec[field].length)throw new Error('Неверный домен '+field);

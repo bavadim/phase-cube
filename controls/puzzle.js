@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* One action focus drives the model highlight, bottom button and score preview. */
 window.PuzzleControl = {
-  mount({presentation,module,commands,model,game,canInteract,onMove,onPreview,onSelect,createView}){
+  mount({presentation,module,commands,model,game,binding,canInteract,onMove,onPreview,onSelect,createView}){
     let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
     const hasSelection=()=>!view?.requiresSelection||armed!=null;
     const updateControls=()=>controls?.update(disabled||!hasSelection(),{label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
@@ -23,7 +23,7 @@ window.PuzzleControl = {
       if(active&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
       else focus.clear(source,action.id);
     }});
-    view=presentation.mount(createView,{module,model,game,onMove,
+    view=presentation.mount(createView,{module,model,game,binding,onMove,
       onEditPreview:(move,point)=>{if(point)focus.set('edit',{key:point.key,move,point});else if(move)focus.set('edit',intent(move));else focus.clear('edit');},
       onHover:(hit,event={})=>{
         if(view?.hoverActions===false){focus.clear('field');return;}

@@ -5,3 +5,8 @@ qa/*
 !qa/modules/
 qa/modules/*
 !qa/modules/*.mjs
+!qa/scratch/
+qa/scratch/*
+!qa/scratch/*.mjs
+!qa/scratch/*report.json
+!qa/scratch/*.png

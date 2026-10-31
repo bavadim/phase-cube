@@ -1,0 +1,60 @@
+{
+  "schema": "scratch-touch/1",
+  "engine": "webkit",
+  "physicalDevice": false,
+  "errors": [],
+  "cases": [
+    {
+      "width": 390,
+      "height": 844,
+      "input": "synthetic touch PointerEvents",
+      "commitUndo": true,
+      "cancel": true,
+      "pause": true,
+      "switch": true,
+      "layout": {
+        "overflow": false,
+        "canvas": {
+          "x": 73,
+          "y": 199.953125,
+          "width": 244.1875,
+          "height": 244.1875,
+          "top": 199.953125,
+          "right": 317.1875,
+          "bottom": 444.140625,
+          "left": 73
+        }
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "synthetic touch PointerEvents",
+      "commitUndo": true,
+      "cancel": true,
+      "pause": true,
+      "switch": true,
+      "layout": {
+        "overflow": false,
+        "canvas": {
+          "x": 234.1875,
+          "y": 73,
+          "width": 244.1875,
+          "height": 244.1875,
+          "top": 73,
+          "right": 478.375,
+          "bottom": 317.1875,
+          "left": 234.1875
+        }
+      }
+    }
+  ],
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "1c68f23ffabb1886c3c0659cd0acda1dda92b09693debca20eb334754af0f565",
+    "puzzles/scratch/model.js": "2f34c59215f991112b72ee98dd38d2580728a04871924b4857b398d89c93dabb",
+    "puzzles/scratch/three-view.js": "754f975448c29627a566b2af53a8d13518e05510967177fbc329e647ae6e7e78",
+    "graphics/pointer.js": "e58c7768dc2770b0b2ef73e15247ede60b372a149c6deeee5cca5e0f5afc7479",
+    "controls/puzzle.js": "8ca8403651f1d91e9cfac061205203d00f6f662225bd0911cf51c782a3271b98"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "schema": "scratch-browser/1",
+  "engine": "webkit",
+  "physicalDevice": false,
+  "cases": [
+    {
+      "width": 1280,
+      "height": 800,
+      "continuousPreview": true,
+      "silentPreview": true,
+      "dragCommitUndo": true,
+      "swapUndo": true,
+      "allThreeSongsSolved": true,
+      "oldPuzzles": true,
+      "geometry": {
+        "canvas": 1,
+        "overflow": false,
+        "info": {
+          "canvasCount": 1,
+          "geometries": 38,
+          "textures": 3,
+          "tweens": 0,
+          "puzzle": "scratch",
+          "contextLost": false,
+          "disabled": false,
+          "pointer": null
+        }
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "continuousPreview": true,
+      "silentPreview": true,
+      "dragCommitUndo": true,
+      "swapUndo": true,
+      "allThreeSongsSolved": true,
+      "oldPuzzles": true,
+      "geometry": {
+        "canvas": 1,
+        "overflow": false,
+        "info": {
+          "canvasCount": 1,
+          "geometries": 38,
+          "textures": 3,
+          "tweens": 0,
+          "puzzle": "scratch",
+          "contextLost": false,
+          "disabled": false,
+          "pointer": null
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "1c68f23ffabb1886c3c0659cd0acda1dda92b09693debca20eb334754af0f565",
+    "app.js": "1c764e7ea88bc0ad63a99e29bb30d9b57133816021729bf482262858c28bd3d5",
+    "puzzle-contract.js": "761f9ae0822a2dd4b5b1b67039f17a5280b4e818bb1fbb55d7ef439d566d1281",
+    "music-projection.js": "1e33d47ac4f1657769f803b7441dfdb455add5d7722a7f5f3e86146f8758447e",
+    "music.js": "4385f445d6506f8ef6e3d66dd91bbe27ff9f2c851ab538ab464d7634609eeb3e",
+    "controls/puzzle.js": "8ca8403651f1d91e9cfac061205203d00f6f662225bd0911cf51c782a3271b98",
+    "controls/equalizer.js": "e9cf862d6e57eb7f035a71b5ef377690cd7b8c151f5f30236c2d6579e6473526",
+    "puzzles/scratch/model.js": "2f34c59215f991112b72ee98dd38d2580728a04871924b4857b398d89c93dabb",
+    "puzzles/scratch/binding.js": "748b403c08c30d59d8590a643389b06d80cb09a4a7af300230e579b3e6098d12",
+    "puzzles/scratch/module.js": "4cef881b8667c8beb96a826323eeae3b62be3541977a0c4eaeeb78aa139a07c2",
+    "puzzles/scratch/three-view.js": "56ec1b940b7f6f6c901e5f36a2ce42f818a7f0891885dafe98a9843083162675"
+  }
+}

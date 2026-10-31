@@ -1,0 +1,69 @@
+{
+  "schema": "fourier-scratching-contracts/1",
+  "status": "PASS",
+  "pairs": [
+    {
+      "songId": "turkish-circuit",
+      "coverage": "complete",
+      "stateSpace": 384,
+      "states": 384,
+      "edges": 1728,
+      "distinctPatterns": 384,
+      "unsolvedGoalRhythmAliases": 0,
+      "silentMoves": 0,
+      "activePart": "riff",
+      "activeFragments": [
+        2,
+        3
+      ],
+      "signatureScope": "event-identities-onsets-gates-gain",
+      "acousticAcceptance": "unverified",
+      "musicalAcceptance": "unverified",
+      "cache": "miss"
+    },
+    {
+      "songId": "steel-shift",
+      "coverage": "complete",
+      "stateSpace": 384,
+      "states": 384,
+      "edges": 1728,
+      "distinctPatterns": 384,
+      "unsolvedGoalRhythmAliases": 0,
+      "silentMoves": 0,
+      "activePart": "riff",
+      "activeFragments": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "signatureScope": "event-identities-onsets-gates-gain",
+      "acousticAcceptance": "unverified",
+      "musicalAcceptance": "unverified",
+      "cache": "miss"
+    },
+    {
+      "songId": "elise-after-hours",
+      "coverage": "complete",
+      "stateSpace": 384,
+      "states": 384,
+      "edges": 1728,
+      "distinctPatterns": 384,
+      "unsolvedGoalRhythmAliases": 0,
+      "silentMoves": 0,
+      "activePart": "riff",
+      "activeFragments": [
+        2,
+        3
+      ],
+      "signatureScope": "event-identities-onsets-gates-gain",
+      "acousticAcceptance": "unverified",
+      "musicalAcceptance": "unverified",
+      "cache": "miss"
+    }
+  ],
+  "acousticAcceptance": "unverified",
+  "musicalAcceptance": "unverified"
+}

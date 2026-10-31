@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/continuous2';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/scratch1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -73,7 +73,7 @@
       control?.destroy();preparation=next;module=next.module;model=next.model;game=next.fragments;song=next.composition;
       model.reset(seed++);shuffle=newShuffle();music=new PuzzleMusic.Music(strudel,next);transport.setComposition(song);
       $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{periodBeats:song.timing.periodBeats,periodSeconds:song.periodBars*240/song.bpm});
-      control=module.mount({presentation,commands:player.commands,model,game,canInteract:canMove,
+      control=module.mount({presentation,commands:player.commands,model,game,binding:next.phaseMap,canInteract:canMove,
         onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:()=>{
           updateRows();player.hint.update(canMove()&&!!model?.hint(),control?.focusState()?.source==='hint');
         }});

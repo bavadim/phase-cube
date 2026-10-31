@@ -18,7 +18,7 @@ window.PuzzleMusic=(()=>{
       return{move,phases,rows,changed:rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
     }
     preview(point,state,currentRows=this.rows(state),move=null){
-      const result=FourierBinding.preview(this.binding,this.puzzle,state,this.game,point);
+      const result=PuzzleProjection.preview(this.prepared,state,point);
       return{point,move,continuous:true,phases:result.parts,rows:result.rows,changed:result.rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
     }
     pattern(state){return this.S.stack(...this.shifted(state));}

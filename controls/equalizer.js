@@ -137,7 +137,7 @@
         row.g.classList.toggle('will-change',!!forecast?.changed.includes(id)||!!this.committed&&fingerprint([rows[id]])!==fingerprint([visible[id]]));
         row.g.classList.toggle('aligned',phases[id].aligned);
         row.g.dataset.gain=phases[id].gain??1;
-        row.period=phases[id].period;row.selected=!!selectedKey&&phases[id].controlKey===selectedKey;
+        row.period=phases[id].period;row.selected=!!selectedKey&&(phases[id].controlKey===selectedKey||phases[id].controlKeys?.includes(selectedKey));
         row.cycles.style.display=row.selected?'':'none';
         const count=row.selected&&row.period?Math.round(1/row.period):0;
         if(count!==row.cycleTicks.length){row.cycles.replaceChildren();row.cycleTicks=Array.from({length:count},()=>node('line',{},row.cycles));}

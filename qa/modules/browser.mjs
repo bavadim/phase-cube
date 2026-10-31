@@ -13,6 +13,6 @@ export async function openBrowser({engine=process.env.BIBA_BROWSER||'chromium'}=
  const server=createServer(async(req,res)=>{try{const p=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const file=resolve(root,'.'+(p==='/'?'/index.html':p));if(!file.startsWith(root)){res.writeHead(403).end();return;}res.setHeader('Content-Type',types[extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404).end();}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  if(!['chromium','webkit'].includes(engine))throw new Error('Unsupported test browser '+engine);
- const browser=await PW[engine].launch({headless:true,...(engine==='chromium'?{executablePath:process.env.BIBA_CHROMIUM||PW.chromium.executablePath(),args:['--no-sandbox']}:{})});
+ const browser=await PW[engine].launch({headless:true,...(engine==='chromium'?{executablePath:process.env.BIBA_CHROMIUM||PW.chromium.executablePath(),args:['--no-sandbox']}:process.env.BIBA_WEBKIT?{executablePath:process.env.BIBA_WEBKIT}:{})});
  return{browser,engine,url:'http://127.0.0.1:'+server.address().port,close:async()=>{await browser.close();await new Promise(r=>server.close(r));}};
 }
