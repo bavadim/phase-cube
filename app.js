@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture2';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture3';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -27,7 +27,7 @@
     ++playToken;
     shuffleAbort?.abort();shuffleAbort=null;presentation?.stopTween('camera');presentation?.stopTween('move');presentation?.pointer.cancel();
   }
-  const newShuffle=()=>({total:Math.max(1,Math.floor(C.scrambleLength)),moves:[],complete:false});
+  const newShuffle=()=>({total:Math.max(1,Math.floor(module.shuffleSteps??C.scrambleLength)),moves:[],complete:false});
   const lockState=()=>({phase:session.phase,busy,starting,seeking,pending:!!transport.pending,context:strudel.getAudioContext().state});
   function stopSound(){try{return transport.stop().catch(e=>recorder.record('audio.stop-error',PuzzleDiagnostics.brief(e)));}catch(e){recorder.record('audio.stop-error',PuzzleDiagnostics.brief(e));return Promise.resolve();}}
   function pauseSession(message=''){

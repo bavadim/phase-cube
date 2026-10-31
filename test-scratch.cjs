@@ -30,7 +30,7 @@ test('every instrument moves: full native arrangement, no background duplication
  const report={schema:'scratch-instrument-contracts/2',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
  for(const [songId,count]of [['turkish-circuit',13],['steel-shift',14],['elise-after-hours',14]]){
   const p=await loader.prepareSession({songId,puzzleId:'scratch'}),m=p.model,music=new Music(S,p),game=p.fragments,goal=m.initialState();
-  assert(Projection.validate(p.binding,p.module.manifest));assert.equal(m.count,count);assert.equal(game.count,count);assert.equal(p.diagnostics.pieceStates,4*count*count);assert.equal(p.diagnostics.silentMoves,0);
+  assert(Projection.validate(p.binding,p.module.manifest));assert.equal(m.count,count);assert.equal(game.count,count);assert.equal(p.module.shuffleSteps,count);assert.equal(p.diagnostics.pieceStates,4*count*count);assert.equal(p.diagnostics.silentMoves,0);
   assert.equal(game.layout.columns,4);assert.equal(game.layout.rows,4);assert.equal(game.layout.fixedCells.length,16-count);
   const original=await library.load(songId);assert.notEqual(p.composition,original);assert.equal(L.attacks(p.composition.backing,0,original.bars).length,0);assert(L.attacks(original.backing,0,original.bars).length>0);
   assert.equal(game.targetRows.flat().length,original.stats.attacks);

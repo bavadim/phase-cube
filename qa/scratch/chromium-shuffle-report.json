@@ -1,0 +1,42 @@
+{
+  "schema": "scratch-piece-count-shuffle/1",
+  "physicalDevice": false,
+  "engine": "chromium",
+  "cases": [
+    {
+      "songId": "turkish-circuit",
+      "movableTiles": 13,
+      "shownMoves": 13,
+      "replayable": true,
+      "inputLocked": true,
+      "undoHistoryEmpty": true,
+      "pausePreserves": true
+    },
+    {
+      "songId": "steel-shift",
+      "movableTiles": 14,
+      "shownMoves": 14,
+      "replayable": true,
+      "inputLocked": true,
+      "undoHistoryEmpty": true,
+      "pausePreserves": true
+    },
+    {
+      "songId": "elise-after-hours",
+      "movableTiles": 14,
+      "shownMoves": 14,
+      "replayable": true,
+      "inputLocked": true,
+      "undoHistoryEmpty": true,
+      "pausePreserves": true
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "app.js": "da251cf3dd638b8da06aa2d9a6003c8791ff5baad2800eb169008afe2622191d",
+    "puzzles/scratch/module.js": "1324c0847e5420b07c0397d8c9a3010ab336e9949907f63697a94a4e4cd475b9",
+    "index.html": "1554121d1c9f69a70726c459c848da30f310ef5153f90ae4d6ddd5ba6a0e4162",
+    "config.js": "0c171bf646ced16979d6ea33cc4d5675010608465311daa82bdea93413c950d4"
+  }
+}

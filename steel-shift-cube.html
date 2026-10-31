@@ -4691,7 +4691,7 @@ FourierPuzzle.mount=context=>PuzzleControl.mount({...context,module:FourierPuzzl
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('./partition.js'));else root.ScratchPuzzle=factory(root.ScratchModel,root.ScratchPartition);})(globalThis,function(F,Partition){
   const puzzle={id:'scratch',title:'Портрет директора',progressLabel:'партий\nна месте',
-    configure(S,song,options){const game=Partition.build(S,song,options);return{module:{...this,create:()=>new F.Model({count:game.count,names:game.voices.map(v=>v.name)}),manifest:{...this.manifest,controls:game.count,fragments:game.count,group:'C4^'+game.count+' semidirect S_'+game.count}},game};},
+    configure(S,song,options){const game=Partition.build(S,song,options);return{module:{...this,shuffleSteps:game.layout.movingCells.length,create:()=>new F.Model({count:game.count,names:game.voices.map(v=>v.name)}),manifest:{...this.manifest,controls:game.count,fragments:game.count,group:'C4^'+game.count+' semidirect S_'+game.count}},game};},
     create:()=>new F.Model(),
     manifest:Object.freeze({schema:'music-puzzle/3',id:'scratch',version:3,projection:'spectral-riff/2',controls:3,fragments:3,goalPolicy:'single-reference',
       operations:{phase:{order:4},swap:{order:2}},group:'C4^N semidirect S_N'})};
@@ -4867,7 +4867,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture2';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture3';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -4892,7 +4892,7 @@ window.PhaseCubeCelebration=(()=>{
     ++playToken;
     shuffleAbort?.abort();shuffleAbort=null;presentation?.stopTween('camera');presentation?.stopTween('move');presentation?.pointer.cancel();
   }
-  const newShuffle=()=>({total:Math.max(1,Math.floor(C.scrambleLength)),moves:[],complete:false});
+  const newShuffle=()=>({total:Math.max(1,Math.floor(module.shuffleSteps??C.scrambleLength)),moves:[],complete:false});
   const lockState=()=>({phase:session.phase,busy,starting,seeking,pending:!!transport.pending,context:strudel.getAudioContext().state});
   function stopSound(){try{return transport.stop().catch(e=>recorder.record('audio.stop-error',PuzzleDiagnostics.brief(e)));}catch(e){recorder.record('audio.stop-error',PuzzleDiagnostics.brief(e));return Promise.resolve();}}
   function pauseSession(message=''){
