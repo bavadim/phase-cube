@@ -21,7 +21,7 @@ try{
     return{width:innerWidth,height:innerHeight,rootFont:parseFloat(getComputedStyle(document.documentElement).fontSize),
      flow:getComputedStyle(document.querySelector('.app')).display,direction:getComputedStyle(document.querySelector('.app')).flexDirection,document:[document.documentElement.scrollWidth,document.documentElement.scrollHeight],
      header:rect('.game-status'),field:rect('.playfield'),board:rect('.orbital-workspace'),footer:rect('.controls-dock'),
-     controls:['#turn-left','#turn-right','#hint','#undo','#pause','#song-seek'].map(rect)};
+     controls:[...document.querySelectorAll('.puzzle-action,#hint,#undo,#pause,#song-seek')].map(e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};})};
    });
    const {header:h,board:b,footer:f,field}=layout;
    assert.equal(layout.flow,'flex');assert(layout.rootFont>=16);

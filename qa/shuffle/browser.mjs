@@ -44,7 +44,7 @@ try{
    const state=JSON.stringify(phaseCubeApp.state()),disabled=['turn-left','turn-right','hint','undo','pause','song-seek'].every(id=>document.getElementById(id).disabled);
    await phaseCubeApp.turn(phaseCubeApp.getPuzzle().legalMoves()[0]);phaseCubeApp.hint();return{disabled,unchanged:state===JSON.stringify(phaseCubeApp.state())};
   });assert.deepEqual(lock,{disabled:true,unchanged:true});
-  assert.equal(await p.locator('.turn-button.hinted').count(),1);
+  assert.equal(await p.locator('.puzzle-action.hinted').count(),1);
   await p.screenshot({path:join(root,`qa/shuffle/${runtime.engine}-${id}.png`)});
   await settled(p);await verifyTrace(p,3);
   assert.deepEqual(await p.evaluate(()=>shuffleAudit[0].before),await p.evaluate(()=>phaseCubeApp.getPuzzle().initialState()));

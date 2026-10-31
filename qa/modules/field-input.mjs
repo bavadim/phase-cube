@@ -7,7 +7,7 @@ export const targets=page=>page.evaluate(()=>phaseCubeApp.getPresentation().loca
 export async function selectionPoint(page,key){
  // dialog.close() and the first canvas render can precede compositor hit testing.
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
- const all=await targets(page),p=all.find(t=>t.kind==='tile'?t.slot===(key==='A'?0:2):t.key===key);
+ const all=await targets(page),p=all.find(t=>t.kind==='coefficient-label'&&t.key===key)||all.find(t=>t.kind==='tile'?t.slot===(key==='A'?0:2):t.key===key);
  assert(p,'Visible selection target '+key);return p;
 }
 export async function actionPoint(page,key,inverted){

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../vendor/cube-1.3.2.js'),require('../shuffle.js'));else root.RubikPuzzle=factory(root.PhaseCube,root.Cube,root.PuzzleShuffle);})(globalThis,function(M,Cube,Shuffle){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../vendor/cube-1.3.2.js'),require('../shuffle.js'),require('../actions.js'));else root.RubikPuzzle=factory(root.PhaseCube,root.Cube,root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(M,Cube,Shuffle,Actions){
   const colors={U:'#e9dca6',R:'#dc8e70',F:'#739e87',D:'#c5ad63',L:'#a4b6c3',B:'#a196b6'};
   // A physical 2x2 is assembled in any of its 24 rigid orientations.
   const goals=[],seen=new Set(),queue=[new Cube()];
@@ -24,6 +24,7 @@
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
     moveTarget(move){return move[0];}
     choices(){return M.FACES.map((key,i)=>({key,label:['Сверху','Справа','Спереди','Снизу','Слева','Сзади'][i]}));}
+    actions(callbacks){return Actions.turns(this,callbacks);}
     reset(seed=1730){this.cube.identity();this.path=[];this.history=[];this.moves=[];this.selected='F';this.shuffler=new Shuffle.Generator(seed);}
     shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){this.history.push({state:this.snapshot(),path:[...this.path],move});this.cube.move(move);this.path=M.appendPath(this.path,move);this.moves.push(move);this.selected=move[0];}

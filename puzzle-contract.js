@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PuzzleContract=factory();})(globalThis,function(){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./puzzles/actions.js'));else root.PuzzleContract=factory(root.PuzzleActions);})(globalThis,function(Actions){
   'use strict';
   const key=state=>JSON.stringify(state);
   function inspect(puzzle){
     const spec=puzzle.manifest,model=puzzle.create();
     if(!['music-puzzle/1','music-puzzle/2'].includes(spec?.schema)||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
-    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved','actions'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    Actions.validate(model.actions());
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
     if(spec.schema==='music-puzzle/2'){
-      if(spec.projection!=='fourier-time/2'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+      if(spec.projection!=='fourier-time/3'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
       if(!Number.isInteger(model.count)||model.count<1)throw new Error('Неверный домен прогресса');
       return{manifest:spec,model};
     }
@@ -53,6 +54,7 @@
       const goals=model.goalStates?.()||[model.initialState()];
       // Include transitions from every accepted target, including rotated cubes.
       for(const state of goals){add(state);for(const move of model.legalMoves(state))edge(state,move);}
+      for(const state of model.probeStates?.()||[])add(state);
       let state=model.initialState();
       for(let i=0;i<stateLimit&&edges.size<edgeLimit;i++){
         const moves=model.legalMoves(state);state=edge(state,moves[random(moves.length)]);

@@ -13,7 +13,17 @@ window.PuzzleStage = class {
       enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
       pick:(x,y)=>this.pick(x,y),select:hit=>this.active?.onSelect(hit),
       hover:hit=>{this.active?.view.hover?.(hit);this.active?.onHover?.(hit);this.dirty=true;this.canvas.style.cursor=hit?'pointer':this.active?.view.drag?'grab':'default';},
-      drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;}
+      drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;},
+      beginDrag:(hit,p)=>{
+        if(!hit?.draggable||!this.active?.view.beginDrag)return false;
+        this.active.onSelect({...hit,selectOnly:true});
+        const started=this.active.view.beginDrag(hit,this.unproject(p.x,p.y));this.dirty=true;return started;
+      },
+      moveDrag:p=>{this.active?.view.dragTo?.(this.unproject(p.x,p.y));this.dirty=true;},
+      endDrag:cancelled=>{
+        const move=this.active?.view.endDrag?.(cancelled);this.dirty=true;
+        if(move&&!cancelled&&!this.disabled)this.active?.onMove(move);
+      }
     });
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(element);
     this.events=new AbortController();
@@ -28,7 +38,7 @@ window.PuzzleStage = class {
     const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
     try{
       const view=createView({...context,scene,resources,tween:(...args)=>this.tween(...args)});
-      this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover};
+      this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};
       this.element.dataset.puzzle=context.module.id;this.element.setAttribute('aria-label',context.module.title);
       this.targets.replaceChildren(...context.model.choices().map(choice=>{
         const button=document.createElement('button');button.textContent=choice.label;button.type='button';
@@ -58,6 +68,11 @@ window.PuzzleStage = class {
     this.active.scene.updateMatrixWorld(true);this.active.view.camera.updateMatrixWorld();
     const p=point.clone().project(this.active.view.camera),rect=this.canvas.getBoundingClientRect();
     return {x:rect.x+(p.x+1)*rect.width/2,y:rect.y+(1-p.y)*rect.height/2};
+  }
+  unproject(x,y){
+    const rect=this.canvas.getBoundingClientRect();this.active.view.camera.updateMatrixWorld();
+    this.ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.active.view.camera);
+    return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1),0),new THREE.Vector3());
   }
   // Also used by browser QA: these are projections of the actual Three objects, not a second hit map.
   locations(){return (this.active?.view.locations()||[]).map(({point,region,...target})=>({...target,...this.project(point),region:region?.map(p=>this.project(p))}));}

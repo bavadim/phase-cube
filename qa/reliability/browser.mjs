@@ -62,11 +62,11 @@ try{
  await p.evaluate(()=>Object.defineProperty(navigator,'canShare',{value:()=>false,configurable:true}));
  const download=p.waitForEvent('download');await p.locator('#session-overlay .report-button').tap();
  const file=await download,content=JSON.parse(await readFile(await file.path(),'utf8'));
- assert.equal(content.schema,'music-puzzle-report/1');assert.equal(content.build,'music-puzzles/points1');assert.equal(content.state.puzzleId,'fourier');
+ assert.equal(content.schema,'music-puzzle-report/1');assert.equal(content.build,'music-puzzles/polar1');assert.equal(content.state.puzzleId,'fourier');
  assert(content.events.some(e=>e.type==='session.error'));assert(content.events.some(e=>e.type==='audio.state'));assert(content.events.length<=400);
  assert(content.state.playerMoveCount>=17);assert(content.state.audioChanges.length>0);report.reportDownload=true;
  await p.reload();await p.waitForFunction(()=>window.phaseCubeApp);await p.evaluate(()=>phaseCubeApp.ready);
- assert.equal(await p.evaluate(()=>phaseCubeApp.report().previous.build),'music-puzzles/points1');report.previousSessionPreserved=true;
+ assert.equal(await p.evaluate(()=>phaseCubeApp.report().previous.build),'music-puzzles/polar1');report.previousSessionPreserved=true;
  // File-share branch is a mock; physical iPhone's native share sheet is untested.
  await p.evaluate(()=>{
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});

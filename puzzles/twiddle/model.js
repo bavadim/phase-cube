@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'));else root.TwiddleModel=factory(root.PuzzleShuffle);})(globalThis,function(Shuffle){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.TwiddleModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
   const HOME=[0,1,2,3,4,5],rings={A:[0,1,4,3],B:[1,2,5,4]},key=s=>s.join('');
   const inverse=m=>m.endsWith("'")?m[0]:m+"'";
@@ -34,6 +34,7 @@
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
     moveTarget(move){return move[0];}
     choices(){return [{key:'A',label:'Левый блок'},{key:'B',label:'Правый блок'}];}
+    actions(callbacks){return Actions.turns(this,callbacks);}
     reset(seed=1730){this.current=[...HOME];this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);}
     shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){this.history.push({state:this.snapshot(),move});this.current=applyTo(this.current,move);this.moves.push(move);this.selected=move[0];}

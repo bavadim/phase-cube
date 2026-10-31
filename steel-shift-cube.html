@@ -137,19 +137,26 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 </style>
   <style>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-.controls-dock { flex:none; width:min(100%,44rem); min-width:0; margin-inline:auto; display:grid; gap:.35rem; }
+.controls-dock { flex:none; width:min(100%,44rem); min-width:0; margin-inline:auto; display:grid; gap:.35rem; container-type:inline-size; }
 .song-seek { display:flex; align-items:center; min-height:44px; }
 .song-seek input { width:100%; height:44px; margin:0; accent-color:var(--orange); cursor:pointer; touch-action:pan-y; }
-.puzzle-command { display:grid; grid-template-columns:var(--command-size) minmax(0,1fr) var(--command-size); gap:clamp(8px,1.5vmin,18px); }
-.puzzle-operation { grid-column:1 / -1; grid-row:1; text-align:center; color:var(--ink); font-size:1rem; line-height:1.25; }
-.turn-button { width:var(--command-size); height:var(--command-size); display:grid; place-items:center; padding:0; border:1px solid var(--green); border-radius:clamp(14px,2vmin,24px); color:var(--panel); background:var(--green); font-size:clamp(30px,4vmin,48px); line-height:1; }
-.turn-button:hover:not(:disabled) { background:#326c50; }
-.turn-button:active:not(:disabled) { transform:translateY(1px); }
-.turn-button.hinted { background:#b97732; border-color:#9a5e25; box-shadow:0 0 0 3px #d4a65c55; }
-body[data-phase="shuffling"] .turn-button.hinted { opacity:1; }
+.puzzle-command { display:grid; grid-template-columns:minmax(0,var(--left-grow,1fr)) minmax(80px,1.3fr) minmax(0,var(--right-grow,1fr)); gap:8px; align-items:end; }
+.puzzle-operation { grid-column:1 / -1; text-align:center; color:var(--ink); font-size:1rem; line-height:1.25; }
+.puzzle-actions { min-width:0; }
+.puzzle-actions-left { grid-column:1; }
+.puzzle-actions-right { grid-column:3; }
+.puzzle-action-group { display:block; margin-bottom:5px; text-align:center; color:var(--muted); font-size:1rem; }
+.puzzle-action-row { display:flex; flex-wrap:wrap; gap:6px; }
+.puzzle-action { flex:1 1 44px; min-width:44px; min-height:var(--command-size); display:grid; place-items:center; padding:4px; border:1px solid var(--green); border-radius:clamp(14px,2vmin,24px); color:var(--panel); background:var(--green); font-size:clamp(28px,4vmin,44px); line-height:1; }
+.puzzle-action-icon { display:block; }
+img.puzzle-action-icon { width:1em; height:1em; object-fit:contain; }
+.puzzle-action:hover:not(:disabled) { background:#326c50; }
+.puzzle-action:active:not(:disabled) { transform:translateY(1px); }
+.puzzle-action.hinted { background:#b97732; border-color:#9a5e25; box-shadow:0 0 0 3px #d4a65c55; }
+body[data-phase="shuffling"] .puzzle-action.hinted { opacity:1; }
 .hint-host { display:none; }
-.hint-slot { display:flex; align-items:stretch; min-width:0; }
-.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #bac9ae; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1.1rem; }
+.hint-slot { display:flex; grid-column:2; align-items:stretch; min-width:0; }
+.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #bac9ae; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1rem; }
 .secondary-actions { display:flex; justify-content:space-between; gap:.6rem; }
 .secondary-button { display:inline-flex; min-width:44px; min-height:44px; align-items:center; justify-content:center; gap:.5rem; padding:.45rem; border:0; border-radius:8px; color:var(--green); background:transparent; font-size:1rem; }
 .secondary-button:hover:not(:disabled) { background:#e7ecdc; }
@@ -160,19 +167,25 @@ body[data-phase="shuffling"] .turn-button.hinted { opacity:1; }
 }
 @media (max-height:520px) and (min-aspect-ratio:4/3) {
   .controls-dock { gap:.25rem; }
-  .puzzle-command { gap:8px; }
-  .hint-slot #hint { font-size:1rem; }
   .secondary-button { gap:5px; padding:5px; }
 }
-/* Compact side dock gives short phones almost the entire screen height for the field. */
 @media (max-width:700px) and (max-height:520px) and (min-aspect-ratio:4/3) {
   .controls-dock { flex-basis:clamp(140px,28vw,164px); }
-  .puzzle-command { grid-template-columns:1fr 1fr; }
-  .turn-button { width:100%; }
-  .hint-slot { grid-column:1 / -1; grid-row:2; }
-  body[data-puzzle="fourier"] .hint-slot { grid-row:3; }
-  .hint-slot #hint { min-height:48px; }
   .action-label { display:none; }
+}
+/* Reflow only the renderer, based on available dock width and action count. */
+@container (max-width:280px) {
+  .puzzle-command { grid-template-columns:1fr 1fr; gap:6px; }
+  .puzzle-operation { order:0; }
+  .puzzle-actions-left { order:1; grid-column:1; }
+  .puzzle-actions-right { order:2; grid-column:2; }
+  .hint-slot { order:3; grid-column:1 / -1; }
+  .puzzle-action { min-height:44px; border-radius:13px; }
+  .hint-slot #hint { min-height:44px; }
+  .puzzle-action-group { display:none; }
+  .many-actions .puzzle-actions-left { grid-column:1 / -1; }
+  .many-actions .hint-slot { order:2; }
+  .many-actions .puzzle-actions-right { order:3; grid-column:1 / -1; }
 }
 
 </style>
@@ -2627,6 +2640,30 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Action descriptors belong to models; callbacks enter the shared move pipeline. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PuzzleActions=factory();})(globalThis,function(){
+  function move(model,{perform=()=>{},preview=()=>{}}={},action){
+    const enabled=model.validMove(action.move);
+    return {...action,enabled,onInvoke:()=>{if(enabled&&model.validMove(action.move))return perform(action.move);},
+      onPreview:active=>preview(active&&enabled?action.move:null)};
+  }
+  function turns(model,callbacks){
+    const selected=model.choices().find(c=>c.key===model.selected).label;
+    return [true,false].map((inverted,i)=>move(model,callbacks,{id:i?'turn-right':'turn-left',
+      label:selected+': '+(inverted?'против':'по')+' часовой стрелке',icon:{text:inverted?'↶':'↷'},move:model.moveFor(model.selected,inverted)}));
+  }
+  function validate(actions){
+    if(!Array.isArray(actions)||new Set(actions.map(a=>a.id)).size!==actions.length)throw new Error('Действиям нужны уникальные id');
+    for(const a of actions)if(!/^[a-z][\w-]*$/i.test(a.id)||typeof a.label!=='string'||!a.label||typeof a.onInvoke!=='function'||
+      !a.icon||!['text','src'].some(key=>typeof a.icon[key]==='string'&&a.icon[key]))throw new Error('Неверный паспорт действия');
+    return actions;
+  }
+  return{move,turns,validate};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Seeded single-move selection. Puzzle models still own state and move rules. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PuzzleShuffle=factory();})(globalThis,function(){
   'use strict';
@@ -2704,19 +2741,20 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PuzzleContract=factory();})(globalThis,function(){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./puzzles/actions.js'));else root.PuzzleContract=factory(root.PuzzleActions);})(globalThis,function(Actions){
   'use strict';
   const key=state=>JSON.stringify(state);
   function inspect(puzzle){
     const spec=puzzle.manifest,model=puzzle.create();
     if(!['music-puzzle/1','music-puzzle/2'].includes(spec?.schema)||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
-    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved','actions'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    Actions.validate(model.actions());
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
     if(spec.schema==='music-puzzle/2'){
-      if(spec.projection!=='fourier-time/2'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+      if(spec.projection!=='fourier-time/3'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
       if(!Number.isInteger(model.count)||model.count<1)throw new Error('Неверный домен прогресса');
       return{manifest:spec,model};
     }
@@ -2758,6 +2796,7 @@ lanes.noise = noiseSound(stack(
       const goals=model.goalStates?.()||[model.initialState()];
       // Include transitions from every accepted target, including rotated cubes.
       for(const state of goals){add(state);for(const move of model.legalMoves(state))edge(state,move);}
+      for(const state of model.probeStates?.()||[])add(state);
       let state=model.initialState();
       for(let i=0;i<stateLimit&&edges.size<edgeLimit;i++){
         const moves=model.legalMoves(state);state=edge(state,moves[random(moves.length)]);
@@ -2872,66 +2911,109 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'));else root.FourierModel=factory(root.PuzzleShuffle);})(globalThis,function(Shuffle){
+/* C8 phases × bounded three-position radii, independently for each coefficient. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.FourierModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
-  const reference=[[.52,0],[-.32,.32],[0,-.40],[.30,.30]],keys=['A','B','C','D'];
-  const pairs=keys.map((_,i)=>[i,(i+1)%keys.length]),moves=keys.flatMap(key=>[key,key+"'"]);
-  const inverse=move=>{if(!moves.includes(move))throw new Error('Неверный ход Фурье');return move.endsWith("'")?move[0]:move+"'";};
-  // Exact signed permutations: a quarter turn of the selected coefficient pair
-  // (a,b) -> (-b,a). No floating-point matrix identification or infinite orbit.
-  function turn(state,move){
-    const [a,b]=pairs[keys.indexOf(move[0])],out=[...state],sign=move.endsWith("'")?-1:1;
-    out[a]=-sign*state[b];out[b]=sign*state[a];return out;
+  const keys=['A','B','C','D'],levels=[.2,.4,.6],homePhase=[0,3,6,1],homeLevel=[2,1,1,0],stateCount=24**4;
+  const mod=(n,d)=>((n%d)+d)%d,validState=s=>Number.isInteger(s)&&s>=0&&s<stateCount;
+  const point=p=>p&&Number.isInteger(p.phase)&&p.phase>=0&&p.phase<8&&Number.isInteger(p.level)&&p.level>=0&&p.level<3;
+  function parameters(state){
+    if(!validState(state))throw new Error('Неверное состояние Фурье');
+    return keys.map((_,i)=>{const digit=Math.floor(state/24**i)%24;return{phase:mod(homePhase[i]+digit%8,8),level:mod(homeLevel[i]+Math.floor(digit/8),3)};});
   }
-  const states=[[1,2,3,4]],index=new Map([['1,2,3,4',0]]),depth=[0],hints=[null];
-  for(let i=0;i<states.length;i++)for(const move of moves){
-    const next=turn(states[i],move),key=next.join(',');
-    if(!index.has(key)){index.set(key,states.length);states.push(next);depth.push(depth[i]+1);hints.push(inverse(move));}
+  const encode=values=>values.reduce((s,p,i)=>s+(mod(p.phase-homePhase[i],8)+8*mod(p.level-homeLevel[i],3))*24**i,0);
+  const coefficient=p=>[levels[p.level]*Math.cos(p.phase*Math.PI/4),levels[p.level]*Math.sin(p.phase*Math.PI/4)];
+  const coefficients=state=>parameters(state).map(coefficient),reference=coefficients(0);
+  const edit=move=>move&&typeof move==='object'&&move.kind==='coefficient'&&keys.includes(move.key)&&point(move.from)&&point(move.to);
+  const match=(a,b)=>a.phase===b.phase&&a.level===b.level;
+  function target(move){if(typeof move==='string'&&/^[ABCD]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
+  function applyTo(state,move){
+    const values=parameters(state),i=keys.indexOf(target(move)),p=values[i];
+    if(edit(move)){
+      if(!match(p,move.from)||match(move.from,move.to))throw new Error('Устаревшее или пустое перетаскивание');
+      values[i]={...move.to};
+    }else if(move.endsWith('+')||move.endsWith('-')){
+      const level=p.level+(move.endsWith('+')?1:-1);if(level<0||level>=levels.length)throw new Error('Модуль вне диапазона');
+      values[i]={...p,level};
+    }else values[i]={...p,phase:mod(p.phase+(move.endsWith("'")?1:-1),8)};
+    return encode(values);
   }
-  if(states.length!==192)throw new Error('Изменилась группа Фурье-точек');
-  const transitions=states.map(state=>Object.fromEntries(moves.map(move=>[move,index.get(turn(state,move).join(','))])));
-  const valid=state=>Number.isInteger(state)&&state>=0&&state<states.length;
-  const coefficients=state=>{
-    if(!valid(state))throw new Error('Неверное состояние Фурье');
-    return states[state].map(id=>reference[Math.abs(id)-1].map(v=>Math.sign(id)*v));
-  };
+  function inverse(move){
+    target(move);
+    if(edit(move))return{kind:'coefficient',key:move.key,from:{...move.to},to:{...move.from}};
+    if(move.endsWith('+'))return move[0]+'-';if(move.endsWith('-'))return move[0]+'+';
+    return move.endsWith("'")?move[0]:move+"'";
+  }
   function interpolate(state,move,t){
-    if(!moves.includes(move))throw new Error('Неверный ход Фурье');
-    const c=coefficients(state),[a,b]=pairs[keys.indexOf(move[0])],angle=(move.endsWith("'")?-1:1)*t*Math.PI/2,r=Math.cos(angle),s=Math.sin(angle),x=c[a],y=c[b];
-    c[a]=x.map((v,j)=>r*v-s*y[j]);c[b]=x.map((v,j)=>s*v+r*y[j]);return c;
+    const a=parameters(state),b=parameters(applyTo(state,move)),i=keys.indexOf(target(move));
+    const delta=edit(move)?mod(b[i].phase-a[i].phase+4,8)-4:typeof move==='string'&&move.endsWith("'")?1:typeof move==='string'&&move.length===1?-1:0;
+    return a.map((p,j)=>{
+      if(j!==i)return coefficient(p);
+      const phase=(p.phase+delta*t)*Math.PI/4,radius=levels[p.level]+(levels[b[i].level]-levels[p.level])*t;
+      return[radius*Math.cos(phase),radius*Math.sin(phase)];
+    });
   }
   class Model{
     constructor(){this.count=4;this.reset();}
     snapshot(){return this.current;}
     initialState(){return 0;}
-    allStates(){return states.map((_,i)=>i);}
-    legalMoves(){return [...moves];}
-    applyTo(state,move){if(!valid(state)||!moves.includes(move))throw new Error('Неверный ход Фурье');return transitions[state][move];}
-    inverse(move){return inverse(move);}
-    validMove(move){return moves.includes(move);}
-    restore(state){if(!valid(state))throw new Error('Неверное состояние Фурье');this.current=state;}
-    moveTarget(move){return move[0];}
-    select(key){if(!keys.includes(key))throw new Error('Неверная точка Фурье');this.selected=key;}
-    moveFor(key,inverted=false){return key+(inverted?"'":'');}
-    choices(){return keys.map((key,i)=>({key,label:'Точка '+(i+1)}));}
-    pair(key=this.selected){return [...pairs[keys.indexOf(key)]];}
-    operationLabel(){const [a,b]=this.pair();return 'Связь '+(a+1)+' ↔ '+(b+1);}
-    actionLabel(key,inverted){const [a,b]=this.pair(key);return 'Точки '+(a+1)+' и '+(b+1)+': '+(inverted?'обратный':'прямой')+' ход';}
-    reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleKeys=new Set();}
-    shuffle(){
-      if(this.shuffleKeys.size===keys.length)this.shuffleKeys.clear();
-      const move=this.shuffler.next(this,{moves:moves.filter(move=>!this.shuffleKeys.has(this.moveTarget(move)))});
-      this.shuffleKeys.add(this.moveTarget(move));this.apply(move);this.history=[];this.moves=[];return move;
-    }
-    apply(move){const next=this.applyTo(this.current,move);this.history.push({state:this.current,move});this.current=next;this.moves.push(move);this.selected=this.moveTarget(move);}
-    undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=this.moveTarget(old.move);return this.inverse(old.move);}
-    hint(){return hints[this.current];}
-    distance(state=this.current){return depth[state];}
-    solved(state=this.current){return state===0;}
-    correct(state=this.current){return coefficients(state).filter((z,i)=>z.every((v,j)=>Math.abs(v-reference[i][j])<1e-8)).length;}
+    parameters(state=this.current){return parameters(state);}
     coefficients(state=this.current){return coefficients(state);}
+    legalMoves(state=this.current){const p=parameters(state);return keys.flatMap((key,i)=>[key,key+"'",...(p[i].level>0?[key+'-']:[]),...(p[i].level<2?[key+'+']:[])]);}
+    applyTo(state,move){return applyTo(state,move);}
+    inverse(move){return inverse(move);}
+    validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
+    moveTarget(move){return target(move);}
+    select(key){if(!keys.includes(key))throw new Error('Неверная гармоника');this.selected=key;}
+    moveFor(key,inverted=false){return key+(inverted?"'":'');}
+    choices(){return keys.map((key,i)=>({key,label:'Гармоника '+(i+1)}));}
+    selectionLabel(){const i=keys.indexOf(this.selected),p=parameters(this.current)[i];return 'Гармоника '+(i+1)+' · '+p.phase*45+'° · '+levels[p.level].toFixed(1).replace('.',',');}
+    actions(callbacks){
+      const key=this.selected,n=keys.indexOf(key)+1;
+      return [
+        {id:'turn-left',label:'Гармоника '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Угол',move:key+"'"},
+        {id:'turn-right',label:'Гармоника '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Угол',move:key},
+        {id:'magnitude-down',label:'Гармоника '+n+': уменьшить модуль',icon:{text:'−'},group:'Модуль',move:key+'-'},
+        {id:'magnitude-up',label:'Гармоника '+n+': увеличить модуль',icon:{text:'+'},group:'Модуль',move:key+'+'}
+      ].map(action=>Actions.move(this,callbacks,action));
+    }
+    editMove(key,to,state=this.current){
+      if(!keys.includes(key)||!point(to))throw new Error('Неверные координаты коэффициента');
+      const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{...to}};
+    }
+    snap(z){return{phase:mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:Math.max(0,Math.min(2,Math.round((Math.hypot(...z)-levels[0])/.2)))};}
+    restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=state;}
+    reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleStep=0;}
+    shuffle(){
+      const radius=this.shuffleStep++%2===1;
+      const move=this.shuffler.next(this,{moves:this.legalMoves().filter(m=>/[+-]$/.test(m)===radius)});
+      this.apply(move);this.history=[];this.moves=[];return move;
+    }
+    apply(move){
+      const next=applyTo(this.current,move),saved=edit(move)?{kind:'coefficient',key:move.key,from:{...move.from},to:{...move.to}}:move;
+      this.history.push({state:this.current,move:saved});this.current=next;this.moves.push(saved);this.selected=target(saved);
+    }
+    undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=target(old.move);return inverse(old.move);}
+    hint(){
+      const p=parameters(this.current);
+      for(let i=0;i<4;i++){
+        const delta=mod(homePhase[i]-p[i].phase,8);
+        if(delta)return keys[i]+(delta<=4?"'":'');
+        if(p[i].level!==homeLevel[i])return keys[i]+(p[i].level<homeLevel[i]?'+':'-');
+      }
+      return null;
+    }
+    distance(state=this.current){return parameters(state).reduce((sum,p,i)=>{const phase=mod(p.phase-homePhase[i],8);return sum+Math.min(phase,8-phase)+Math.abs(p.level-homeLevel[i]);},0);}
+    solved(state=this.current){return state===0;}
+    correct(state=this.current){return parameters(state).filter((p,i)=>p.phase===homePhase[i]&&p.level===homeLevel[i]).length;}
+    probeStates(){
+      const result=[0];for(let i=0;i<4;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<3;level++){
+        const p=parameters(0);p[i]={phase,level};result.push(encode(p));
+      }
+      return [...new Set(result)];
+    }
   }
-  return{Model,coefficients,interpolate,reference:reference.map(z=>[...z]),states:()=>states.map(s=>[...s]),orders:Object.fromEntries(keys.map(key=>[key,4])),keys};
+  return{Model,coefficients,parameters,interpolate,reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
 });
 
 </script>
@@ -2940,7 +3022,7 @@ lanes.noise = noiseSound(stack(
 /* A bounded Fourier displacement of event onsets. This is not a PCM FFT or pitch shifter. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../puzzle-contract.js'));else root.FourierBinding=factory(root.FourierModel,root.PuzzleContract);})(globalThis,function(F,Contract){
   'use strict';
-  const VERSION='fourier-time/2',strength=.012,mod=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9;
+  const VERSION='fourier-time/3',strength=.012,mod=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9;
   const field=(c,t)=>c.reduce((sum,z,k)=>sum+z[0]*Math.cos(2*Math.PI*(k+1)*t)-z[1]*Math.sin(2*Math.PI*(k+1)*t),0);
   function project(binding,puzzle,state,game){
     const coefficients=F.coefficients(state),delta=coefficients.map((z,i)=>z.map((v,j)=>v-F.reference[i][j]));
@@ -2949,9 +3031,9 @@ lanes.noise = noiseSound(stack(
     return{rows,parts:rows.map((_,id)=>({kind:VERSION,id,aligned:aligned[id]})),coefficients};
   }
   function signature(rows,voices){return rows.flatMap((row,id)=>row.map(e=>JSON.stringify([voices[id].part,round(e.start),round(e.duration),e.value.velocity??1]))).sort().join('|');}
-  function validate(binding,spec){return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.strength===strength&&binding.gridSteps===64&&binding.stateCount===192;}
+  function validate(binding,spec){return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.strength===strength&&binding.gridSteps===64&&binding.stateCount===F.stateCount;}
   async function prepare({puzzle,game,signal,onProgress=()=>{}}){
-    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,strength,gridSteps:64,stateCount:192},signatures=new Map();
+    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,strength,gridSteps:64,stateCount:F.stateCount},signatures=new Map();
     const target=signature(game.targetRows,game.voices);let aliases=0;
     for(let i=0;i<probe.states.length;i++){
       if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
@@ -2961,9 +3043,9 @@ lanes.noise = noiseSound(stack(
     }
     const silentMoves=probe.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length;
     if(aliases||silentMoves)throw new Error('Фурье-печать не различима на этой композиции: '+aliases+' ложных целей, '+silentMoves+' неслышимых по событиям ходов');
-    // Cauchy-Schwarz bound for the four temporal harmonics, not audio hertz.
-    const derivativeBound=strength*2*Math.PI*Math.sqrt(F.reference.reduce((s,_,i)=>s+(i+1)**2,0))*2*Math.sqrt(F.reference.flat().reduce((s,x)=>s+x*x,0));
-    return{...binding,diagnostics:{coverage:probe.coverage,states:probe.states.length,edges:probe.edges.length,distinctRhythms:new Set(signatures.values()).size,
+    // Bound every permitted radius and phase, including a continuous drag preview.
+    const derivativeBound=strength*2*Math.PI*F.reference.reduce((sum,z,i)=>sum+(i+1)*(Math.max(...F.levels)+Math.hypot(...z)),0);
+    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:F.stateCount,states:probe.states.length,edges:probe.edges.length,distinctRhythms:new Set(signatures.values()).size,
       unsolvedGoalRhythmAliases:aliases,silentMoves,discrimination:new Set(signatures.values()).size===probe.states.length?'distinct-in-probes':'weak',
       derivativeBound,orderPreserving:derivativeBound<1,acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
   }
@@ -3479,20 +3561,18 @@ window.PuzzleGraphics = (() => {
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* One pointer subscription per canvas; puzzle adapters receive semantic hits. */
-window.PuzzlePointer = class {
-  constructor(canvas,{enabled,pick,select,hover,drag,log=()=>{}}){
-    Object.assign(this,{canvas,enabled,pick,select,hover,drag});
+/* One pointer subscription per canvas; camera drags and optional model edits. */
+window.PuzzlePointer=class{
+  constructor(canvas,{enabled,pick,select,hover,drag,beginDrag=()=>false,moveDrag=()=>{},endDrag=()=>{},log=()=>{}}){
+    Object.assign(this,{canvas,enabled,pick,select,hover,drag,beginDrag,moveDrag,endDrag,log});
     this.events=new AbortController();this.gesture=null;
     const listen=(type,fn)=>canvas.addEventListener(type,fn,{signal:this.events.signal});
     listen('pointerdown',event=>{
       log('pointer.down',{id:event.pointerId,kind:event.pointerType,x:event.clientX,y:event.clientY,enabled:enabled(),previous:this.gesture?.id??null});
       if(event.button!==0||event.isPrimary===false||!enabled())return;
-      // A new primary down cannot belong to the previous press. Recover when
-      // the OS/browser omitted its up/cancel instead of locking input forever.
       if(this.gesture)this.cancel('new-primary-down');
       this.gesture={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,
-        slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false};
+        slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false,custom:false};
       hover(this.gesture.hit);
       try{canvas.setPointerCapture(event.pointerId);}catch(e){log('pointer.capture-failed',{message:e.message});}
       event.preventDefault();
@@ -3501,21 +3581,31 @@ window.PuzzlePointer = class {
       const g=this.gesture;
       if(!g){if(enabled()&&event.pointerType!=='touch')hover(pick(event.clientX,event.clientY));return;}
       if(g.id!==event.pointerId)return;
-      if(Math.hypot(event.clientX-g.startX,event.clientY-g.startY)>g.slop)g.moved=true;
-      if(g.moved&&enabled()){hover(null);drag(event.clientX-g.x,event.clientY-g.y);}
+      if(!g.moved&&Math.hypot(event.clientX-g.startX,event.clientY-g.startY)>g.slop){
+        g.moved=true;
+        if(enabled())g.custom=beginDrag(g.hit,{x:g.startX,y:g.startY})===true;
+        log('pointer.drag',{key:g.hit?.key??null,custom:g.custom});
+      }
+      if(g.moved&&enabled()){
+        hover(null);
+        if(g.custom)moveDrag({x:event.clientX,y:event.clientY});else drag(event.clientX-g.x,event.clientY-g.y);
+      }
       g.x=event.clientX;g.y=event.clientY;
     });
     const finish=event=>{
       log('pointer.up',{id:event.pointerId,gesture:this.gesture?.id??null,enabled:enabled()});
       const g=this.gesture;if(!g||g.id!==event.pointerId)return;
-      this.cancel();
-      if(!g.moved&&enabled()){
+      // Release before the commit changes the session gate; its update must not
+      // cancel the edit that is being submitted to the shared move pipeline.
+      this.gesture=null;this.release(g.id);
+      if(g.custom)endDrag(!enabled());
+      else if(!g.moved&&enabled()){
         const hit=g.hit||pick(event.clientX,event.clientY);log('pointer.hit',{key:hit?.key??null,inverted:hit?.inverted});if(hit)select(hit);
       }
       hover(event.pointerType==='touch'||!enabled()?null:pick(event.clientX,event.clientY));
     };
     listen('pointerup',finish);
-    listen('pointercancel',event=>{if(this.gesture?.id===event.pointerId){this.cancel();hover(null);}});
+    listen('pointercancel',event=>{if(this.gesture?.id===event.pointerId){this.cancel('pointercancel');hover(null);}});
     listen('lostpointercapture',event=>{
       log('pointer.lost-capture',{id:event.pointerId,gesture:this.gesture?.id??null});
       if(this.gesture?.id===event.pointerId&&!canvas.hasPointerCapture(event.pointerId))this.cancel('lost-capture');
@@ -3524,13 +3614,15 @@ window.PuzzlePointer = class {
     window.addEventListener('pointerup',event=>{if(event.target!==canvas&&this.gesture?.id===event.pointerId)finish(event);},{signal:this.events.signal});
     window.addEventListener('pointercancel',event=>{if(this.gesture?.id===event.pointerId)this.cancel('window-cancel');},{signal:this.events.signal});
     window.addEventListener('blur',()=>this.cancel('blur'),{signal:this.events.signal});
-    this.log=log;
   }
+  release(id){try{if(this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}catch{}}
   cancel(reason='cancel'){
-    const id=this.gesture?.id;if(id!==undefined)this.log?.('pointer.cancel',{id,reason});this.gesture=null;
-    if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);
+    const g=this.gesture;this.gesture=null;
+    if(!g)return;
+    this.log('pointer.cancel',{id:g.id,reason});this.release(g.id);
+    if(g.custom)this.endDrag(true);
   }
-  destroy(){this.events.abort();this.cancel();}
+  destroy(){this.events.abort();this.cancel('destroy');}
 };
 
 </script>
@@ -3550,7 +3642,17 @@ window.PuzzleStage = class {
       enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
       pick:(x,y)=>this.pick(x,y),select:hit=>this.active?.onSelect(hit),
       hover:hit=>{this.active?.view.hover?.(hit);this.active?.onHover?.(hit);this.dirty=true;this.canvas.style.cursor=hit?'pointer':this.active?.view.drag?'grab':'default';},
-      drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;}
+      drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;},
+      beginDrag:(hit,p)=>{
+        if(!hit?.draggable||!this.active?.view.beginDrag)return false;
+        this.active.onSelect({...hit,selectOnly:true});
+        const started=this.active.view.beginDrag(hit,this.unproject(p.x,p.y));this.dirty=true;return started;
+      },
+      moveDrag:p=>{this.active?.view.dragTo?.(this.unproject(p.x,p.y));this.dirty=true;},
+      endDrag:cancelled=>{
+        const move=this.active?.view.endDrag?.(cancelled);this.dirty=true;
+        if(move&&!cancelled&&!this.disabled)this.active?.onMove(move);
+      }
     });
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(element);
     this.events=new AbortController();
@@ -3565,7 +3667,7 @@ window.PuzzleStage = class {
     const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
     try{
       const view=createView({...context,scene,resources,tween:(...args)=>this.tween(...args)});
-      this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover};
+      this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};
       this.element.dataset.puzzle=context.module.id;this.element.setAttribute('aria-label',context.module.title);
       this.targets.replaceChildren(...context.model.choices().map(choice=>{
         const button=document.createElement('button');button.textContent=choice.label;button.type='button';
@@ -3595,6 +3697,11 @@ window.PuzzleStage = class {
     this.active.scene.updateMatrixWorld(true);this.active.view.camera.updateMatrixWorld();
     const p=point.clone().project(this.active.view.camera),rect=this.canvas.getBoundingClientRect();
     return {x:rect.x+(p.x+1)*rect.width/2,y:rect.y+(1-p.y)*rect.height/2};
+  }
+  unproject(x,y){
+    const rect=this.canvas.getBoundingClientRect();this.active.view.camera.updateMatrixWorld();
+    this.ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.active.view.camera);
+    return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1),0),new THREE.Vector3());
   }
   // Also used by browser QA: these are projections of the actual Three objects, not a second hit map.
   locations(){return (this.active?.view.locations()||[]).map(({point,region,...target})=>({...target,...this.project(point),region:region?.map(p=>this.project(p))}));}
@@ -3636,8 +3743,9 @@ window.PuzzleControl = {
   mount({presentation,module,commands,model,game,canInteract,onMove,onPreview,onSelect,createView}){
     let preview=null,armed=null;
     const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:model.selected,move:preview});};
-    const controls=new PuzzleTurnControls(commands,{model,onMove,onPreview:move=>{preview=move;feedback();onPreview(move);}});
-    const view=presentation.mount(createView,{module,model,game,onHover:hit=>{
+    const controls=new PuzzleActionControls(commands,{model,onMove,onPreview:move=>{preview=move;feedback();onPreview(move);}});
+    const view=presentation.mount(createView,{module,model,game,onMove,
+      onEditPreview:move=>{preview=move;feedback();onPreview(move);},onHover:hit=>{
       const move=canInteract()&&hit&&armed===model.selected&&hit.key===armed&&typeof hit.inverted==='boolean'?model.moveFor(armed,hit.inverted):null;
       if(preview!==move){preview=move;feedback();onPreview(move);}
     },onSelect:hit=>{
@@ -3652,13 +3760,16 @@ window.PuzzleControl = {
       async animate(move,before,options={}){
         armed=model.moveTarget(move);
         if(options.demonstration){controls.hint(move);preview=move;feedback();}
-        try{await view.animate(move,before,options);}finally{if(presentation.active?.view===view){view.sync();feedback();}}
+        try{await view.animate(move,before,options);}finally{if(presentation.active?.view===view){
+          if(options.demonstration){preview=null;onPreview(null);}
+          view.sync();feedback();
+        }}
       },
       hint(move){controls.hint(move);armed=model.selected;preview=move;view.focus?.(model.selected);feedback();},
       clearHint(){controls.hint(null);preview=null;feedback();},
       resetInteraction(){armed=null;preview=null;presentation.active?.view.hover?.(null);feedback();},
       focus:()=>presentation.element.focus({preventScroll:true}),
-      destroy(){if(presentation.active?.view===view)presentation.unmount();},
+      destroy(){controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
       key(event){const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
     };
   }
@@ -3667,29 +3778,55 @@ window.PuzzleControl = {
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-window.PuzzleTurnControls=class{
+/* Generic keyed action lists around a persistent hint. No puzzle rules here. */
+window.PuzzleActionControls=class{
   constructor(host,{model,onMove,onPreview}){
-    this.model=model;this.host=host;this.hinted=null;
-    host.setAttribute('aria-label',model.operationLabel?'Операции выбранной связи':'Поворот выбранного блока');
-    const hint=document.getElementById('hint');hint.remove();
-    host.innerHTML='<button id="turn-left" class="turn-button" aria-label="Поворот против часовой стрелки">↶</button><span class="hint-slot"></span><button id="turn-right" class="turn-button" aria-label="Поворот по часовой стрелке">↷</button>';
-    host.querySelector('.hint-slot').append(hint);
-    this.buttons=[host.querySelector('#turn-left'),host.querySelector('#turn-right')];
-    if(model.operationLabel){this.caption=document.createElement('div');this.caption.className='puzzle-operation';this.caption.setAttribute('role','status');host.prepend(this.caption);}
-    this.buttons.forEach((b,i)=>{
-      const move=()=>model.moveFor(model.selected,i===0);
-      b.onclick=()=>onMove(move());
-      b.onpointerenter=e=>{if(e.pointerType!=='touch')onPreview(move());};
-      b.onpointerleave=b.onblur=()=>onPreview(null);
-    });
+    Object.assign(this,{host,model,callbacks:{perform:onMove,preview:onPreview}});this.hinted=null;this.items=new Map();
+    const hint=document.getElementById('hint');hint.remove();host.replaceChildren();host.setAttribute('aria-label','Действия выбранного объекта');
+    this.caption=document.createElement('div');this.caption.className='puzzle-operation';this.caption.setAttribute('role','status');host.append(this.caption);
+    const side=name=>{const el=document.createElement('div');el.className='puzzle-actions puzzle-actions-'+name;
+      const title=document.createElement('span');title.className='puzzle-action-group';const row=document.createElement('div');row.className='puzzle-action-row';el.append(title,row);host.append(el);return{el,title,row};};
+    this.left=side('left');this.hintSlot=document.createElement('span');this.hintSlot.className='hint-slot';this.hintSlot.append(hint);host.append(this.hintSlot);this.right=side('right');
+    this.update(true);
   }
   update(disabled){
-    if(this.caption){const label=this.model.operationLabel();if(this.caption.textContent!==label)this.caption.textContent=label;}
-    this.buttons.forEach((b,i)=>{b.disabled=disabled;b.classList.toggle('hinted',this.hinted===this.model.moveFor(this.model.selected,i===0));
-      b.setAttribute('aria-label',this.model.actionLabel?.(this.model.selected,i===0)||this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
+    const actions=PuzzleActions.validate(this.model.actions(this.callbacks)),split=Math.ceil(actions.length/2),seen=new Set();
+    this.host.dataset.actionCount=actions.length;this.host.classList.toggle('many-actions',actions.length>2);
+    this.host.style.setProperty('--left-grow',Math.max(1,split)+'fr');this.host.style.setProperty('--right-grow',Math.max(1,actions.length-split)+'fr');
+    const label=this.model.selectionLabel?.()||'';this.caption.hidden=!label;if(this.caption.textContent!==label)this.caption.textContent=label;
+    const groups=[actions.slice(0,split),actions.slice(split)];
+    [this.left,this.right].forEach((side,i)=>{
+      const labels=new Set(groups[i].map(a=>a.group||'')),title=labels.size===1?[...labels][0]:'';
+      side.title.hidden=!title;if(side.title.textContent!==title)side.title.textContent=title;
+      groups[i].forEach(action=>{
+        seen.add(action.id);let item=this.items.get(action.id);
+        if(!item){
+          const button=document.createElement('button');button.type='button';button.id=action.id;button.className='puzzle-action';
+          item={button,action,iconKey:null};this.items.set(action.id,item);
+          button.onclick=()=>{if(!button.disabled)item.action.onInvoke();};
+          button.onpointerenter=e=>{if(e.pointerType!=='touch'&&!button.disabled)item.action.onPreview?.(true);};
+          button.onfocus=()=>{if(!button.disabled)item.action.onPreview?.(true);};
+          button.onpointerleave=button.onblur=()=>item.action.onPreview?.(false);
+        }
+        item.action=action;const b=item.button;
+        if(b.parentElement!==side.row)side.row.append(b);
+        const iconKey=JSON.stringify(action.icon);
+        if(item.iconKey!==iconKey){
+          b.replaceChildren();const icon=document.createElement(action.icon.src?'img':'span');
+          if(action.icon.src){icon.src=action.icon.src;icon.alt='';}else icon.textContent=action.icon.text;
+          icon.className='puzzle-action-icon';icon.setAttribute('aria-hidden','true');b.append(icon);item.iconKey=iconKey;
+        }
+        b.disabled=disabled||action.enabled===false;b.title=action.label;b.setAttribute('aria-label',action.label);
+        b.classList.toggle('hinted',this.hinted!=null&&JSON.stringify(action.move)===JSON.stringify(this.hinted));
+      });
+      // Reorder existing nodes only when the model actually changes its list.
+      groups[i].forEach((action,index)=>{const b=this.items.get(action.id).button;if(side.row.children[index]!==b)side.row.insertBefore(b,side.row.children[index]||null);});
+    });
+    for(const [id,item]of this.items)if(!seen.has(id)){item.button.remove();this.items.delete(id);}
   }
   hint(move){this.hinted=move;if(move)this.model.select(this.model.moveTarget(move));}
-  focus(){this.buttons[1].focus({preventScroll:true});}
+  focus(){[...this.items.values()].find(item=>!item.button.disabled)?.button.focus({preventScroll:true});}
+  destroy(){for(const {button}of this.items.values())button.remove();this.items.clear();}
 };
 
 </script>
@@ -3823,7 +3960,7 @@ window.PuzzleDialogs=class{
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../vendor/cube-1.3.2.js'),require('../shuffle.js'));else root.RubikPuzzle=factory(root.PhaseCube,root.Cube,root.PuzzleShuffle);})(globalThis,function(M,Cube,Shuffle){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../vendor/cube-1.3.2.js'),require('../shuffle.js'),require('../actions.js'));else root.RubikPuzzle=factory(root.PhaseCube,root.Cube,root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(M,Cube,Shuffle,Actions){
   const colors={U:'#e9dca6',R:'#dc8e70',F:'#739e87',D:'#c5ad63',L:'#a4b6c3',B:'#a196b6'};
   // A physical 2x2 is assembled in any of its 24 rigid orientations.
   const goals=[],seen=new Set(),queue=[new Cube()];
@@ -3848,6 +3985,7 @@ window.PuzzleDialogs=class{
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
     moveTarget(move){return move[0];}
     choices(){return M.FACES.map((key,i)=>({key,label:['Сверху','Справа','Спереди','Снизу','Слева','Сзади'][i]}));}
+    actions(callbacks){return Actions.turns(this,callbacks);}
     reset(seed=1730){this.cube.identity();this.path=[];this.history=[];this.moves=[];this.selected='F';this.shuffler=new Shuffle.Generator(seed);}
     shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){this.history.push({state:this.snapshot(),path:[...this.path],move});this.cube.move(move);this.path=M.appendPath(this.path,move);this.moves.push(move);this.selected=move[0];}
@@ -3958,7 +4096,7 @@ RubikPuzzle.mount=context=>PuzzleControl.mount({...context,module:RubikPuzzle,cr
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'));else root.TwiddleModel=factory(root.PuzzleShuffle);})(globalThis,function(Shuffle){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.TwiddleModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
   const HOME=[0,1,2,3,4,5],rings={A:[0,1,4,3],B:[1,2,5,4]},key=s=>s.join('');
   const inverse=m=>m.endsWith("'")?m[0]:m+"'";
@@ -3993,6 +4131,7 @@ RubikPuzzle.mount=context=>PuzzleControl.mount({...context,module:RubikPuzzle,cr
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
     moveTarget(move){return move[0];}
     choices(){return [{key:'A',label:'Левый блок'},{key:'B',label:'Правый блок'}];}
+    actions(callbacks){return Actions.turns(this,callbacks);}
     reset(seed=1730){this.current=[...HOME];this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);}
     shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){this.history.push({state:this.snapshot(),move});this.current=applyTo(this.current,move);this.moves.push(move);this.selected=move[0];}
@@ -4073,19 +4212,19 @@ TwiddlePuzzle.mount=context=>PuzzleControl.mount({...context,module:TwiddlePuzzl
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.FourierPuzzle=factory(root.FourierModel);})(globalThis,function(F){
-  return{id:'fourier',title:'Фурье-точки',progressLabel:'точек\nна месте',create:()=>new F.Model(),
-    manifest:Object.freeze({schema:'music-puzzle/2',id:'fourier',version:2,projection:'fourier-time/2',fragments:6,goalPolicy:'single-reference',operations:{A:4,B:4,C:4,D:4},stateCount:192})};
+  return{id:'fourier',title:'Фурье: фаза и модуль',progressLabel:'гармоник\nна месте',create:()=>new F.Model(),
+    manifest:Object.freeze({schema:'music-puzzle/2',id:'fourier',version:3,projection:'fourier-time/3',fragments:6,goalPolicy:'single-reference',stateCount:F.stateCount,
+      parameters:{phases:8,magnitudes:F.levels},operations:{phase:{order:8},magnitude:{kind:'bounded-step',levels:3},drag:{kind:'coefficient-edit'}}})};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Four complex coefficients as selectable points; operations live in the dock. */
-window.FourierView={create({scene,resources,model,tween}){
+/* One polar chart. Views preview edits; only the shared dispatcher commits them. */
+window.FourierView={create({scene,resources,model,tween,onEditPreview}){
   const T=THREE,F=FourierModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.z=6;camera.lookAt(0,0,0);
-  const scale=2.15,colors=[0x32746b,0xba703e,0x646ca1,0xa64f70],steps=40;
-  const paper=new T.Mesh(resources.own(new T.CircleGeometry(1.5,80)),resources.own(new T.MeshBasicMaterial({color:0xedeee2})));paper.position.z=-.08;root.add(paper);
+  const scale=1.15/.6,colors=[0x32746b,0xba703e,0x646ca1,0xa64f70],steps=40;
   function line(count,color,{dashed=false,opacity=1}={}){
     const g=resources.own(new T.BufferGeometry());g.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
     const m=resources.own(dashed?new T.LineDashedMaterial({color,dashSize:.045,gapSize:.035,transparent:true,opacity}):new T.LineBasicMaterial({color,transparent:true,opacity}));
@@ -4095,79 +4234,97 @@ window.FourierView={create({scene,resources,model,tween}){
     points.forEach((p,i)=>mesh.geometry.attributes.position.setXYZ(i,p[0],p[1],z));
     mesh.geometry.attributes.position.needsUpdate=true;mesh.geometry.computeBoundingSphere();mesh.computeLineDistances();
   }
-  const circle=line(81,0xc4cfbb,{opacity:.8});plot(circle,Array.from({length:81},(_,i)=>[1.33*Math.cos(i*Math.PI/40),1.33*Math.sin(i*Math.PI/40)]),-.03);
-  const xAxis=line(2,0xc4cfbb),yAxis=line(2,0xc4cfbb);plot(xAxis,[[-1.45,0],[1.45,0]],-.025);plot(yAxis,[[0,-1.45],[0,1.45]],-.025);
-  const connection=line(2,theme.accent),guides=[0,1].map(()=>line(2,theme.accent,{dashed:true,opacity:.35}));
-  const trails=[0,1].map(()=>line(steps+1,theme.accent,{dashed:true,opacity:.7}));
-  const headGeometry=resources.own(new T.ConeGeometry(.045,.11,8));
-  const heads=[0,1].map(()=>{const mesh=new T.Mesh(headGeometry,resources.own(new T.MeshBasicMaterial()));root.add(mesh);return mesh;});
-  const ringGeometry=resources.own(new T.RingGeometry(.17,.185,48)),dotGeometry=resources.own(new T.CircleGeometry(.14,40));
-  const haloGeometry=resources.own(new T.RingGeometry(.205,.225,48)),hitGeometry=resources.own(new T.CircleGeometry(1,40));
-  const hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
-  function numeral(number,color){
-    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
-    const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.font='700 78px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,64,66);
+  for(const radius of F.levels){const mesh=line(81,0xc4cfbb);plot(mesh,Array.from({length:81},(_,i)=>[radius*scale*Math.cos(i*Math.PI/40),radius*scale*Math.sin(i*Math.PI/40)]),-.03);}
+  plot(line(2,0xc4cfbb),[[-1.25,0],[1.25,0]],-.025);plot(line(2,0xc4cfbb),[[0,-1.25],[0,1.25]],-.025);
+  const targetLine=line(2,theme.ink,{dashed:true,opacity:.45}),trail=line(steps+1,theme.accent,{dashed:true,opacity:.7});
+  const dotGeometry=resources.own(new T.CircleGeometry(.12,40)),haloGeometry=resources.own(new T.RingGeometry(.155,.18,40));
+  const hitGeometry=resources.own(new T.CircleGeometry(1,40)),hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
+  const headGeometry=resources.own(new T.ConeGeometry(.055,.15,8));
+  function text(number,color){
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#ffffff';ctx.font='700 78px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,64,66);
     const map=resources.own(new T.CanvasTexture(canvas));map.colorSpace=T.SRGBColorSpace;
-    return new T.Mesh(resources.own(new T.PlaneGeometry(.28,.28)),resources.own(new T.MeshBasicMaterial({map,color,transparent:true,depthWrite:false})));
+    return new T.Mesh(resources.own(new T.PlaneGeometry(.27,.27)),resources.own(new T.MeshBasicMaterial({map,color,transparent:true,depthWrite:false})));
   }
+  const target=new T.Mesh(resources.own(new T.RingGeometry(.14,.16,48)),resources.own(new T.MeshBasicMaterial({color:theme.ink})));root.add(target);
   const points=model.choices().map((choice,i)=>{
-    const group=new T.Group(),goal=new T.Group();root.add(goal,group);
+    const group=new T.Group(),marker=new T.Group(),legend=new T.Group();root.add(group,legend);
     const material=resources.own(new T.MeshBasicMaterial({color:colors[i]}));
-    const marker=new T.Group();marker.add(new T.Mesh(dotGeometry,material));
-    const label=numeral(i+1,0xffffff);label.position.z=.02;marker.add(label);group.add(marker);
-    const halo=new T.Mesh(haloGeometry,resources.own(new T.MeshBasicMaterial({color:theme.accent,transparent:true})));halo.position.z=.01;group.add(halo);
-    goal.position.set(F.reference[i][0]*scale,F.reference[i][1]*scale,.06);
-    goal.add(new T.Mesh(ringGeometry,material));const targetLabel=numeral(i+1,colors[i]),r=Math.hypot(...F.reference[i]);
-    targetLabel.position.set(.27*F.reference[i][0]/r,.27*F.reference[i][1]/r,.005);goal.add(targetLabel);
+    marker.add(new T.Mesh(dotGeometry,material));const label=text(i+1,0xffffff);label.position.z=.02;marker.add(label);group.add(marker);
+    const halo=new T.Mesh(haloGeometry,resources.own(new T.MeshBasicMaterial({color:theme.accent})));halo.position.z=.01;group.add(halo);
     const hit=new T.Mesh(hitGeometry,hitMaterial);hit.position.z=.08;group.add(hit);
-    return{key:choice.key,index:i,group,marker,goal,targetLabel,halo,hit};
+    const legendLabel=text(i+1,colors[i]);legend.add(legendLabel);const legendHalo=new T.Mesh(haloGeometry,resources.own(new T.MeshBasicMaterial({color:theme.accent})));legend.add(legendHalo);
+    const legendHit=new T.Mesh(hitGeometry,hitMaterial);legend.add(legendHit);
+    const shaft=line(2,colors[i]),head=new T.Mesh(headGeometry,material);root.add(head);
+    return{key:choice.key,index:i,group,marker,halo,hit,legend,legendLabel,legendHalo,legendHit,shaft,head};
   });
-  let feedback={selected:model.selected,move:null},hover=null,animating=false,disposed=false,animationFrom=null,animationMove=null,display=model.coefficients(),previewKey=null;
+  let feedback={selected:model.selected,move:null},hover=null,animating=false,disposed=false,dragging=null,committed=null;
+  let animationFrom=null,animationMove=null,display=model.coefficients(),previewKey=null;
   function refresh(){
-    const selected=F.keys.indexOf(feedback.selected),pair=model.pair(feedback.selected);
+    const selected=F.keys.indexOf(feedback.selected);
     for(const p of points){
-      p.halo.visible=p.index===selected||p.index===pair[1]||p.key===hover;
-      p.halo.material.opacity=p.index===selected?1:p.key===hover ? .75 : .4;
-      const z=display[p.index];p.targetLabel.visible=z.some((v,j)=>Math.abs(v-F.reference[p.index][j])>1e-7);
+      const active=p.index===selected;p.halo.visible=p.legendHalo.visible=active;
+      p.shaft.material.opacity=active?1:.55;
+      const z=display[p.index],v=new T.Vector3(z[0]*scale,z[1]*scale,0),direction=v.clone().normalize();
+      p.group.position.set(v.x,v.y,.12);plot(p.shaft,[[0,0],[v.x,v.y]],.02);
+      p.head.position.copy(v.addScaledVector(direction,-.15));p.head.position.z=.03;
+      p.head.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),direction);
     }
-    const [a,b]=pair;plot(connection,[display[a].map(v=>v*scale),display[b].map(v=>v*scale)],.04);
-    pair.forEach((id,i)=>{guides[i].material.color.setHex(colors[id]);plot(guides[i],[display[id].map(v=>v*scale),F.reference[id].map(v=>v*scale)],.035);});
-    const move=animating?animationMove:feedback.move,from=animating?animationFrom:model.snapshot();
-    const nextKey=move?from+':'+move:null;
-    trails.forEach((mesh,i)=>{
-      mesh.visible=heads[i].visible=!!move;
-      if(move&&nextKey!==previewKey){
-        const id=model.pair(model.moveTarget(move))[i],path=Array.from({length:steps+1},(_,k)=>F.interpolate(from,move,k/steps)[id].map(v=>v*scale));
-        mesh.material.color.setHex(colors[id]);plot(mesh,path,.045);
-        const end=new T.Vector3(...path.at(-1),.05),previous=new T.Vector3(...path.at(-2),.05),direction=end.clone().sub(previous).normalize();
-        heads[i].material.color.setHex(colors[id]);heads[i].position.copy(end.addScaledVector(direction,-.055));heads[i].quaternion.setFromUnitVectors(new T.Vector3(0,1,0),direction);
-      }
-    });
-    previewKey=nextKey;
+    const goal=F.reference[selected].map(v=>v*scale);target.position.set(...goal,.07);plot(targetLine,[[0,0],goal],.01);
+    const move=animating?animationMove:feedback.move,from=animating?animationFrom:model.snapshot(),key=move?JSON.stringify([from,move]):null;
+    trail.visible=!!move&&!dragging&&model.validMove(move,from);
+    if(trail.visible&&key!==previewKey){
+      const id=F.keys.indexOf(model.moveTarget(move));
+      plot(trail,Array.from({length:steps+1},(_,k)=>F.interpolate(from,move,k/steps)[id].map(v=>v*scale)),.04);
+    }
+    previewKey=key;
   }
-  function draw(coefficients){
-    display=coefficients;points.forEach(p=>p.group.position.set(coefficients[p.index][0]*scale,coefficients[p.index][1]*scale,.10));refresh();
-  }
-  function sync(){if(!animating&&!disposed)draw(model.coefficients());}
+  function draw(values){display=values;refresh();}
+  function sync(){if(!animating&&!dragging&&!disposed)draw(model.coefficients());}
   const view={
-    camera,sync,dispose(){disposed=true;},
+    camera,sync,dispose(){disposed=true;dragging=null;},
     resize(aspect,width,height){
       camera.left=-1.9*aspect;camera.right=1.9*aspect;
-      const unit=Math.max(1,14*3.8/(height*.14)),hit=Math.max(.25,23*3.8/height);
-      points.forEach(p=>{p.marker.scale.setScalar(unit);p.halo.scale.setScalar(unit);p.goal.scale.setScalar(unit);p.hit.scale.setScalar(hit);});
+      const unit=Math.max(1,14*3.8/(height*.12)),hit=Math.max(.22,23*3.8/height),edge=1.9-hit-.06;
+      points.forEach((p,i)=>{
+        p.marker.scale.setScalar(unit);p.halo.scale.setScalar(unit);p.hit.scale.setScalar(hit);
+        p.legendLabel.scale.setScalar(unit);p.legendHalo.scale.setScalar(unit);p.legendHit.scale.setScalar(hit);
+        p.legend.position.set((i%2?1:-1)*edge,(i<2?1:-1)*edge,.15);
+      });target.scale.setScalar(unit);
     },
-    pickTargets:()=>points.map(p=>p.hit),
+    pickTargets:()=>points.flatMap(p=>[p.hit,p.legendHit]),
     hit(intersection){
-      // Generous hit disks can overlap on phones; select the nearest visible
-      // centre rather than the first mesh in the raycaster's equal-depth list.
-      const at=root.worldToLocal(intersection.point.clone());
-      const p=points.reduce((best,p)=>p.group.position.distanceToSquared(at)<best.group.position.distanceToSquared(at)?p:best);
-      return{key:p.key,pieceId:p.index,selectOnly:true};
+      const at=root.worldToLocal(intersection.point.clone()),targets=points.flatMap(p=>[{p,kind:'point',group:p.group},{p,kind:'coefficient-label',group:p.legend}]);
+      targets.sort((a,b)=>a.group.position.distanceToSquared(at)-b.group.position.distanceToSquared(at));
+      // Coincident tips retain the selected coefficient. The fixed numbered
+      // labels in the same Three model can always select each hidden vector.
+      const first=targets[0],selected=targets.find(t=>t.p.key===model.selected&&t.kind===first.kind&&Math.abs(t.group.position.distanceToSquared(at)-first.group.position.distanceToSquared(at))<1e-5),chosen=selected||first;
+      return{key:chosen.p.key,pieceId:chosen.p.index,selectOnly:true,kind:chosen.kind,draggable:chosen.kind==='point'};
     },
-    locations(){root.updateMatrixWorld(true);return points.map(p=>({key:p.key,kind:'point',selectOnly:true,pieceId:p.index,
-      point:p.group.getWorldPosition(new T.Vector3()),region:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>p.hit.localToWorld(new T.Vector3(x,y,0)))}));},
-    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
+    locations(){root.updateMatrixWorld(true);return points.flatMap(p=>[[p.group,p.hit,'point'],[p.legend,p.legendHit,'coefficient-label']].map(([group,hit,kind])=>({key:p.key,kind,selectOnly:true,draggable:kind==='point',pieceId:p.index,
+      point:group.getWorldPosition(new T.Vector3()),region:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>hit.localToWorld(new T.Vector3(x,y,0)))})));},
+    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;},
+    beginDrag(hit){
+      if(!hit.draggable||animating)return false;
+      dragging={key:hit.key,before:model.snapshot(),move:null};committed=null;return true;
+    },
+    dragTo(world){
+      if(!dragging||!world)return;
+      const p=root.worldToLocal(world.clone()),i=F.keys.indexOf(dragging.key),length=Math.hypot(p.x,p.y);
+      const previous=display[i],angle=length>1e-6?Math.atan2(p.y,p.x):Math.atan2(previous[1],previous[0]),radius=Math.max(.2,Math.min(.6,length/scale));
+      const z=[radius*Math.cos(angle),radius*Math.sin(angle)],values=model.coefficients(dragging.before);values[i]=z;draw(values);
+      const move=model.editMove(dragging.key,model.snap(z),dragging.before);
+      if(JSON.stringify(move)!==JSON.stringify(dragging.move)){dragging.move=move;onEditPreview(move);}
+    },
+    endDrag(cancelled){
+      if(!dragging)return null;const old=dragging;dragging=null;onEditPreview(null);
+      if(!cancelled&&old.move&&model.validMove(old.move)){
+        committed=JSON.stringify(old.move);draw(model.coefficients(model.applyTo(old.before,old.move)));return old.move;
+      }
+      sync();return null;
+    },
     async animate(move,before,{duration=360}={}){
+      if(committed===JSON.stringify(move)){committed=null;draw(model.coefficients(model.applyTo(before,move)));return;}
       animating=true;animationFrom=before;animationMove=move;
       try{await tween('move',duration,t=>draw(F.interpolate(before,move,t)));}
       finally{animating=false;animationFrom=null;animationMove=null;sync();}
@@ -4222,7 +4379,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/points1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/polar1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});

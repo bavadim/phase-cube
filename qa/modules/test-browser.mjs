@@ -131,7 +131,7 @@ try{
  await p.goto(runtime.url+'/steel-shift-cube.html?debug=1&puzzle=twiddle&song=steel-shift');await p.waitForFunction(()=>window.phaseCubeApp);await p.evaluate(()=>phaseCubeApp.ready);await offline.setOffline(true);
  for(const puzzleId of ['twiddle','rubik']){
   await p.evaluate(puzzleId=>phaseCubeApp.choosePuzzle(puzzleId),puzzleId);await p.locator('#start').click();await settled(p);await p.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
-  await p.locator('#hint').click();await p.locator('.turn-button.hinted').click();await settled(p);await p.locator('#pause').click();await settled(p);
+  await p.locator('#hint').click();await p.locator('.puzzle-action.hinted').click();await settled(p);await p.locator('#pause').click();await settled(p);
  }
  report.offline=true;report.offlineLoad='one HTML over HTTP, linked requests blocked, then offline';await offline.close();assert.deepEqual(report.errors,[]);report.status='PASS';
 }catch(e){report.status='FAIL';report.failure=e.stack;throw e;}
