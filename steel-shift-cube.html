@@ -69,6 +69,8 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 .primary-button:hover:not(:disabled) { background:#326c50; }
 .outline-button { margin-top:.7rem; color:var(--green); background:transparent; }
 .outline-button:hover { background:#e9efdf; }
+.report-button { display:block; width:100%; min-height:44px; margin-top:.35rem; padding:.4rem; border:0; background:transparent; color:var(--muted); font-size:.9rem; }
+.result-dialog .report-button { grid-column:1 / -1; }
 .result-caption { margin:0 0 .55rem; color:var(--green); font-size:1rem; }
 /* Inside the modal top layer; fixed to the viewport and transparent to input. */
 .celebration { position:fixed; inset:0; z-index:7; pointer-events:none; overflow:hidden; }
@@ -2547,7 +2549,7 @@ lanes.noise = noiseSound(stack(
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PhaseCubeConfig=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
   const palette=['#507c63','#739774','#af7658','#c5966a','#588c91','#809eaf','#a183a0','#ab7270'];
-  return Object.freeze({palette,volume:1,outputGain:1,scrambleLength:3,shufflePreviewMs:650,shuffleMoveMs:650,shuffleHoldMs:300,defaultPuzzle:'twiddle',defaultSong:'turkish-circuit'});
+  return Object.freeze({palette,volume:1,outputGain:1,scrambleLength:3,shufflePreviewMs:80,shuffleMoveMs:200,shuffleHoldMs:15,defaultPuzzle:'twiddle',defaultSong:'turkish-circuit'});
 });
 
 </script>
@@ -2577,6 +2579,47 @@ lanes.noise = noiseSound(stack(
   const shouldPlay=state=>['playing','shuffling','won'].includes(state.phase)||state.mode==='target';
   const canMove=state=>state.phase==='playing';
   return {initial,transition,shouldPlay,canMove};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Local bounded flight recorder; export is initiated by the player, no endpoint. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(root);else root.PuzzleDiagnostics=factory(root);})(globalThis,function(root){
+  'use strict';
+  const KEY='music-puzzle-report/1',brief=e=>({name:String(e?.name||'Error'),message:String(e?.message||e).slice(0,1500),stack:String(e?.stack||'').slice(0,4000)});
+  class Recorder{
+    constructor({build,snapshot=()=>({}),capacity=400,storage}={}){
+      Object.assign(this,{build,snapshot,capacity});this.started=new Date().toISOString();this.events=[];this.sequence=0;
+      try{this.storage=storage===undefined?root.localStorage:storage;const saved=this.storage?.getItem(KEY);this.previous=saved&&saved.length<250000?JSON.parse(saved):null;}catch{this.storage=null;this.previous=null;}
+      this.listeners=new AbortController();
+      root.addEventListener?.('error',e=>{this.record('js.error',brief(e.error||e.message));this.save();},{signal:this.listeners.signal});
+      root.addEventListener?.('unhandledrejection',e=>{this.record('js.rejection',brief(e.reason));this.save();},{signal:this.listeners.signal});
+      root.addEventListener?.('pagehide',()=>this.save(),{signal:this.listeners.signal});
+      this.record('boot');this.timer=setInterval(()=>this.save(),5000);this.timer.unref?.();
+    }
+    record(type,data={}){this.events.push({seq:++this.sequence,ms:Math.round(performance.now()),type,...data});if(this.events.length>this.capacity)this.events.splice(0,this.events.length-this.capacity);}
+    report(previous=true){
+      let state;try{state=this.snapshot();}catch(e){state={snapshotError:brief(e)};}
+      const n=root.navigator,v=root.visualViewport;
+      return{schema:'music-puzzle-report/1',build:this.build,started:this.started,created:new Date().toISOString(),
+        environment:{userAgent:n?.userAgent,language:n?.language,touchPoints:n?.maxTouchPoints,viewport:[root.innerWidth,root.innerHeight],visualViewport:v?[v.width,v.height,v.scale]:null,pixelRatio:root.devicePixelRatio,visibility:root.document?.visibilityState},
+        state,events:[...this.events],...(previous&&this.previous?{previous:this.previous}:{})};
+    }
+    save(){try{this.storage?.setItem(KEY,JSON.stringify(this.report(false)));}catch{}}
+    async share(){
+      this.record('report.export');this.save();
+      const file=new File([JSON.stringify(this.report(),null,2)],'phase-cube-report-'+Date.now()+'.json',{type:'application/json'});
+      if(root.navigator?.canShare?.({files:[file]})){
+        try{await root.navigator.share({files:[file],title:'Phase Cube — отчёт об ошибке'});return 'shared';}
+        catch(e){if(e.name==='AbortError')return 'cancelled';this.record('report.share-failed',brief(e));}
+      }
+      const url=URL.createObjectURL(file),a=root.document.createElement('a');a.href=url;a.download=file.name;root.document.body.append(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);return 'downloaded';
+    }
+    destroy(){clearInterval(this.timer);this.listeners.abort();}
+  }
+  return {Recorder,brief};
 });
 
 </script>
@@ -3434,16 +3477,21 @@ window.PuzzleGraphics = (() => {
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* One pointer subscription per canvas; puzzle adapters receive semantic hits. */
 window.PuzzlePointer = class {
-  constructor(canvas,{enabled,pick,select,hover,drag}){
+  constructor(canvas,{enabled,pick,select,hover,drag,log=()=>{}}){
     Object.assign(this,{canvas,enabled,pick,select,hover,drag});
     this.events=new AbortController();this.gesture=null;
     const listen=(type,fn)=>canvas.addEventListener(type,fn,{signal:this.events.signal});
     listen('pointerdown',event=>{
-      if(event.button!==0||event.isPrimary===false||this.gesture||!enabled())return;
+      log('pointer.down',{id:event.pointerId,kind:event.pointerType,x:event.clientX,y:event.clientY,enabled:enabled(),previous:this.gesture?.id??null});
+      if(event.button!==0||event.isPrimary===false||!enabled())return;
+      // A new primary down cannot belong to the previous press. Recover when
+      // the OS/browser omitted its up/cancel instead of locking input forever.
+      if(this.gesture)this.cancel('new-primary-down');
       this.gesture={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,
         slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false};
       hover(this.gesture.hit);
-      canvas.setPointerCapture(event.pointerId);event.preventDefault();
+      try{canvas.setPointerCapture(event.pointerId);}catch(e){log('pointer.capture-failed',{message:e.message});}
+      event.preventDefault();
     });
     listen('pointermove',event=>{
       const g=this.gesture;
@@ -3453,20 +3501,29 @@ window.PuzzlePointer = class {
       if(g.moved&&enabled()){hover(null);drag(event.clientX-g.x,event.clientY-g.y);}
       g.x=event.clientX;g.y=event.clientY;
     });
-    listen('pointerup',event=>{
+    const finish=event=>{
+      log('pointer.up',{id:event.pointerId,gesture:this.gesture?.id??null,enabled:enabled()});
       const g=this.gesture;if(!g||g.id!==event.pointerId)return;
       this.cancel();
       if(!g.moved&&enabled()){
-        const hit=g.hit||pick(event.clientX,event.clientY);if(hit)select(hit);
+        const hit=g.hit||pick(event.clientX,event.clientY);log('pointer.hit',{key:hit?.key??null,inverted:hit?.inverted});if(hit)select(hit);
       }
       hover(event.pointerType==='touch'||!enabled()?null:pick(event.clientX,event.clientY));
-    });
+    };
+    listen('pointerup',finish);
     listen('pointercancel',event=>{if(this.gesture?.id===event.pointerId){this.cancel();hover(null);}});
-    listen('lostpointercapture',()=>this.cancel());
+    listen('lostpointercapture',event=>{
+      log('pointer.lost-capture',{id:event.pointerId,gesture:this.gesture?.id??null});
+      if(this.gesture?.id===event.pointerId&&!canvas.hasPointerCapture(event.pointerId))this.cancel('lost-capture');
+    });
     listen('pointerleave',()=>{if(!this.gesture)hover(null);});
+    window.addEventListener('pointerup',event=>{if(event.target!==canvas&&this.gesture?.id===event.pointerId)finish(event);},{signal:this.events.signal});
+    window.addEventListener('pointercancel',event=>{if(this.gesture?.id===event.pointerId)this.cancel('window-cancel');},{signal:this.events.signal});
+    window.addEventListener('blur',()=>this.cancel('blur'),{signal:this.events.signal});
+    this.log=log;
   }
-  cancel(){
-    const id=this.gesture?.id;this.gesture=null;
+  cancel(reason='cancel'){
+    const id=this.gesture?.id;if(id!==undefined)this.log?.('pointer.cancel',{id,reason});this.gesture=null;
     if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);
   }
   destroy(){this.events.abort();this.cancel();}
@@ -3477,8 +3534,8 @@ window.PuzzlePointer = class {
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* A persistent Three renderer, raycaster and resize/input boundary. No game rules or audio clock. */
 window.PuzzleStage = class {
-  constructor(element){
-    this.element=element;this.active=null;this.disabled=true;this.timelines=new Map();this.dirty=true;
+  constructor(element,{log=()=>{},onIssue=()=>{},onRestore=()=>{}}={}){
+    this.element=element;this.active=null;this.disabled=true;this.contextLost=false;this.timelines=new Map();this.dirty=true;
     this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -3486,15 +3543,15 @@ window.PuzzleStage = class {
     this.targets=document.createElement('div');this.targets.className='sr-only';element.append(this.targets);
     this.ray=new THREE.Raycaster();
     this.pointer=new PuzzlePointer(this.canvas,{
-      enabled:()=>!!this.active&&!this.disabled,
+      enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
       pick:(x,y)=>this.pick(x,y),select:hit=>this.active?.onSelect(hit),
       hover:hit=>{this.active?.view.hover?.(hit);this.active?.onHover?.(hit);this.dirty=true;this.canvas.style.cursor=hit?'pointer':this.active?.view.drag?'grab':'default';},
       drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;}
     });
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(element);
     this.events=new AbortController();
-    this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();element.dataset.context='lost';},{signal:this.events.signal});
-    this.canvas.addEventListener('webglcontextrestored',()=>{delete element.dataset.context;this.dirty=true;},{signal:this.events.signal});
+    this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.contextLost=true;element.dataset.context='lost';log('graphics.lost');onIssue('Изображение восстанавливается. После восстановления нажмите «Продолжить».');},{signal:this.events.signal});
+    this.canvas.addEventListener('webglcontextrestored',()=>{this.contextLost=false;delete element.dataset.context;log('graphics.restored');this.resize();onRestore();},{signal:this.events.signal});
     this.resize();
   }
   mount(createView,context){
@@ -3554,7 +3611,7 @@ window.PuzzleStage = class {
       const progress=Math.min(1,(now-t.start)/t.duration);t.step(progress*progress*(3-2*progress));this.dirty=true;
       if(progress===1){this.timelines.delete(key);t.resolve(true);}
     }
-    if(this.active&&this.dirty){this.renderer.render(this.active.scene,this.active.view.camera);this.dirty=false;}
+    if(this.active&&this.dirty&&!this.contextLost){this.renderer.render(this.active.scene,this.active.view.camera);this.dirty=false;}
   }
   unmount(){
     this.pointer.cancel();for(const key of this.timelines.keys())this.stopTween(key);
@@ -3562,7 +3619,8 @@ window.PuzzleStage = class {
     this.targets.replaceChildren();this.renderer.renderLists.dispose();this.canvas.style.cursor='default';this.dirty=true;
   }
   info(){return {canvasCount:this.element.querySelectorAll('canvas').length,geometries:this.renderer.info.memory.geometries,
-    textures:this.renderer.info.memory.textures,tweens:this.timelines.size,puzzle:this.element.dataset.puzzle};}
+        textures:this.renderer.info.memory.textures,tweens:this.timelines.size,puzzle:this.element.dataset.puzzle,contextLost:this.contextLost,disabled:this.disabled,
+        pointer:this.pointer.gesture?{id:this.pointer.gesture.id,moved:this.pointer.gesture.moved}:null};}
   destroy(){this.unmount();this.pointer.destroy();this.events.abort();this.resizeObserver.disconnect();this.renderer.dispose();this.element.replaceChildren();}
 };
 
@@ -3650,7 +3708,7 @@ window.PuzzlePlayer=class{
     this.hint=new PuzzleHint(host.querySelector('.hint-host'),onHint);
   }
   update({disabled,canUndo,canHint,hinted,phase,busy,song}){
-    this.undo.disabled=disabled||!canUndo;this.pause.disabled=busy||!['playing','paused'].includes(phase);
+    this.undo.disabled=disabled||!canUndo;this.pause.disabled=!['playing','paused'].includes(phase);
     this.pause.setAttribute('aria-pressed',String(phase==='paused'));this.pause.setAttribute('aria-label',phase==='paused'?'Продолжить':'Пауза');
     this.pause.querySelector('#pause-icon').textContent=phase==='paused'?'▶':'Ⅱ';this.pause.querySelector('#pause-label').textContent=phase==='paused'?'Продолжить':'Пауза';
     this.seek.disabled=busy||!song||phase==='won';if(song)this.seek.max=song.bars-.25;
@@ -3663,15 +3721,25 @@ window.PuzzlePlayer=class{
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.PuzzleDialogs=class{
-  constructor(host,{onStart,onChoose,onAgain,onMenu,onRetry=()=>location.reload()}){
+  constructor(host,{onStart,onChoose,onAgain,onMenu,onRetry=()=>location.reload(),onReport}){
     host.innerHTML='<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title"><div class="record-mark" aria-hidden="true"><span>◈</span></div><div class="setup-choices"><label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled></select></label><label class="song-choice"><span>Головоломка</span><select id="puzzle-select" aria-label="Головоломка" disabled></select></label></div><h1 id="session-title">Музыкальная головоломка</h1><p id="song-meta" class="song-meta"></p><p id="session-feedback" class="session-feedback" role="status">Загрузка…</p><button id="start" class="primary-button" disabled>Начать</button></dialog><dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title"><div id="celebration" class="celebration" aria-hidden="true" hidden></div><p class="result-caption">Композиция собрана</p><h2 id="result-title"></h2><p id="result-song" class="song-meta"></p><a id="download-mp3" class="primary-button" download>Скачать трек · MP3</a><button id="play-again" class="outline-button">Ещё раз</button><button id="choose-song" class="outline-button">Выбрать композицию</button></dialog>';
     this.root=host;this.$=id=>host.querySelector('#'+id);
     this.$('start').onclick=()=>this.error?onRetry():onStart();this.$('play-again').onclick=onAgain;this.$('choose-song').onclick=onMenu;
     for(const id of ['song-select','puzzle-select'])this.$(id).onchange=()=>onChoose({songId:this.$('song-select').value,puzzleId:this.$('puzzle-select').value});
     host.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>e.preventDefault()));
+    if(onReport)for(const dialog of host.querySelectorAll('dialog')){
+      const button=document.createElement('button');button.type='button';button.className='report-button';button.textContent='Отчёт об ошибке';
+      button.onclick=async()=>{
+        button.disabled=true;
+        try{const result=await onReport();button.textContent=result==='downloaded'?'Отчёт сохранён':result==='shared'?'Отчёт отправлен':'Отчёт об ошибке';}
+        catch{button.textContent='Не удалось сохранить отчёт — повторить';}
+        finally{button.disabled=false;}
+      };
+      dialog.append(button);
+    }
   }
   catalog(songs,puzzles){for(const[id,list]of [['song-select',songs],['puzzle-select',puzzles]])this.$(id).replaceChildren(...list.map(item=>{const o=document.createElement('option');o.value=item.id;o.textContent=item.title;return o;}));}
-  update({song,puzzleId,phase,loading,starting,error,loadingMessage}){
+  update({song,puzzleId,phase,loading,starting,error,loadingMessage,notice,blocked}){
     this.error=error;
     if(song){
       const duration=Math.floor(song.stats.seconds/60)+':'+String(Math.floor(song.stats.seconds%60)).padStart(2,'0');
@@ -3681,8 +3749,8 @@ window.PuzzleDialogs=class{
       const link=this.$('download-mp3');link.href=globalThis.PhaseCubeEmbeddedAssets?.[song.download]||song.download;link.download=song.title+'.mp3';
     }
     this.$('puzzle-select').value=puzzleId;
-    this.$('session-feedback').textContent=error?'Не удалось запустить: '+error:loading?(loadingMessage||'Загружаем композицию…'):starting?'Включаем звук…':'';
-    this.$('start').disabled=loading||starting||(!song&&!error);this.$('start').textContent=error?'Повторить':phase==='paused'?'Продолжить':'Начать';
+    this.$('session-feedback').textContent=error?'Не удалось запустить: '+error:loading?(loadingMessage||'Загружаем композицию…'):starting?'Включаем звук…':notice||'';
+    this.$('start').disabled=loading||starting||blocked||(!song&&!error);this.$('start').textContent=error?'Повторить':phase==='paused'?'Продолжить':'Начать';
     for(const id of ['song-select','puzzle-select'])this.$(id).disabled=loading||starting;
     for(const[id,open]of [['session-overlay',phase==='ready'||phase==='paused'||starting],['result-dialog',phase==='won']]){
       const d=this.$(id);if(open&&!d.open)d.showModal();else if(!open&&d.open)d.close();
@@ -3857,12 +3925,12 @@ window.RubikView = {create({scene,resources,model,tween}){
     },
     feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
     drag(x,y){root.rotation.y+=x*.009;root.rotation.x+=y*.009;},
-    focus(face){
+    focus(face,duration=320){
       const from=root.quaternion.clone(),to=new T.Quaternion().setFromUnitVectors(new T.Vector3(...normals[face]),new T.Vector3(0,0,1));
       // Keep neighbouring faces wide enough to tap: a nearly head-on focus
       // leaves subpixel side faces that WebKit's integer touch coordinates miss.
       to.premultiply(new T.Quaternion().setFromEuler(new T.Euler(.4,-.56,0)));
-      return tween('camera',320,t=>root.quaternion.slerpQuaternions(from,to,t));
+      return tween('camera',duration,t=>root.quaternion.slerpQuaternions(from,to,t));
     },
     async animate(move,before,{duration=280,demonstration=false}={}){
       animating=true;
@@ -3870,7 +3938,7 @@ window.RubikView = {create({scene,resources,model,tween}){
       for(const {group,position}of cubies)if(position.dot(normal)>.1)pivot.add(group);
       const angle=(move.endsWith("'")?1:-1)*(move.endsWith('2')?Math.PI:Math.PI/2);
       try{
-        if(demonstration){await view.focus(move[0]);if(disposed)return;}
+        if(demonstration){const focused=await view.focus(move[0],Math.min(80,duration/2));if(disposed||!focused)return;}
         await tween('move',duration,t=>pivot.quaternion.setFromAxisAngle(normal,angle*t));
       }
       finally{animating=false;sync();root.remove(pivot);}
@@ -4108,7 +4176,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug');
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/input1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -4116,6 +4184,8 @@ window.PhaseCubeCelebration=(()=>{
   let session=S.initial(),seed=Number(params.get('seed'))||1730,loading=true,starting=false,busy=false,seeking=false,error=null,loadToken=0;
   let preparation=null,loadAbort=null,presentation=null,loadError=false,loadingMessage='Запускаем музыкальный движок…';
   let shuffle=null,shuffleAbort=null,playToken=0;
+  let notice='',lastFrame=performance.now();
+  const recorder=new PuzzleDiagnostics.Recorder({build,snapshot:reportSnapshot});
   let orbit=null,rows=[],preview=null,hintMove=null,affected=[],pulseTimer,repl,soundReady,analysisData,lastDiagnostics=0;
   const transport=new PhaseCubeTransport(strudel,{onChange:()=>updateUI(),onError:fail,outputGain:C.outputGain});
   const canMove=()=>!!model&&session.phase==='playing'&&transport.running&&!loading&&!starting&&!busy&&!seeking&&!transport.pending;
@@ -4125,14 +4195,24 @@ window.PhaseCubeCelebration=(()=>{
     onPause:()=>dispatch(session.phase==='playing'?'pause':'start').catch(fail),onHint:showHint});
   const dialogs=new PuzzleDialogs($('dialogs'),{onStart:()=>dispatch('start').catch(fail),onChoose:choice=>choose(choice).catch(fail),
     onRetry:()=>{if(loadError||!song)location.reload();else{error=null;dispatch('start').catch(fail);}},
-    onAgain:()=>restart().catch(fail),onMenu:()=>choose().catch(fail)});
+    onAgain:()=>restart().catch(fail),onMenu:()=>choose().catch(fail),onReport:()=>recorder.share()});
   const celebration=PhaseCubeCelebration.create($('celebration'));
-  function cancelShuffle(){
+  function cancelOperation(){
     ++playToken;
-    if(shuffleAbort){shuffleAbort.abort();shuffleAbort=null;presentation?.stopTween('camera');presentation?.stopTween('move');}
+    shuffleAbort?.abort();shuffleAbort=null;presentation?.stopTween('camera');presentation?.stopTween('move');presentation?.pointer.cancel();
   }
   const newShuffle=()=>({total:Math.max(1,Math.floor(C.scrambleLength)),moves:[],complete:false});
-  function fail(e){cancelShuffle();console.error(e);error=String(e.message||e);starting=false;loading=false;busy=false;session=S.transition(session,'pause');updateUI();}
+  const lockState=()=>({phase:session.phase,busy,starting,seeking,pending:!!transport.pending,context:strudel.getAudioContext().state});
+  function stopSound(){try{return transport.stop().catch(e=>recorder.record('audio.stop-error',PuzzleDiagnostics.brief(e)));}catch(e){recorder.record('audio.stop-error',PuzzleDiagnostics.brief(e));return Promise.resolve();}}
+  function pauseSession(message=''){
+    recorder.record('session.pause',{message,before:lockState()});notice=message;cancelOperation();starting=false;busy=false;seeking=false;
+    if(session.phase!=='won')session=S.transition(session,'pause');
+    updateUI();const stopped=stopSound();recorder.save();return stopped;
+  }
+  function fail(e){
+    recorder.record('session.error',{...PuzzleDiagnostics.brief(e),before:lockState()});console.error(e);error=String(e.message||e);loading=false;
+    pauseSession();
+  }
   function clearHint(){hintMove=null;preview=null;control?.clearHint();}
   function updateRows(){
     if(!music||!model||!orbit)return;
@@ -4152,13 +4232,13 @@ window.PhaseCubeCelebration=(()=>{
     control?.update(!canMove());
     player.update({disabled:!canMove(),canUndo:!!model?.history.length,canHint:!!model?.hint(),hinted:hintMove,phase:session.phase,
       busy:loading||starting||busy||seeking||!!transport.pending,song});
-    dialogs.update({song,puzzleId:module.id,phase:session.phase,loading,starting,error,loadingMessage});
+    dialogs.update({song,puzzleId:module.id,phase:session.phase,loading,starting,error,loadingMessage,notice,blocked:!!presentation?.contextLost});
     if(won)celebration.play();
     updateRows();
   }
   async function choose({songId=song?.id||C.defaultSong,puzzleId=module.id}={}){
     const token=++loadToken,nextModule=PuzzleRegistry.get(puzzleId);
-    cancelShuffle();starting=false;busy=false;
+    recorder.record('session.choose',{songId,puzzleId});cancelOperation();starting=false;busy=false;notice='';
     loadAbort?.abort();const controller=new AbortController();loadAbort=controller;
     loading=true;loadError=false;error=null;loadingMessage='Готовим композицию и головоломку…';session=S.initial();clearHint();updateUI();
     try{
@@ -4180,8 +4260,18 @@ window.PhaseCubeCelebration=(()=>{
     if(!transport.want)await transport.start(()=>({pattern:makePattern(),meta:metadata()}),song.bpm,C.volume,null,soundReady);
   }
   function updateAudio(){if(transport.running&&music)transport.queue(makePattern(),metadata());}
+  async function awaitAudio(token){
+    const deadline=performance.now()+4000;
+    while(transport.pending&&token===playToken){
+      if(strudel.getAudioContext().state!=='running'){pauseSession('Звук был прерван. Нажмите «Продолжить».');return false;}
+      if(performance.now()>deadline)throw new Error('Звук не ответил. Сохраните отчёт об ошибке и попробуйте продолжить.');
+      await new Promise(resolve=>setTimeout(resolve,25));
+    }
+    return token===playToken;
+  }
   async function demonstrateShuffle(level){
-    const controller=new AbortController();shuffleAbort=controller;
+    const controller=new AbortController(),token=playToken;shuffleAbort=controller;
+    recorder.record('shuffle.begin');
     const active=()=>!controller.signal.aborted&&shuffle===level&&session.phase==='shuffling'&&transport.running;
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     try{
@@ -4189,23 +4279,29 @@ window.PhaseCubeCelebration=(()=>{
       if(!level.moves.length)await wait(C.shufflePreviewMs);
       while(active()&&level.moves.length<level.total){
         const before=model.snapshot(),move=model.shuffle(),changes=music.predict(move,before).changed;
+        recorder.record('shuffle.move',{move});
         level.moves.push(move);affected=changes;
         // shuffle() already advanced the model. Start the animation before any
         // UI sync, so the view keeps the previous geometry until the turn ends.
         const animation=control.animate(move,before,{demonstration:true,duration:C.shuffleMoveMs});
         updateUI();updateAudio();await animation;
-        while(active()&&transport.pending)await new Promise(requestAnimationFrame);
         if(!active())return;
         await wait(C.shuffleHoldMs);
       }
+      // Show three turns in about a second; do not wait for an audio quarter
+      // after every visual step. The final mix must settle before unlocking.
+      if(active()&&!await awaitAudio(token))return;
       if(active()){
+        recorder.record('shuffle.complete');
         level.complete=true;clearHint();control.resetInteraction();affected=[];
         session=S.transition(session,'shuffle-complete');
       }
     }finally{if(shuffleAbort===controller)shuffleAbort=null;}
   }
   async function dispatch(action){
+    if(action==='pause')return pauseSession();
     if(loading||starting||busy)return;
+    recorder.record('session.start',{before:lockState()});notice='';
     const token=++playToken,level=shuffle,demonstration=action==='start'&&!level.complete;
     starting=action==='start';busy=demonstration;session=S.transition(session,demonstration?'shuffle-start':action);clearHint();updateUI();
     try{
@@ -4221,15 +4317,17 @@ window.PhaseCubeCelebration=(()=>{
   async function perform(move,isUndo=false){
     if(!canMove()||(isUndo?!model.history.length:!model.validMove(move)))return;
     if(isUndo)move=model.inverse(model.history[model.history.length-1].move);
-    const before=model.snapshot(),changes=music.predict(move,before).changed;
+    const token=playToken,before=model.snapshot(),changes=music.predict(move,before).changed;
+    recorder.record('move.begin',{move,isUndo,before});
     clearHint();model.select(model.moveTarget(move));busy=true;affected=changes;
     try{
       const animation=control?.animate(move,before);
       if(isUndo)model.undo();else model.apply(move);
-      updateUI();updateAudio();await animation;
-      while(transport.pending)await new Promise(requestAnimationFrame);
+      updateUI();updateAudio();await PuzzleAsync.wait(animation,'Анимация не завершилась. Сохраните отчёт об ошибке.',4000);
+      if(!await awaitAudio(token))return;
+      recorder.record('move.end',{move,state:model.snapshot()});
       pulse(changes);
-    }finally{busy=false;updateUI();}
+    }finally{if(token===playToken){busy=false;updateUI();}}
   }
   const turn=move=>perform(move),undo=()=>perform(null,true);
   function showHint(){
@@ -4238,7 +4336,7 @@ window.PhaseCubeCelebration=(()=>{
   }
   async function restart(){
     if(loading||busy||seeking||starting)return;
-    cancelShuffle();
+    cancelOperation();
     // stop() mutes synchronously; start() waits for its drain internally. Do not
     // await here and lose Safari's trusted activation on the replay button.
     transport.stop();transport.cursor=0;clearHint();celebration.clear();clearTimeout(pulseTimer);affected=[];
@@ -4246,12 +4344,17 @@ window.PhaseCubeCelebration=(()=>{
   }
   async function seekSong(bar){
     if(!song||busy||seeking||starting||transport.pending||session.phase==='won')return;
-    seeking=true;updateUI();const playing=transport.want;
-    try{await transport.stop();transport.cursor=Math.max(0,Math.min(song.bars-.25,bar));if(playing)await syncAudio();}
-    finally{seeking=false;updateUI();}
+    seeking=true;updateUI();const playing=transport.want,token=playToken;
+    try{await transport.stop();if(token!==playToken)return;transport.cursor=Math.max(0,Math.min(song.bars-.25,bar));if(playing)await syncAudio();}
+    finally{if(token===playToken){seeking=false;updateUI();}}
   }
   async function init(){
-    presentation=new PuzzleStage($('puzzle-stage'));
+    presentation=new PuzzleStage($('puzzle-stage'),{log:(type,data)=>recorder.record(type,{...data,gate:lockState()}),onIssue:pauseSession,onRestore:updateUI});
+    const ctx=strudel.getAudioContext();
+    ctx.addEventListener('statechange',()=>{
+      recorder.record('audio.state',{state:ctx.state,wanted:transport.want,starting});
+      if(ctx.state!=='running'&&transport.want&&!starting)pauseSession('Звук был прерван. Нажмите «Продолжить».');
+    });
     repl=await PuzzleAsync.wait(strudel.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
       prebake:()=>PhaseCubeBank.register(strudel),defaultOutput:(...args)=>transport.output(...args),onUpdateState:state=>{if(state.error)fail(state.error);}}),'Музыкальный движок не загрузился. Повторите загрузку.',15000);
     transport.attach(repl);loadingMessage='Загружаем список композиций…';updateUI();catalog=await PuzzleAsync.wait(library.catalog(),'Список композиций не загрузился. Проверьте соединение и повторите загрузку.',15000);dialogs.catalog(catalog,PuzzleRegistry.modules);
@@ -4260,13 +4363,19 @@ window.PhaseCubeCelebration=(()=>{
   function diagnostics(){
     let peak=0,rms=0;if(transport.analyser){analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);
       for(const v of analysisData){peak=Math.max(peak,Math.abs(v));rms+=v*v;}rms=Math.sqrt(rms/analysisData.length);}
-    return {build:'music-puzzles/shuffle1',graphics:presentation?.info(),puzzleId:module.id,pieceCount:model?.count,fragmentCount:game?.count,songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,
+    return {build,frameAgeMs:Math.round(performance.now()-lastFrame),graphics:presentation?.info(),puzzleId:module.id,pieceCount:model?.count,fragmentCount:game?.count,songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,
       shuffle:shuffle?{total:shuffle.total,moves:[...shuffle.moves],complete:shuffle.complete}:null,
       sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,loading,starting,busy,seeking,selectedFace:model?.selected,moves:model?.moves,hint:hintMove,
       phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks??null):null,projection:preparation?.phaseMap.algorithm,phaseMap:preparation?{gridSteps:preparation.phaseMap.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
       peak,rms,error,changes:transport.changes,log:transport.log.slice(-30)};
   }
+  function reportSnapshot(){
+    const d=diagnostics();return{...d,moves:undefined,log:undefined,seed:seed-1,state:model?.snapshot(),playerMoveCount:model?.moves.length,playerMoves:model?.moves.slice(-128),
+      audioEvents:transport.log.slice(-20),audioChanges:transport.changes.slice(-40)};
+  }
   function tick(now){
+    requestAnimationFrame(tick);lastFrame=now;
+    try{
     transport.poll();
     presentation?.frame(now);
     if(song&&model&&orbit){
@@ -4275,7 +4384,7 @@ window.PhaseCubeCelebration=(()=>{
       const hits=game.voices.map((v,id)=>transport.running&&(rows[id]||[]).some(e=>(phase-e.start+1)%1<.045));orbit.frame(phase,hits,transport.running);
     }
     if(debug&&performance.now()-lastDiagnostics>150){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnostics());}
-    requestAnimationFrame(tick);
+    }catch(e){fail(e);}
   }
   window.addEventListener('keydown',event=>{
     if(document.querySelector('dialog[open]')||event.target.closest('input,select,textarea,[contenteditable=true]'))return;
@@ -4284,15 +4393,17 @@ window.PhaseCubeCelebration=(()=>{
     if(event.code==='Space'&&!event.target.closest('button')){event.preventDefault();dispatch(session.phase==='playing'?'pause':'start').catch(fail);return;}
     if(canMove()&&control?.key(event))event.preventDefault();
   });
-  window.addEventListener('pagehide',event=>{cancelShuffle();starting=false;busy=false;if(session.phase!=='won')session=S.transition(session,'pause');transport.stop();if(!event.persisted)presentation?.destroy();});
+  document.addEventListener('visibilitychange',()=>{recorder.record('page.visibility',{value:document.visibilityState});if(document.hidden&&transport.want)pauseSession('Игра была свёрнута. Нажмите «Продолжить».');});
+  window.addEventListener('pagehide',event=>{pauseSession();if(!event.persisted)presentation?.destroy();});
   soundReady=init();soundReady.catch(e=>{loadError=true;fail(e);});updateUI();requestAnimationFrame(tick);
   if(debug)window.phaseCubeApp={
     ready:soundReady,diagnostics,state:()=>model.snapshot(),phases:()=>music.phases(model.snapshot()),turn,undo,hint:showHint,getPreparation:()=>preparation,getPresentation:()=>presentation,
+    report:()=>recorder.report(),
     getPuzzle:()=>model,getPuzzleModule:()=>module,getGame:()=>game,getMusic:()=>music,getSong:()=>song,getCatalog:()=>catalog,getTransport:()=>transport,getRepl:()=>repl,
     choose,chooseSong:id=>choose({songId:id}),choosePuzzle:id=>choose({puzzleId:id}),seekSong,makePattern,
     code:()=>music.code(model.snapshot()),getSourcePattern:id=>game.basePatterns[id],eventsOf:PuzzleMusic.eventsOf,
     sampleAudio:()=>{if(!transport.analyser)return null;const a=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(a);return Array.from(a);},
-    reset:async()=>{busy=true;model.restore(module.create().snapshot());updateAudio();while(transport.pending)await new Promise(requestAnimationFrame);busy=false;updateUI();}
+    reset:async()=>{const token=playToken;busy=true;model.restore(module.create().snapshot());updateAudio();await awaitAudio(token);if(token===playToken){busy=false;updateUI();}}
   };
 })();
 

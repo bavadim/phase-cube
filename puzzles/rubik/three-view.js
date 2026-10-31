@@ -68,12 +68,12 @@ window.RubikView = {create({scene,resources,model,tween}){
     },
     feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
     drag(x,y){root.rotation.y+=x*.009;root.rotation.x+=y*.009;},
-    focus(face){
+    focus(face,duration=320){
       const from=root.quaternion.clone(),to=new T.Quaternion().setFromUnitVectors(new T.Vector3(...normals[face]),new T.Vector3(0,0,1));
       // Keep neighbouring faces wide enough to tap: a nearly head-on focus
       // leaves subpixel side faces that WebKit's integer touch coordinates miss.
       to.premultiply(new T.Quaternion().setFromEuler(new T.Euler(.4,-.56,0)));
-      return tween('camera',320,t=>root.quaternion.slerpQuaternions(from,to,t));
+      return tween('camera',duration,t=>root.quaternion.slerpQuaternions(from,to,t));
     },
     async animate(move,before,{duration=280,demonstration=false}={}){
       animating=true;
@@ -81,7 +81,7 @@ window.RubikView = {create({scene,resources,model,tween}){
       for(const {group,position}of cubies)if(position.dot(normal)>.1)pivot.add(group);
       const angle=(move.endsWith("'")?1:-1)*(move.endsWith('2')?Math.PI:Math.PI/2);
       try{
-        if(demonstration){await view.focus(move[0]);if(disposed)return;}
+        if(demonstration){const focused=await view.focus(move[0],Math.min(80,duration/2));if(disposed||!focused)return;}
         await tween('move',duration,t=>pivot.quaternion.setFromAxisAngle(normal,angle*t));
       }
       finally{animating=false;sync();root.remove(pivot);}

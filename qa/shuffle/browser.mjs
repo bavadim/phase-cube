@@ -14,14 +14,15 @@ async function audit(page){
   m.shuffle=()=>{
    const before=m.snapshot(),move=shuffle();
    shuffleAudit.push({before,after:m.snapshot(),expected:m.applyTo(before,move),move,
-    phase:phaseCubeApp.diagnostics().sessionPhase,history:m.history.length});
+    phase:phaseCubeApp.diagnostics().sessionPhase,history:m.history.length,
+    inputLocked:document.querySelector('#turn-right').disabled&&phaseCubeApp.getPresentation().disabled});
    return move;
   };
  });
 }
 async function verifyTrace(page,count){
  const trace=await page.evaluate(()=>shuffleAudit);assert.equal(trace.length,count);
- for(const step of trace){assert.equal(step.phase,'shuffling');assert.equal(step.history,0);assert.deepEqual(step.after,step.expected);assert.notDeepEqual(step.after,step.before);}
+ for(const step of trace){assert.equal(step.phase,'shuffling');assert(step.inputLocked);assert.equal(step.history,0);assert.deepEqual(step.after,step.expected);assert.notDeepEqual(step.after,step.before);}
  const d=await page.evaluate(()=>phaseCubeApp.diagnostics());assert.equal(d.sessionPhase,'playing');assert.equal(d.shuffle.complete,true);
  assert.equal(d.shuffle.moves.length,3);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.length),0);
  assert.equal(await page.locator('#undo').isDisabled(),true);assert.equal(await page.locator('#result-dialog').evaluate(e=>e.open),false);
@@ -38,16 +39,16 @@ try{
   await audit(p);await press(p,'#start');
   await p.waitForFunction(()=>phaseCubeApp.diagnostics().sessionPhase==='shuffling'&&!phaseCubeApp.diagnostics().starting);
   assert.equal(await p.locator('#session-overlay').evaluate(e=>e.open),false);
-  // The initial reference has not been secretly scrambled behind the dialog.
-  assert.equal(await p.evaluate(()=>phaseCubeApp.getPuzzle().solved()),true);
   await p.waitForFunction(()=>phaseCubeApp.diagnostics().shuffle.moves.length===1);
-  const state=await p.evaluate(()=>phaseCubeApp.state());
-  for(const id of ['turn-left','turn-right','hint','undo','pause','song-seek'])assert.equal(await p.locator('#'+id).isDisabled(),true,id+' locked during demonstration');
-  await p.evaluate(async()=>{await phaseCubeApp.turn(phaseCubeApp.getPuzzle().legalMoves()[0]);phaseCubeApp.hint();});
-  assert.deepEqual(await p.evaluate(()=>phaseCubeApp.state()),state,'User commands cannot move during demonstration');
+  const lock=await p.evaluate(async()=>{
+   const state=JSON.stringify(phaseCubeApp.state()),disabled=['turn-left','turn-right','hint','undo','pause','song-seek'].every(id=>document.getElementById(id).disabled);
+   await phaseCubeApp.turn(phaseCubeApp.getPuzzle().legalMoves()[0]);phaseCubeApp.hint();return{disabled,unchanged:state===JSON.stringify(phaseCubeApp.state())};
+  });assert.deepEqual(lock,{disabled:true,unchanged:true});
   assert.equal(await p.locator('.turn-button.hinted').count(),1);
-  await p.waitForTimeout(140);await p.screenshot({path:join(root,`qa/shuffle/${runtime.engine}-${id}.png`)});
+  await p.screenshot({path:join(root,`qa/shuffle/${runtime.engine}-${id}.png`)});
   await settled(p);await verifyTrace(p,3);
+  assert.deepEqual(await p.evaluate(()=>shuffleAudit[0].before),await p.evaluate(()=>phaseCubeApp.getPuzzle().initialState()));
+  const introMs=await p.evaluate(()=>{const e=phaseCubeApp.report().events;return e.findLast(e=>e.type==='shuffle.complete').ms-e.findLast(e=>e.type==='shuffle.begin').ms;});assert(introMs<1800,'Fast intro '+introMs+' ms');
   await p.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
   // Pause/resume preserves this scramble instead of performing another intro.
   const before=await p.evaluate(()=>phaseCubeApp.state());await press(p,'#pause');await press(p,'#start');await settled(p);
@@ -63,7 +64,7 @@ try{
   }
   await p.waitForFunction(()=>document.querySelector('#result-dialog').open);
   await press(p,'#play-again');await settled(p);await verifyTrace(p,6);
-  await press(p,'#pause');report.cases.push({id,shownMoves:3,reference:true,inputLocked:true,fieldInput:true,undo:true,hintsSolve:true,pausePreserves:true,replay:true});
+  await press(p,'#pause');report.cases.push({id,introMs,shownMoves:3,reference:true,inputLocked:true,fieldInput:true,undo:true,hintsSolve:true,pausePreserves:true,replay:true});
  }
  // Cancelling an intro must not leave its animations/moves on the next model.
  await p.evaluate(()=>phaseCubeApp.choosePuzzle('rubik'));await press(p,'#start');

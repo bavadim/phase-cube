@@ -5,6 +5,7 @@
   "cases": [
     {
       "id": "twiddle",
+      "introMs": 1116,
       "shownMoves": 3,
       "reference": true,
       "inputLocked": true,
@@ -16,6 +17,7 @@
     },
     {
       "id": "rubik",
+      "introMs": 1137,
       "shownMoves": 3,
       "reference": true,
       "inputLocked": true,
@@ -27,6 +29,7 @@
     },
     {
       "id": "fourier",
+      "introMs": 1121,
       "shownMoves": 3,
       "reference": true,
       "inputLocked": true,
@@ -43,9 +46,9 @@
   "offline": true,
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "6e01949cd6b5e64acb1a438b6d3d37968d72d79321978ad5ac262a40f1a2f78b",
-    "steel-shift-cube.html": "06a27cabbe539af0ca6d0808f3ab3a9f25f04633bf4486611757fc7d3459a7ac",
-    "style.css": "728d3d5b32924b4176165bd3b12f0acff4a8032756eaca225372de4ea99da018",
+    "index.html": "9c8ec896fa5ccdd67adda2ea2405465809444c1c052a442844a7b23bbf4625d4",
+    "steel-shift-cube.html": "7083d36dc963314df50c25855eaec1173dc577b2ffc108750797ef28ac920019",
+    "style.css": "f05ee270b64fa7068e5bb8661b6f2b3e9a9530d0efe4329f783dc6c7c26650ad",
     "controls/equalizer.css": "79c51797b57668210734f778d9398ef093d683f460cb8cd29202e3e23ceab846",
     "controls/player.css": "6a5e021c3fc5cc90a11c8f0f30f44f1aff8abff499bc602721fdd7975b371e78",
     "vendor/three-0.160.1.min.js": "170c6789f43217c96b3170f4b42fafe135de7f7cd48497a4218f9757ee1d49fa",
@@ -53,8 +56,9 @@
     "vendor/strudel-web-1.3.0.js": "265cae9cf769a7dc2c1ac253784fce80fef5062db9a1aac5be7fa5f205af5e86",
     "audio-bank.js": "59e7fda1421efb7a23fd024b5ab2d3f6cc26d3371ab93b9f97b1d834df3e8c83",
     "composition-loader.js": "caeb1acadce22a9380376ba29a8c2860b9862a2f3838e3530558132603f0b5c3",
-    "config.js": "8d7a5e72237ec2fc3544af7ede9af882c0f8eba9e95e4aa168f31d92908d6452",
+    "config.js": "0c171bf646ced16979d6ea33cc4d5675010608465311daa82bdea93413c950d4",
     "session.js": "c6abb00e72baa503e2e368498914cf079c1fc2997c931586fef73be1e1dc2075",
+    "diagnostics.js": "5744872be7aded9bded3c0acd21da5a8a7d543705c933b7ab9d2c81908bf9eaa",
     "puzzles/shuffle.js": "5c38fc927d01f2dc218bcc3932a164bc4aa14460557082bb999957fe016e948a",
     "controls/pattern-pieces.js": "aafbd75d034cc71fbc506df90a51c27020c2c0651a8ba63ec958e91b9d3bf56e",
     "puzzle-contract.js": "d48a458fcfc811783569cda892070b4d17d981f90a630bc85db5834dfda0f111",
@@ -68,16 +72,16 @@
     "transport.js": "d38463b6674246d1e51204c7adfd3acfc546684e0bdd7bad9eb0ce78e2888318",
     "controls/equalizer.js": "8e5c347c7f4858d17b6b2c82614ecc490f74bc5ca24167f79c16043b2065a2d9",
     "graphics/resources.js": "d6376f85aa611c39677b20bc70aa8c342c4a5549dd1ce662cf68d77a5a32b5a3",
-    "graphics/pointer.js": "567fc7172da9353a1d5cfc184cad9eb72ca954b0898c1fcd25dc1f87b6456133",
-    "graphics/stage.js": "f8b4278180a4e1ee5c607f6f56d9e8c42e20781f2e72c96365c4860fa72a5a57",
+    "graphics/pointer.js": "4cbd7c36314ead3696cd5ed403cd97a6b622e6751f233b13877058c58307acef",
+    "graphics/stage.js": "fe13f44334ec7a4d67dfb1065c08acd4a803a825450057f93893c3b719ce27a1",
     "controls/puzzle.js": "8afef52d305af5433f0c9699ef98fbeaed3936cf5adffb36087124b7dc36de44",
     "controls/turn-controls.js": "985079ac028e9a6d5d9d98409c04c9d0cb94b7cbb498e5e5cd9f52b0b9807b84",
     "controls/hint.js": "7509954e43dcf81f3e95051a934072ffda64bb452da4847e9978502ac5effa9d",
-    "controls/player.js": "7932e6ee0eaccf3b6bedf9f044bfbab36ad3123f4c2c2eb6f986f75621577d72",
-    "controls/dialogs.js": "7db6cb049d46da776024c2fd62960b9795aa14c8a12061c70cb65b4cc58cd23e",
+    "controls/player.js": "c7aad09505944d76a6eeaf9f07d2cd764cdb91a9c9f5be01e1e0a280cedab7c2",
+    "controls/dialogs.js": "292bff4bd9df4066c02f2a936c78f189cac2ce9f3a46c698937cbdd9bf904227",
     "puzzles/rubik/model.js": "c4524496cea0b4d60ed0cba61fa59f8ffd4048ed6cbbedef11d3784b95c59dca",
     "puzzles/rubik/module.js": "4019cb33a9370990061a3f003352a5352d826dab119f5c24528ce2379bae530d",
-    "puzzles/rubik/three-view.js": "b019faccd4a6f773cdb01a2d473b6f9757cd70a1d50f2dc7bda88735dd66a464",
+    "puzzles/rubik/three-view.js": "6d63a8047f50421a9a953bde7e21fe347c2680769e1e3bfc8c1debdd6535bf2f",
     "puzzles/twiddle/model.js": "9d94e8b4b972aa02919bf912afe0ac69b759258e753aef910897c2820161c3b4",
     "puzzles/twiddle/module.js": "e837c7bc02410a925d207ca03ca62b814e29b07b50ed23de598c4f4777374c3a",
     "puzzles/twiddle/three-view.js": "f3f4d5466ed6b63f2914447a11bfe578587a89d7e70341a556bf9c3036a8654b",
@@ -85,6 +89,6 @@
     "puzzles/fourier/three-view.js": "3e5c0cf8aa92526dee6f6404723eeee82f7c7c91c7339de598b8f3dba509ca81",
     "puzzles/registry.js": "862fcf479a9f8dfeb75b5c588abff781cf1cdf42abc9bb2262833a91595392c5",
     "celebration.js": "6f941db21c30a110650220fcb8f098e92699f41a3a50cb26da9a77c539b0e0b5",
-    "app.js": "8e16ee83edb2a0612ffff6f17ff1f6a1922a6ff045788e7a3f254e58e1271ef6"
+    "app.js": "d06f75c7ffd5546804ad03db063eb574792acec4fdd6bf4192f7d3fbe20a3277"
   }
 }

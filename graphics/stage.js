@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* A persistent Three renderer, raycaster and resize/input boundary. No game rules or audio clock. */
 window.PuzzleStage = class {
-  constructor(element){
-    this.element=element;this.active=null;this.disabled=true;this.timelines=new Map();this.dirty=true;
+  constructor(element,{log=()=>{},onIssue=()=>{},onRestore=()=>{}}={}){
+    this.element=element;this.active=null;this.disabled=true;this.contextLost=false;this.timelines=new Map();this.dirty=true;
     this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -10,15 +10,15 @@ window.PuzzleStage = class {
     this.targets=document.createElement('div');this.targets.className='sr-only';element.append(this.targets);
     this.ray=new THREE.Raycaster();
     this.pointer=new PuzzlePointer(this.canvas,{
-      enabled:()=>!!this.active&&!this.disabled,
+      enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
       pick:(x,y)=>this.pick(x,y),select:hit=>this.active?.onSelect(hit),
       hover:hit=>{this.active?.view.hover?.(hit);this.active?.onHover?.(hit);this.dirty=true;this.canvas.style.cursor=hit?'pointer':this.active?.view.drag?'grab':'default';},
       drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;}
     });
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(element);
     this.events=new AbortController();
-    this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();element.dataset.context='lost';},{signal:this.events.signal});
-    this.canvas.addEventListener('webglcontextrestored',()=>{delete element.dataset.context;this.dirty=true;},{signal:this.events.signal});
+    this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.contextLost=true;element.dataset.context='lost';log('graphics.lost');onIssue('Изображение восстанавливается. После восстановления нажмите «Продолжить».');},{signal:this.events.signal});
+    this.canvas.addEventListener('webglcontextrestored',()=>{this.contextLost=false;delete element.dataset.context;log('graphics.restored');this.resize();onRestore();},{signal:this.events.signal});
     this.resize();
   }
   mount(createView,context){
@@ -78,7 +78,7 @@ window.PuzzleStage = class {
       const progress=Math.min(1,(now-t.start)/t.duration);t.step(progress*progress*(3-2*progress));this.dirty=true;
       if(progress===1){this.timelines.delete(key);t.resolve(true);}
     }
-    if(this.active&&this.dirty){this.renderer.render(this.active.scene,this.active.view.camera);this.dirty=false;}
+    if(this.active&&this.dirty&&!this.contextLost){this.renderer.render(this.active.scene,this.active.view.camera);this.dirty=false;}
   }
   unmount(){
     this.pointer.cancel();for(const key of this.timelines.keys())this.stopTween(key);
@@ -86,6 +86,7 @@ window.PuzzleStage = class {
     this.targets.replaceChildren();this.renderer.renderLists.dispose();this.canvas.style.cursor='default';this.dirty=true;
   }
   info(){return {canvasCount:this.element.querySelectorAll('canvas').length,geometries:this.renderer.info.memory.geometries,
-    textures:this.renderer.info.memory.textures,tweens:this.timelines.size,puzzle:this.element.dataset.puzzle};}
+        textures:this.renderer.info.memory.textures,tweens:this.timelines.size,puzzle:this.element.dataset.puzzle,contextLost:this.contextLost,disabled:this.disabled,
+        pointer:this.pointer.gesture?{id:this.pointer.gesture.id,moved:this.pointer.gesture.moved}:null};}
   destroy(){this.unmount();this.pointer.destroy();this.events.abort();this.resizeObserver.disconnect();this.renderer.dispose();this.element.replaceChildren();}
 };

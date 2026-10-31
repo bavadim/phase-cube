@@ -59,6 +59,8 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 .primary-button:hover:not(:disabled) { background:#326c50; }
 .outline-button { margin-top:.7rem; color:var(--green); background:transparent; }
 .outline-button:hover { background:#e9efdf; }
+.report-button { display:block; width:100%; min-height:44px; margin-top:.35rem; padding:.4rem; border:0; background:transparent; color:var(--muted); font-size:.9rem; }
+.result-dialog .report-button { grid-column:1 / -1; }
 .result-caption { margin:0 0 .55rem; color:var(--green); font-size:1rem; }
 /* Inside the modal top layer; fixed to the viewport and transparent to input. */
 .celebration { position:fixed; inset:0; z-index:7; pointer-events:none; overflow:hidden; }

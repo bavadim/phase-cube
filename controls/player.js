@@ -8,7 +8,7 @@ window.PuzzlePlayer=class{
     this.hint=new PuzzleHint(host.querySelector('.hint-host'),onHint);
   }
   update({disabled,canUndo,canHint,hinted,phase,busy,song}){
-    this.undo.disabled=disabled||!canUndo;this.pause.disabled=busy||!['playing','paused'].includes(phase);
+    this.undo.disabled=disabled||!canUndo;this.pause.disabled=!['playing','paused'].includes(phase);
     this.pause.setAttribute('aria-pressed',String(phase==='paused'));this.pause.setAttribute('aria-label',phase==='paused'?'Продолжить':'Пауза');
     this.pause.querySelector('#pause-icon').textContent=phase==='paused'?'▶':'Ⅱ';this.pause.querySelector('#pause-label').textContent=phase==='paused'?'Продолжить':'Пауза';
     this.seek.disabled=busy||!song||phase==='won';if(song)this.seek.max=song.bars-.25;
