@@ -19,6 +19,7 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
   const dotGeometry=resources.own(new T.CircleGeometry(.12,40)),haloGeometry=resources.own(new T.RingGeometry(.155,.18,40));
   const hitGeometry=resources.own(new T.CircleGeometry(1,40)),hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
   const headGeometry=resources.own(new T.ConeGeometry(.055,.15,8));
+  const actionField=new T.Mesh(resources.own(new T.CircleGeometry(1.43,64)),hitMaterial);actionField.position.z=-.06;root.add(actionField);
   function text(number,color){
     const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d');
     ctx.fillStyle='#ffffff';ctx.font='700 78px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,64,66);
@@ -37,7 +38,7 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
     const shaft=line(2,colors[i]),head=new T.Mesh(headGeometry,material);root.add(head);
     return{key:choice.key,index:i,group,marker,halo,hit,legend,legendLabel,legendHalo,legendHit,shaft,head};
   });
-  let feedback={selected:model.selected,move:null},hover=null,animating=false,disposed=false,dragging=null,committed=null;
+  let feedback={selected:model.selected,move:null},animating=false,disposed=false,dragging=null,committed=null;
   let animationFrom=null,animationMove=null,display=model.coefficients(),previewKey=null;
   function refresh(){
     const selected=F.keys.indexOf(feedback.selected);
@@ -58,6 +59,12 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
     }
     previewKey=key;
   }
+  function actionHit(at){
+    const i=F.keys.indexOf(model.selected),z=model.coefficients()[i],length=Math.hypot(...z),u=[z[0]/length,z[1]/length];
+    const dx=at.x-z[0]*scale,dy=at.y-z[1]*scale,radial=dx*u[0]+dy*u[1],tangent=-dx*u[1]+dy*u[0];
+    const move=model.selected+(Math.abs(radial)>Math.abs(tangent)?(radial>0?'+':'-'):(tangent>0?"'":''));
+    return{key:model.selected,pieceId:i,kind:'action',move:model.validMove(move)?move:null,selectOnly:!model.validMove(move)};
+  }
   function draw(values){display=values;refresh();}
   function sync(){if(!animating&&!dragging&&!disposed)draw(model.coefficients());}
   const view={
@@ -71,18 +78,22 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
         p.legend.position.set((i%2?1:-1)*edge,(i<2?1:-1)*edge,.15);
       });target.scale.setScalar(unit);
     },
-    pickTargets:()=>points.flatMap(p=>[p.hit,p.legendHit]),
+    pickTargets:()=>[...points.flatMap(p=>[p.hit,p.legendHit]),actionField],
     hit(intersection){
-      const at=root.worldToLocal(intersection.point.clone()),targets=points.flatMap(p=>[{p,kind:'point',group:p.group},{p,kind:'coefficient-label',group:p.legend}]);
+      const at=root.worldToLocal(intersection.point.clone());
+      if(intersection.object===actionField)return actionHit(at);
+      const targets=points.flatMap(p=>[{p,kind:'point',group:p.group},{p,kind:'coefficient-label',group:p.legend}]);
       targets.sort((a,b)=>a.group.position.distanceToSquared(at)-b.group.position.distanceToSquared(at));
       // Coincident tips retain the selected coefficient. The fixed numbered
       // labels in the same Three model can always select each hidden vector.
       const first=targets[0],selected=targets.find(t=>t.p.key===model.selected&&t.kind===first.kind&&Math.abs(t.group.position.distanceToSquared(at)-first.group.position.distanceToSquared(at))<1e-5),chosen=selected||first;
+      if(chosen.kind==='point'&&chosen.p.key===model.selected&&Math.hypot(at.x-chosen.group.position.x,at.y-chosen.group.position.y)>.12*chosen.p.marker.scale.x)
+        return{...actionHit(at),draggable:true};
       return{key:chosen.p.key,pieceId:chosen.p.index,selectOnly:true,kind:chosen.kind,draggable:chosen.kind==='point'};
     },
     locations(){root.updateMatrixWorld(true);return points.flatMap(p=>[[p.group,p.hit,'point'],[p.legend,p.legendHit,'coefficient-label']].map(([group,hit,kind])=>({key:p.key,kind,selectOnly:true,draggable:kind==='point',pieceId:p.index,
       point:group.getWorldPosition(new T.Vector3()),region:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>hit.localToWorld(new T.Vector3(x,y,0)))})));},
-    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;},
+    feedback(value){feedback=value;refresh();},
     beginDrag(hit){
       if(!hit.draggable||animating)return false;
       dragging={key:hit.key,before:model.snapshot(),move:null};committed=null;return true;

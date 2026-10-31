@@ -29,11 +29,11 @@ window.RubikView = {create({scene,resources,model,tween}){
     root.add(group);frames[face]=group;
   }
   const arrows=[false,true].map(inverse=>resources.turnArrow(inverse));
-  let animating=false,disposed=false,hover=null,feedback={selected:model.selected,move:null};
+  let animating=false,disposed=false,feedback={selected:model.selected,move:null};
   function refresh(){
     for(const [face,frame]of Object.entries(frames)){
-      frame.visible=face===feedback.selected||face===hover;
-      frame.children[0].material.color.setHex(face===feedback.selected?theme.accent:theme.hover);
+      frame.visible=face===feedback.selected;
+      frame.children[0].material.color.setHex(theme.accent);
     }
     arrows.forEach((arrow,i)=>{arrow.visible=!!feedback.move&&feedback.move.endsWith("'")===!!i;if(feedback.move)frames[feedback.move[0]].add(arrow);});
   }
@@ -66,7 +66,7 @@ window.RubikView = {create({scene,resources,model,tween}){
         return normal.dot(camera.position.clone().sub(point))>.001?[{key,kind:'face',point,region}]:[];
       });
     },
-    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
+    feedback(value){feedback=value;refresh();},
     drag(x,y){root.rotation.y+=x*.009;root.rotation.x+=y*.009;},
     focus(face,duration=320){
       const from=root.quaternion.clone(),to=new T.Quaternion().setFromUnitVectors(new T.Vector3(...normals[face]),new T.Vector3(0,0,1));

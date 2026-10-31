@@ -14,9 +14,13 @@ test('every composition/puzzle: native Strudel, inverses, targets, deterministic
   for(const move of m.legalMoves(goal)){
    const next=m.applyTo(goal,move),back=m.applyTo(next,m.inverse(move));assert.deepEqual(back,goal);assert.equal(norm(music.rows(back)),norm(p.fragments.targetRows));
    const phases=music.phases(next),rows=music.rows(next);
+   const native=music.shifted(next).map(pattern=>L.eventsOf(pattern,p.fragments.periodBars));
+   const events=r=>r.map(e=>JSON.stringify([Math.round(e.start*1e8),Math.round(e.duration*1e8),e.value])).sort();
    p.fragments.targetRows.forEach((row,id)=>{
     const expected=row.map(e=>Math.round(((e.start+phases[id].offset)%1)*1e8)).sort((a,b)=>a-b);
     assert.deepEqual(rows[id].map(e=>Math.round(e.start*1e8)).sort((a,b)=>a-b),expected,'Symbolic shifts must agree with actual Strudel scheduling');
+    assert.deepEqual(events(rows[id]),events(native[id]),'Animation identities must not change native onsets, gates or sound values');
+    assert.deepEqual(rows[id].map(e=>e.id).sort(),row.map(e=>e.id).sort(),'Every visual event survives a wrapped shift');
    });
    let cycle=goal;for(let i=0;i<4;i++)cycle=m.applyTo(cycle,move);assert.deepEqual(cycle,goal);
   }

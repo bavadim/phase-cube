@@ -19,9 +19,9 @@ window.TwiddleView = {create({scene,resources,model,game,tween}){
     root.add(frame);return{key,frame};
   });
   const arrows=[false,true].map(inverse=>{const arrow=resources.turnArrow(inverse);arrow.rotation.x=-Math.PI/2;root.add(arrow);return arrow;});
-  let animating=false,disposed=false,hover=null,feedback={selected:model.selected};
+  let animating=false,disposed=false,feedback={selected:model.selected};
   function refresh(){
-    for(const {key,frame}of frames){frame.visible=key===feedback.selected||key===hover;frame.material.color.setHex(key===feedback.selected?theme.accent:theme.hover);}
+    for(const {key,frame}of frames){frame.visible=key===feedback.selected;frame.material.color.setHex(theme.accent);}
     arrows.forEach((arrow,i)=>{arrow.visible=!!feedback.move&&feedback.move.endsWith("'")===!!i;arrow.position.set(feedback.move?.[0]==='A'?-.5:.5,.18,0);});
   }
   function sync(){
@@ -37,7 +37,7 @@ window.TwiddleView = {create({scene,resources,model,game,tween}){
     },
     locations(){root.updateMatrixWorld(true);return pieces.map(({group,slot},pieceId)=>({kind:'tile',slot,pieceId,column:slot%3,point:group.localToWorld(new T.Vector3(0,.16,0)),
       region:[[-.495,-.495],[.495,-.495],[.495,.495],[-.495,.495]].map(([x,z])=>group.localToWorld(new T.Vector3(x,.16,z)))}));},
-    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
+    feedback(value){feedback=value;refresh();},
     async animate(move,before,{duration=300}={}){
       animating=true;
       const ring=TwiddleModel.rings[move[0]],cx=move[0]==='A'?-.5:.5,sign=move.endsWith("'")?-1:1;

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Generic keyed action lists around a persistent hint. No puzzle rules here. */
 window.PuzzleActionControls=class{
-  constructor(host,{model,onMove,onPreview}){
-    Object.assign(this,{host,model,callbacks:{perform:onMove,preview:onPreview}});this.hinted=null;this.items=new Map();
+  constructor(host,{model,onMove,onPreview,onFocus}){
+    Object.assign(this,{host,model,onFocus,callbacks:{perform:onMove,preview:onPreview}});this.focused=null;this.items=new Map();
     const hint=document.getElementById('hint');hint.remove();host.replaceChildren();host.setAttribute('aria-label','Действия выбранного объекта');
     this.caption=document.createElement('div');this.caption.className='puzzle-operation';this.caption.setAttribute('role','status');host.append(this.caption);
     const side=name=>{const el=document.createElement('div');el.className='puzzle-actions puzzle-actions-'+name;
@@ -25,9 +25,12 @@ window.PuzzleActionControls=class{
           const button=document.createElement('button');button.type='button';button.id=action.id;button.className='puzzle-action';
           item={button,action,iconKey:null};this.items.set(action.id,item);
           button.onclick=()=>{if(!button.disabled)item.action.onInvoke();};
-          button.onpointerenter=e=>{if(e.pointerType!=='touch'&&!button.disabled)item.action.onPreview?.(true);};
-          button.onfocus=()=>{if(!button.disabled)item.action.onPreview?.(true);};
-          button.onpointerleave=button.onblur=()=>item.action.onPreview?.(false);
+          const focus=(source,active)=>{if(this.onFocus)this.onFocus(item.action,source,active);else item.action.onPreview?.(active);};
+          button.onpointerenter=e=>{if(e.pointerType!=='touch'&&!button.disabled)focus('button-pointer',true);};
+          button.onfocus=()=>{if(!button.disabled&&(!this.onFocus||button.matches(':focus-visible')))focus('button-keyboard',true);};
+          button.onpointerleave=()=>focus('button-pointer',false);
+          button.onblur=()=>focus('button-keyboard',false);
+          button.onpointerdown=()=>focus('button-keyboard',false);
         }
         item.action=action;const b=item.button;
         if(b.parentElement!==side.row)side.row.append(b);
@@ -38,14 +41,18 @@ window.PuzzleActionControls=class{
           icon.className='puzzle-action-icon';icon.setAttribute('aria-hidden','true');b.append(icon);item.iconKey=iconKey;
         }
         b.disabled=disabled||action.enabled===false;b.title=action.label;b.setAttribute('aria-label',action.label);
-        b.classList.toggle('hinted',this.hinted!=null&&JSON.stringify(action.move)===JSON.stringify(this.hinted));
+        const focused=!disabled&&this.focused?.move!=null&&JSON.stringify(action.move)===JSON.stringify(this.focused.move);
+        const demo=this.focused?.source==='demonstration'&&JSON.stringify(action.move)===JSON.stringify(this.focused.move);
+        b.classList.toggle('action-focused',focused||demo);
+        b.classList.toggle('hinted',(focused&&this.focused.source==='hint')||demo);
+        if(focused||demo)b.dataset.focusSource=this.focused.source;else delete b.dataset.focusSource;
       });
       // Reorder existing nodes only when the model actually changes its list.
       groups[i].forEach((action,index)=>{const b=this.items.get(action.id).button;if(side.row.children[index]!==b)side.row.insertBefore(b,side.row.children[index]||null);});
     });
     for(const [id,item]of this.items)if(!seen.has(id)){item.button.remove();this.items.delete(id);}
   }
-  hint(move){this.hinted=move;if(move)this.model.select(this.model.moveTarget(move));}
+  setFocus(value){this.focused=value;}
   focus(){[...this.items.values()].find(item=>!item.button.disabled)?.button.focus({preventScroll:true});}
   destroy(){for(const {button}of this.items.values())button.remove();this.items.clear();}
 };

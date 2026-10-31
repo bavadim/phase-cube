@@ -40,7 +40,10 @@
         voices.push({id:part.key+':'+piece,pieceId:index,name:part.name+' · '+(piece+1)+'/'+pieces,part:part.key,color:palette[index%palette.length],attacks:events.length});basePatterns.push(p);
       }
     });
-    return Object.freeze({periodBars:song.periodBars,count,voices,basePatterns,parts,targetRows:basePatterns.map(p=>L.eventsOf(p,song.periodBars))});
+    // Visual identities survive phase wrapping and sorting, without adding
+    // metadata to the native Strudel values sent to the audio engine.
+    const targetRows=basePatterns.map((p,id)=>L.eventsOf(p,song.periodBars).map((e,i)=>({...e,id:id+':'+i})));
+    return Object.freeze({periodBars:song.periodBars,count,voices,basePatterns,parts,targetRows});
   }
   return {build};
 });

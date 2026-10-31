@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/polar1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/focus1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -12,7 +12,7 @@
   let shuffle=null,shuffleAbort=null,playToken=0;
   let notice='',lastFrame=performance.now();
   const recorder=new PuzzleDiagnostics.Recorder({build,snapshot:reportSnapshot});
-  let orbit=null,rows=[],preview=null,hintMove=null,affected=[],pulseTimer,repl,soundReady,analysisData,lastDiagnostics=0;
+  let orbit=null,rows=[],repl,soundReady,analysisData,lastDiagnostics=0;
   const transport=new PhaseCubeTransport(strudel,{onChange:()=>updateUI(),onError:fail,outputGain:C.outputGain});
   const canMove=()=>!!model&&session.phase==='playing'&&transport.running&&!loading&&!starting&&!busy&&!seeking&&!transport.pending;
   const metadata=()=>({state:model.snapshot(),mode:'current',...mix()});
@@ -33,18 +33,18 @@
   function pauseSession(message=''){
     recorder.record('session.pause',{message,before:lockState()});notice=message;cancelOperation();starting=false;busy=false;seeking=false;
     if(session.phase!=='won')session=S.transition(session,'pause');
-    updateUI();const stopped=stopSound();recorder.save();return stopped;
+    orbit?.cancel();updateUI();const stopped=stopSound();recorder.save();return stopped;
   }
   function fail(e){
     recorder.record('session.error',{...PuzzleDiagnostics.brief(e),before:lockState()});console.error(e);error=String(e.message||e);loading=false;
     pauseSession();
   }
-  function clearHint(){hintMove=null;preview=null;control?.clearHint();}
+  function clearHint(){control?.clearHint();}
   function updateRows(){
     if(!music||!model||!orbit)return;
     const state=heardState();rows=music.rows(state);
-    const forecast=preview&&canMove()?music.predict(preview,state,rows):null;
-    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast,affected});
+    const move=control?.focusState()?.move,forecast=move&&canMove()?music.predict(move,state,rows):null;
+    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast});
   }
   function updateUI(){
     let won=false;
@@ -56,7 +56,7 @@
     const progress=session.phase==='shuffling'?'Перемешиваем\n'+shuffle.moves.length+' / '+shuffle.total:module.progressLabel||'деталей\nна месте';
     if($('progress-label').innerText!==progress)$('progress-label').innerText=progress;
     control?.update(!canMove());
-    player.update({disabled:!canMove(),canUndo:!!model?.history.length,canHint:!!model?.hint(),hinted:hintMove,phase:session.phase,
+    player.update({disabled:!canMove(),canUndo:!!model?.history.length,canHint:!!model?.hint(),hinted:control?.focusState()?.source==='hint',phase:session.phase,
       busy:loading||starting||busy||seeking||!!transport.pending,song});
     dialogs.update({song,puzzleId:module.id,phase:session.phase,loading,starting,error,loadingMessage,notice,blocked:!!presentation?.contextLost});
     if(won)celebration.play();
@@ -72,10 +72,12 @@
       if(token!==loadToken)return;
       control?.destroy();preparation=next;module=next.module;model=next.model;game=next.fragments;song=next.composition;
       model.reset(seed++);shuffle=newShuffle();music=new PuzzleMusic.Music(strudel,next);transport.setComposition(song);
-      $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{gridSteps:next.phaseMap.gridSteps,periodBeats:song.timing.periodBeats});
+      $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{periodBeats:song.timing.periodBeats,periodSeconds:song.periodBars*240/song.bpm});
       control=module.mount({presentation,commands:player.commands,model,game,canInteract:canMove,
-        onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:move=>{preview=move;updateRows();}});
-      celebration.clear();loading=false;affected=[];updateUI();
+        onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:()=>{
+          updateRows();player.hint.update(canMove()&&!!model?.hint(),control?.focusState()?.source==='hint');
+        }});
+      celebration.clear();loading=false;updateUI();
       const url=new URL(location.href);url.searchParams.set('song',song.id);url.searchParams.set('puzzle',module.id);
       try{history.replaceState(null,'',url);}catch{}
     }catch(e){if(token!==loadToken||e.name==='AbortError')return;if(token===loadToken){controller.abort();loadError=true;loading=false;fail(e);}throw e;}
@@ -104,9 +106,9 @@
       // Let the player see and hear the reference before the first operation.
       if(!level.moves.length)await wait(C.shufflePreviewMs);
       while(active()&&level.moves.length<level.total){
-        const before=model.snapshot(),move=model.shuffle(),changes=music.predict(move,before).changed;
+        const before=model.snapshot(),move=model.shuffle();
         recorder.record('shuffle.move',{move});
-        level.moves.push(move);affected=changes;
+        level.moves.push(move);
         // shuffle() already advanced the model. Start the animation before any
         // UI sync, so the view keeps the previous geometry until the turn ends.
         const animation=control.animate(move,before,{demonstration:true,duration:C.shuffleMoveMs});
@@ -119,7 +121,7 @@
       if(active()&&!await awaitAudio(token))return;
       if(active()){
         recorder.record('shuffle.complete');
-        level.complete=true;clearHint();control.resetInteraction();affected=[];
+        level.complete=true;clearHint();control.resetInteraction();
         session=S.transition(session,'shuffle-complete');
       }
     }finally{if(shuffleAbort===controller)shuffleAbort=null;}
@@ -139,33 +141,31 @@
     }finally{if(token===playToken){starting=false;busy=false;updateUI();}}
     if(action==='start'&&session.phase==='playing')control?.focus();
   }
-  function pulse(ids){clearTimeout(pulseTimer);affected=ids;updateRows();pulseTimer=setTimeout(()=>{affected=[];updateRows();},650);}
   async function perform(move,isUndo=false){
     if(!canMove()||(isUndo?!model.history.length:!model.validMove(move)))return;
     if(isUndo)move=model.inverse(model.history[model.history.length-1].move);
-    const token=playToken,before=model.snapshot(),changes=music.predict(move,before).changed;
+    const token=playToken,before=model.snapshot(),forecast=music.predict(move,before);
     recorder.record('move.begin',{move,isUndo,before});
-    clearHint();model.select(model.moveTarget(move));busy=true;affected=changes;
+    orbit.commit(forecast.rows);clearHint();model.select(model.moveTarget(move));busy=true;
     try{
       const animation=control?.animate(move,before);
       if(isUndo)model.undo();else model.apply(move);
       updateUI();updateAudio();await PuzzleAsync.wait(animation,'Анимация не завершилась. Сохраните отчёт об ошибке.',4000);
       if(!await awaitAudio(token))return;
       recorder.record('move.end',{move,state:model.snapshot()});
-      pulse(changes);
     }finally{if(token===playToken){busy=false;updateUI();}}
   }
   const turn=move=>perform(move),undo=()=>perform(null,true);
   function showHint(){
     if(!canMove())return;const move=model.hint();if(!move)return;
-    hintMove=move;control.hint(move);preview=move;updateUI();
+    control.hint(move);updateUI();
   }
   async function restart(){
     if(loading||busy||seeking||starting)return;
     cancelOperation();
     // stop() mutes synchronously; start() waits for its drain internally. Do not
     // await here and lose Safari's trusted activation on the replay button.
-    transport.stop();transport.cursor=0;clearHint();celebration.clear();clearTimeout(pulseTimer);affected=[];
+    transport.stop();transport.cursor=0;clearHint();orbit?.cancel();celebration.clear();
     model.reset(seed++);shuffle=newShuffle();control.resetInteraction();session=S.transition(session,'restart');updateUI();await dispatch('start');
   }
   async function seekSong(bar){
@@ -193,7 +193,8 @@
       for(const v of analysisData){peak=Math.max(peak,Math.abs(v));rms+=v*v;}rms=Math.sqrt(rms/analysisData.length);}
     return {build,frameAgeMs:Math.round(performance.now()-lastFrame),graphics:presentation?.info(),puzzleId:module.id,pieceCount:model?.count,fragmentCount:game?.count,songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,
       shuffle:shuffle?{total:shuffle.total,moves:[...shuffle.moves],complete:shuffle.complete}:null,
-      sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,loading,starting,busy,seeking,selectedFace:model?.selected,moves:model?.moves,hint:hintMove,
+      sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,loading,starting,busy,seeking,selectedFace:model?.selected,moves:model?.moves,
+      hint:control?.focusState()?.source==='hint'?control.focusState().move:null,actionFocus:control?.focusState()||null,
       phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks??null):null,projection:preparation?.phaseMap.algorithm,phaseMap:preparation?{gridSteps:preparation.phaseMap.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
       peak,rms,error,changes:transport.changes,log:transport.log.slice(-30)};
   }
@@ -209,7 +210,7 @@
     if(song&&model&&orbit){
       const cycle=transport.clock(),phase=((cycle/song.periodBars)%1+1)%1;
       player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
-      const hits=game.voices.map((v,id)=>transport.running&&(rows[id]||[]).some(e=>(phase-e.start+1)%1<.045));orbit.frame(phase,hits,transport.running);
+      orbit.frame(phase,transport.running,now);
     }
     if(debug&&performance.now()-lastDiagnostics>150){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnostics());}
     }catch(e){fail(e);}
@@ -225,7 +226,7 @@
   window.addEventListener('pagehide',event=>{pauseSession();if(!event.persisted)presentation?.destroy();});
   soundReady=init();soundReady.catch(e=>{loadError=true;fail(e);});updateUI();requestAnimationFrame(tick);
   if(debug)window.phaseCubeApp={
-    ready:soundReady,diagnostics,state:()=>model.snapshot(),phases:()=>music.phases(model.snapshot()),turn,undo,hint:showHint,getPreparation:()=>preparation,getPresentation:()=>presentation,
+    ready:soundReady,diagnostics,state:()=>model.snapshot(),phases:()=>music.phases(model.snapshot()),turn,undo,hint:showHint,getPreparation:()=>preparation,getPresentation:()=>presentation,getEqualizer:()=>orbit,
     report:()=>recorder.report(),
     getPuzzle:()=>model,getPuzzleModule:()=>module,getGame:()=>game,getMusic:()=>music,getSong:()=>song,getCatalog:()=>catalog,getTransport:()=>transport,getRepl:()=>repl,
     choose,chooseSong:id=>choose({songId:id}),choosePuzzle:id=>choose({puzzleId:id}),seekSong,makePattern,

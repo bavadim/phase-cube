@@ -11,13 +11,13 @@ window.PuzzlePointer=class{
       if(this.gesture)this.cancel('new-primary-down');
       this.gesture={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,
         slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false,custom:false};
-      hover(this.gesture.hit);
+      hover(this.gesture.hit,{pointerType:event.pointerType});
       try{canvas.setPointerCapture(event.pointerId);}catch(e){log('pointer.capture-failed',{message:e.message});}
       event.preventDefault();
     });
     listen('pointermove',event=>{
       const g=this.gesture;
-      if(!g){if(enabled()&&event.pointerType!=='touch')hover(pick(event.clientX,event.clientY));return;}
+      if(!g){if(enabled()&&event.pointerType!=='touch')hover(pick(event.clientX,event.clientY),{pointerType:event.pointerType});return;}
       if(g.id!==event.pointerId)return;
       if(!g.moved&&Math.hypot(event.clientX-g.startX,event.clientY-g.startY)>g.slop){
         g.moved=true;
@@ -38,9 +38,9 @@ window.PuzzlePointer=class{
       this.gesture=null;this.release(g.id);
       if(g.custom)endDrag(!enabled());
       else if(!g.moved&&enabled()){
-        const hit=g.hit||pick(event.clientX,event.clientY);log('pointer.hit',{key:hit?.key??null,inverted:hit?.inverted});if(hit)select(hit);
+        const hit=g.hit||pick(event.clientX,event.clientY);log('pointer.hit',{key:hit?.key??null,inverted:hit?.inverted});if(hit)select(hit,{pointerType:event.pointerType});
       }
-      hover(event.pointerType==='touch'||!enabled()?null:pick(event.clientX,event.clientY));
+      hover(event.pointerType==='touch'||!enabled()?null:pick(event.clientX,event.clientY),{pointerType:event.pointerType});
     };
     listen('pointerup',finish);
     listen('pointercancel',event=>{if(this.gesture?.id===event.pointerId){this.cancel('pointercancel');hover(null);}});
@@ -56,6 +56,7 @@ window.PuzzlePointer=class{
   release(id){try{if(this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);}catch{}}
   cancel(reason='cancel'){
     const g=this.gesture;this.gesture=null;
+    this.hover(null,{reason});
     if(!g)return;
     this.log('pointer.cancel',{id:g.id,reason});this.release(g.id);
     if(g.custom)this.endDrag(true);

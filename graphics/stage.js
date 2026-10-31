@@ -11,8 +11,11 @@ window.PuzzleStage = class {
     this.ray=new THREE.Raycaster();
     this.pointer=new PuzzlePointer(this.canvas,{
       enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
-      pick:(x,y)=>this.pick(x,y),select:hit=>this.active?.onSelect(hit),
-      hover:hit=>{this.active?.view.hover?.(hit);this.active?.onHover?.(hit);this.dirty=true;this.canvas.style.cursor=hit?'pointer':this.active?.view.drag?'grab':'default';},
+      pick:(x,y)=>this.pick(x,y),select:(hit,event)=>this.active?.onSelect(hit,event),
+      hover:(hit,event)=>{
+        if(hit&&event?.pointerType)this.stopTween('camera');
+        this.active?.onHover?.(hit,event);this.dirty=true;this.canvas.style.cursor=hit?.draggable?'grab':hit?'pointer':this.active?.view.drag?'grab':'default';
+      },
       drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;},
       beginDrag:(hit,p)=>{
         if(!hit?.draggable||!this.active?.view.beginDrag)return false;

@@ -31,7 +31,7 @@ try{
    await page.locator('#start').click();await settled(page);
    assert(await page.evaluate(original=>document.querySelector('#puzzle-stage canvas')===original,canvas),'Switching must reuse the canvas/context');
    const initial=await state(page);
-   // Even the default selected face/block must be armed by the first click.
+   // Hover arms a mouse action; the first touch selects without rotating.
    await select(page,initial.selected,touch);
    await turnPuzzle(page,initial.selected,false,touch);await turnPuzzle(page,initial.selected,true,touch);entry.turns+=2;
    assert.deepEqual((await state(page)).state,initial.state,'Opposite clicks restore the original position');

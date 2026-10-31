@@ -7,20 +7,19 @@
   <meta name="color-scheme" content="light">
   <title>Музыкальная головоломка</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css?v=polar1">
-  <link rel="stylesheet" href="controls/equalizer.css?v=polar1">
-  <link rel="stylesheet" href="controls/player.css?v=polar1">
+  <link rel="stylesheet" href="style.css?v=focus1">
+  <link rel="stylesheet" href="controls/equalizer.css?v=focus1">
+  <link rel="stylesheet" href="controls/player.css?v=focus1">
 </head>
 <body data-phase="ready">
 <main class="app" aria-label="Музыкальная головоломка">
-  <header class="game-status" aria-label="Прогресс и обозначения">
+  <header class="game-status" aria-label="Прогресс">
     <div class="completion" aria-label="Прогресс сборки"><span id="correct-count">0</span><span id="progress-label" role="status">деталей<br>на месте</span></div>
-    <div class="orbit-legend" aria-label="Обозначения рисунка"><span><i class="legend-note" aria-hidden="true"></i>сейчас</span><span><i class="legend-ghost" aria-hidden="true"></i>цель</span></div>
   </header>
   <section class="playfield" aria-label="Головоломка и музыкальный рисунок">
     <div class="orbital-workspace" id="orbital-workspace">
       <div class="orbit-sequencer" id="orbit-sequencer">
-        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели"></svg>
+        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Музыкальные события и гнёзда цели на общих дорожках"></svg>
         <div class="puzzle-stage" id="puzzle-stage" tabindex="0"></div>
       </div>
     </div>
@@ -32,42 +31,43 @@
 <script src="vendor/three-0.160.1.min.js"></script>
 <script src="vendor/cube-1.3.2.js"></script>
 <script src="vendor/strudel-web-1.3.0.js"></script>
-<script src="audio-bank.js?v=polar1"></script>
-<script src="composition-loader.js?v=polar1"></script>
-<script src="config.js?v=polar1"></script>
-<script src="session.js?v=polar1"></script>
-<script src="diagnostics.js?v=polar1"></script>
-<script src="puzzles/actions.js?v=polar1"></script>
-<script src="puzzles/shuffle.js?v=polar1"></script>
-<script src="controls/pattern-pieces.js?v=polar1"></script>
-<script src="puzzle-contract.js?v=polar1"></script>
-<script src="phase-map.js?v=polar1"></script>
-<script src="puzzles/fourier/model.js?v=polar1"></script>
-<script src="puzzles/fourier/binding.js?v=polar1"></script>
-<script src="music-projection.js?v=polar1"></script>
-<script src="session-loader.js?v=polar1"></script>
-<script src="music.js?v=polar1"></script>
-<script src="async-task.js?v=polar1"></script>
-<script src="transport.js?v=polar1"></script>
-<script src="controls/equalizer.js?v=polar1"></script>
-<script src="graphics/resources.js?v=polar1"></script>
-<script src="graphics/pointer.js?v=polar1"></script>
-<script src="graphics/stage.js?v=polar1"></script>
-<script src="controls/puzzle.js?v=polar1"></script>
-<script src="controls/action-controls.js?v=polar1"></script>
-<script src="controls/hint.js?v=polar1"></script>
-<script src="controls/player.js?v=polar1"></script>
-<script src="controls/dialogs.js?v=polar1"></script>
-<script src="puzzles/rubik/model.js?v=polar1"></script>
-<script src="puzzles/rubik/module.js?v=polar1"></script>
-<script src="puzzles/rubik/three-view.js?v=polar1"></script>
-<script src="puzzles/twiddle/model.js?v=polar1"></script>
-<script src="puzzles/twiddle/module.js?v=polar1"></script>
-<script src="puzzles/twiddle/three-view.js?v=polar1"></script>
-<script src="puzzles/fourier/module.js?v=polar1"></script>
-<script src="puzzles/fourier/three-view.js?v=polar1"></script>
-<script src="puzzles/registry.js?v=polar1"></script>
-<script src="celebration.js?v=polar1"></script>
-<script src="app.js?v=polar1"></script>
+<script src="audio-bank.js?v=focus1"></script>
+<script src="composition-loader.js?v=focus1"></script>
+<script src="config.js?v=focus1"></script>
+<script src="session.js?v=focus1"></script>
+<script src="diagnostics.js?v=focus1"></script>
+<script src="puzzles/actions.js?v=focus1"></script>
+<script src="puzzles/shuffle.js?v=focus1"></script>
+<script src="controls/pattern-pieces.js?v=focus1"></script>
+<script src="puzzle-contract.js?v=focus1"></script>
+<script src="phase-map.js?v=focus1"></script>
+<script src="puzzles/fourier/model.js?v=focus1"></script>
+<script src="puzzles/fourier/binding.js?v=focus1"></script>
+<script src="music-projection.js?v=focus1"></script>
+<script src="session-loader.js?v=focus1"></script>
+<script src="music.js?v=focus1"></script>
+<script src="async-task.js?v=focus1"></script>
+<script src="transport.js?v=focus1"></script>
+<script src="controls/equalizer.js?v=focus1"></script>
+<script src="graphics/resources.js?v=focus1"></script>
+<script src="graphics/pointer.js?v=focus1"></script>
+<script src="graphics/stage.js?v=focus1"></script>
+<script src="controls/puzzle.js?v=focus1"></script>
+<script src="controls/action-focus.js?v=focus1"></script>
+<script src="controls/action-controls.js?v=focus1"></script>
+<script src="controls/hint.js?v=focus1"></script>
+<script src="controls/player.js?v=focus1"></script>
+<script src="controls/dialogs.js?v=focus1"></script>
+<script src="puzzles/rubik/model.js?v=focus1"></script>
+<script src="puzzles/rubik/module.js?v=focus1"></script>
+<script src="puzzles/rubik/three-view.js?v=focus1"></script>
+<script src="puzzles/twiddle/model.js?v=focus1"></script>
+<script src="puzzles/twiddle/module.js?v=focus1"></script>
+<script src="puzzles/twiddle/three-view.js?v=focus1"></script>
+<script src="puzzles/fourier/module.js?v=focus1"></script>
+<script src="puzzles/fourier/three-view.js?v=focus1"></script>
+<script src="puzzles/registry.js?v=focus1"></script>
+<script src="celebration.js?v=focus1"></script>
+<script src="app.js?v=focus1"></script>
 </body>
 </html>

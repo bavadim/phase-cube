@@ -28,7 +28,8 @@
     }
     const parts=Phases.projectMusic(binding,puzzle,state).map(p=>({...p,kind:'pose-shift/1',aligned:p.ticks===0}));
     const patterns=game.basePatterns.map((p,id)=>p.late(S.Fraction([parts[id].ticks*game.periodBars,binding.gridSteps])));
-    return{schema:'music-projection/1',parts,patterns,rows:patterns.map(p=>L.eventsOf(p,game.periodBars))};
+    const rows=game.targetRows.map((row,id)=>row.map(e=>({...e,start:((e.start+parts[id].ticks/binding.gridSteps)%1+1)%1})));
+    return{schema:'music-projection/1',parts,patterns,rows};
   }
   return{version,validate,prepare,project,nativeEvents,analyzePattern:Phases.analyzePattern};
 });

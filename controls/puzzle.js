@@ -1,36 +1,59 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Shared selection, move preview, hint, action animation and keyboard adapter. */
+/* One action focus drives the model highlight, bottom button and score preview. */
 window.PuzzleControl = {
   mount({presentation,module,commands,model,game,canInteract,onMove,onPreview,onSelect,createView}){
-    let preview=null,armed=null;
-    const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:model.selected,move:preview});};
-    const controls=new PuzzleActionControls(commands,{model,onMove,onPreview:move=>{preview=move;feedback();onPreview(move);}});
-    const view=presentation.mount(createView,{module,model,game,onMove,
-      onEditPreview:move=>{preview=move;feedback();onPreview(move);},onHover:hit=>{
-      const move=canInteract()&&hit&&armed===model.selected&&hit.key===armed&&typeof hit.inverted==='boolean'?model.moveFor(armed,hit.inverted):null;
-      if(preview!==move){preview=move;feedback();onPreview(move);}
-    },onSelect:hit=>{
-      if(!canInteract())return;
-      if(!hit.selectOnly&&armed===model.selected&&hit.key===armed&&typeof hit.inverted==='boolean'){
-        onMove(model.moveFor(armed,hit.inverted));return;
+    let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
+    const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:model.selected,move:focus.current?.move||null,focus:focus.current});};
+    const focus=new PuzzleActionFocus({
+      resolve:value=>{
+        if(!model.choices().some(c=>c.key===value.key))return null;
+        if(value.source!=='demonstration'&&!canInteract())return null;
+        return value.move==null||model.validMove(value.move,value.before??model.snapshot())?value:null;
+      },
+      onChange:value=>{
+        if(value){model.select(value.key);if(value.source==='hint'||value.source==='field'&&value.move!=null)armed=value.key;}
+        controls?.setFocus(value);controls?.update(disabled);feedback();onPreview(value?.move||null,value);
       }
-      model.select(hit.key);armed=hit.key;controls.hint(null);onSelect();
+    });
+    const intent=(move,extra={})=>({key:model.moveTarget(move),move,...extra});
+    const fromHit=hit=>hit?.move??(hit&&typeof hit.inverted==='boolean'?model.moveFor(hit.key,hit.inverted):null);
+    controls=new PuzzleActionControls(commands,{model,onMove,onPreview:()=>{},onFocus:(action,source,active)=>{
+      if(active&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
+      else focus.clear(source,action.id);
     }});
+    view=presentation.mount(createView,{module,model,game,onMove,
+      onEditPreview:move=>{if(move)focus.set('edit',intent(move));else focus.clear('edit');},
+      onHover:(hit,event={})=>{
+        if(event.pointerType==='touch')return;
+        if(hit&&canInteract())focus.set('field',{key:hit.key,move:fromHit(hit)});else focus.clear('field');
+      },
+      onSelect:(hit,event={})=>{
+        if(!canInteract())return;
+        const move=fromHit(hit);
+        if(!hit.selectOnly&&move&&model.validMove(move)&&(event.pointerType!=='touch'||armed===model.selected&&hit.key===armed)){
+          onMove(move);return;
+        }
+        focus.reset();model.select(hit.key);armed=hit.key;onSelect();feedback();
+      }
+    });
     return {
-      update(disabled){controls.update(disabled);presentation.update(disabled);feedback();},
+      update(value){
+        disabled=value;if(disabled&&!demonstrating)focus.reset();else focus.refresh();
+        controls.setFocus(focus.current);controls.update(disabled);presentation.update(disabled);feedback();
+      },
       async animate(move,before,options={}){
-        armed=model.moveTarget(move);
-        if(options.demonstration){controls.hint(move);preview=move;feedback();}
+        armed=model.moveTarget(move);demonstrating=!!options.demonstration;
+        if(demonstrating)focus.set('demonstration',intent(move,{before}),{exclusive:true});
         try{await view.animate(move,before,options);}finally{if(presentation.active?.view===view){
-          if(options.demonstration){preview=null;onPreview(null);}
-          view.sync();feedback();
+          demonstrating=false;focus.clear('demonstration');view.sync();feedback();
         }}
       },
-      hint(move){controls.hint(move);armed=model.selected;preview=move;view.focus?.(model.selected);feedback();},
-      clearHint(){controls.hint(null);preview=null;feedback();},
-      resetInteraction(){armed=null;preview=null;presentation.active?.view.hover?.(null);feedback();},
+      hint(move){armed=model.moveTarget(move);focus.set('hint',intent(move),{exclusive:true});view.focus?.(model.selected);},
+      clearHint(){focus.reset();},
+      resetInteraction(){armed=null;focus.reset();feedback();},
+      focusState:()=>focus.current,
       focus:()=>presentation.element.focus({preventScroll:true}),
-      destroy(){controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
+      destroy(){focus.reset();controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
       key(event){const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
     };
   }
