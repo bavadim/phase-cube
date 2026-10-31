@@ -2,6 +2,7 @@
 // Editable Strudel composition. Metadata and form live beside the actual music.
 // Browser adaptation of levels/music/raves/elise_after_hours; no pre-rendered song audio.
 export const metadata = {
+  schema: "music-composition/1", version: 1,
   title: "Элиза после смены", style: "Piano / acid breakbeat", bpm: 150,
   download: 'assets/elise-after-hours-game.mp3',
     credit: "Ludwig van Beethoven / Mutopia 931 / Stelios Samelis (Public Domain); VCSL CC0; Biba arrangement"

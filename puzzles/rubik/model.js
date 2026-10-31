@@ -22,11 +22,7 @@
   }
   function solved(s) { return s.cp.every((id, j) => id === j && s.co[j] === 0); }
   function correct(s) { return s.cp.reduce((n,id,j) => n + (id === j && s.co[j] === 0), 0); }
-  function phases(s) {
-    const result = Array(8);
-    s.cp.forEach((id, slot) => { result[id] = { id, slot, orientation: s.co[slot], ticks: mod(3*slot + 8*s.co[slot] - 3*id, 24) }; });
-    return result;
-  }
+  function placements(s) {return s.cp.map((pieceId,slot)=>({pieceId,poseId:slot+':'+s.co[slot]}));}
   function inverse(move) { return move.endsWith('2') ? move : move.endsWith("'") ? move[0] : move + "'"; }
   function appendPath(path, move) {
     const power = m => m.endsWith('2') ? 2 : m.endsWith("'") ? 3 : 1;
@@ -52,5 +48,5 @@
     const id = s.cp[slot], co = s.co[slot];
     return CORNER_FACES[id].map((color, n) => ({ color, face: CORNER_FACES[slot][(n+co)%3], id }));
   }
-  return { FACES, SLOTS, CORNER_FACES, POSITIONS, mod, snapshot, restore, valid, solved, correct, phases, inverse, appendPath, scramble, stickers };
+  return { FACES, SLOTS, CORNER_FACES, POSITIONS, mod, snapshot, restore, valid, solved, correct, placements, inverse, appendPath, scramble, stickers };
 });

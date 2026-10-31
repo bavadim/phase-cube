@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Собери музыкальный кубик: три рейв-композиции из живых Strudel-паттернов.">
+  <meta name="description" content="Музыкальные головоломки из Strudel-композиций.">
   <meta name="color-scheme" content="light">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%23225a43'/%3E%3Cpath d='M32 15 49 25v17L32 52 15 42V25Z' fill='none' stroke='%23e1eaad' stroke-width='4'/%3E%3C/svg%3E">
-  <title>Музыкальный кубик</title>
+  <title>Музыкальная головоломка</title>
+  <link rel="icon" href="data:,">
   <style>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 :root {
@@ -44,6 +44,59 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .legend-note, .legend-ghost { width: 20px; height: 8px; border-radius: 3px; }
 .legend-note { background: var(--green); }
 .legend-ghost { border: 2px solid var(--green); background: var(--panel); }
+dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 30px 26px 26px; overflow: auto; border: 1px solid #c5d0b8; border-radius: 26px; background: var(--panel); color: var(--ink); text-align: center; box-shadow: 0 16px 70px #253b3624; }
+dialog::backdrop { background: #f4f1e6b8; backdrop-filter: blur(7px); }
+.record-mark { width: 88px; height: 88px; display: grid; place-items: center; margin: 0 auto 22px; border: 1px solid #c9d4bc; border-radius: 50%; background: repeating-radial-gradient(circle, #edf1e4 0 8px, #dce5d0 9px 10px); }
+.record-mark > span { width: 46px; height: 46px; display: grid; place-items: center; background: var(--green); border-radius: 50%; color: #e1eaad; font-size: 30px; }
+dialog h1, dialog h2 { margin: 0; font-size: 30px; line-height: 1.13; letter-spacing: -.8px; }
+.song-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 13px; margin: 16px 0 24px; color: var(--muted); font-size: 16px; }
+.session-feedback { margin: -4px 0 16px; font-size: 16px; }
+.session-feedback:empty { display: none; }
+.song-choice { display: grid; gap: 7px; margin: 0 0 18px; text-align: left; color: var(--muted); font-size: 14px; }
+.song-choice select { min-width: 0; width: 100%; min-height: 48px; border: 1px solid #b9c8ad; border-radius: 12px; padding: 10px 12px; background: var(--panel); color: var(--ink); font-size: 16px; }
+.song-details { color: var(--muted); font-size: 14px; margin: -12px 0 20px; }
+.primary-button, .outline-button { display: flex; width: 100%; min-height: 58px; align-items: center; justify-content: center; padding: 14px 16px; border: 1px solid var(--green); border-radius: 14px; font-size: 18px; font-weight: 650; text-decoration: none; }
+.primary-button { color: white; background: var(--green); }
+.primary-button:hover:not(:disabled) { background: #326c50; }
+.outline-button { margin-top: 12px; color: var(--green); background: transparent; }
+.outline-button:hover { background: #e9efdf; }
+.result-mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; color: var(--green); background: #e2ecd4; }
+.result-mark svg { width: 40px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.result-caption { margin: 0 0 8px; color: var(--green); font-size: 16px; }
+/* A child of the modal result dialog: fireworks share its top layer above the backdrop. */
+.celebration { position: fixed; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
+.firework { position: absolute; width: 1px; height: 1px; }
+.firework-spark { position: absolute; width: 3px; height: 7px; border-radius: 2px; background: var(--spark-color); opacity: 0; animation: spark 850ms var(--delay) ease-out both; }
+@keyframes spark { 0% { opacity: 0; transform: translate(0, 0) rotate(var(--angle)) scale(.4); } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--angle)) scale(1); } }
+@media (min-width: 761px) { .playfield { align-items: center; } .controls-dock { padding-bottom: 18px; } }
+@media (max-width: 350px) {
+  .playfield { padding: 8px 10px 0; } .controls-dock { padding: 0 12px 6px; }
+  .cube-command { grid-template-columns: 60px minmax(0, 1fr) 60px; gap: 8px; }
+  .turn-button, .touch-face-control select { height: 58px; }
+  .completion { font-size: 14px; } #correct-count { font-size: 32px; }
+  .orbit-legend { font-size: 15px; gap: 7px; }
+  dialog { padding: 24px 20px 20px; } dialog h1, dialog h2 { font-size: 28px; }
+}
+@media (max-height: 500px) and (min-aspect-ratio: 4/3) {
+  .app { min-height: 280px; grid-template-columns: minmax(0, 1fr) minmax(280px, 36%); grid-template-rows: minmax(0, 1fr); }
+  .playfield { padding: 10px; align-items: center; } .controls-dock { align-self: end; padding: 12px 16px; }
+  .cube-command { grid-template-columns: 60px minmax(0, 1fr) 60px; gap: 8px; }
+  .turn-button, .touch-face-control select { height: 58px; } .touch-face-control select { font-size: 16px; }
+  dialog { width: min(460px, calc(100% - 40px)); padding: 18px 24px; }
+  .record-mark { display: none; } .result-mark { width: 44px; height: 44px; margin-bottom: 10px; } .result-mark svg { width: 30px; }
+  dialog h1, dialog h2 { font-size: 28px; } .song-meta { margin: 10px 0 16px; }
+  .primary-button, .outline-button { min-height: 52px; padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.puzzle-stage { position:absolute; left:50%; top:50%; width:52%; height:52%; transform:translate(-50%,-50%); }
+.setup-choices { display:grid; grid-template-columns:1fr; gap:0; }
+@media(max-height:700px) { .session-overlay .record-mark { display:none; } }
+@media(max-height:500px) and (min-aspect-ratio:4/3) { .setup-choices { grid-template-columns:1fr 1fr; gap:12px; } .song-choice { margin-bottom:12px; } }
+
+</style>
+  <style>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
 #orbit-score { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .orbit-grid, .orbit-current, .orbit-target, .orbit-preview { pointer-events: none; }
 .subdivision-line { stroke: #e1e5d8; stroke-width: 1; }
@@ -72,18 +125,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .orbit-track.just-changed .orbit-bed { stroke: #c7dab8; }
 .orbit-track.just-changed .current-event { filter: drop-shadow(0 0 5px var(--track-color)); }
 .is-pending .will-change .orbit-bed { stroke: #e8d5b8; }
-.cube-stage { position: absolute; left: 50%; top: 50%; width: 52%; height: 52%; transform: translate(-50%, -50%); cursor: grab; touch-action: none; border-radius: 25%; overflow: hidden; }
-#cube-view { position: absolute; inset: 0; }
-#cube-view canvas { display: block; width: 100%; height: 100%; }
-#cube-input { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; overflow: visible; pointer-events: none; }
-.cube-hit { fill: transparent; stroke: none; pointer-events: all; cursor: pointer; }
-.cube-feedback { pointer-events: none; color: #28533b; }
-.cube-face-outline { fill: #f7c97812; stroke: #aa6531; stroke-width: 2.3; stroke-linejoin: round; }
-.cube-half-highlight { fill: #f8ca7b70; stroke: #fff9e4; stroke-width: 1; }
-.cube-turn-underlay { fill: none; stroke: #fffdf0; stroke-width: 5.3; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
-.cube-turn-arrow { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-#cube-input.is-busy { visibility: hidden; }
-#view-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: 16px; background: var(--panel); }
+
+</style>
+  <style>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
 .controls-dock { width: min(100%, 680px); justify-self: center; padding: 4px 18px 12px; background: var(--paper); }
 .song-seek { display: flex; align-items: center; height: 44px; margin-bottom: 6px; }
 .song-seek input { width: 100%; height: 44px; margin: 0; accent-color: var(--orange); cursor: pointer; touch-action: pan-y; }
@@ -99,112 +144,75 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 .secondary-button:hover:not(:disabled) { background: #e7ecdc; }
 .secondary-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #pause-icon { width: 22px; font-size: 23px; font-weight: 700; line-height: 1; }
-dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 30px 26px 26px; overflow: auto; border: 1px solid #c5d0b8; border-radius: 26px; background: var(--panel); color: var(--ink); text-align: center; box-shadow: 0 16px 70px #253b3624; }
-dialog::backdrop { background: #f4f1e6b8; backdrop-filter: blur(7px); }
-.record-mark { width: 88px; height: 88px; display: grid; place-items: center; margin: 0 auto 22px; border: 1px solid #c9d4bc; border-radius: 50%; background: repeating-radial-gradient(circle, #edf1e4 0 8px, #dce5d0 9px 10px); }
-.record-mark > span { width: 46px; height: 46px; display: grid; place-items: center; background: var(--green); border-radius: 50%; color: #e1eaad; font-size: 30px; }
-dialog h1, dialog h2 { margin: 0; font-size: 30px; line-height: 1.13; letter-spacing: -.8px; }
-.song-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 13px; margin: 16px 0 24px; color: var(--muted); font-size: 16px; }
-.session-feedback { margin: -4px 0 16px; font-size: 16px; }
-.session-feedback:empty { display: none; }
-.song-choice { display: grid; gap: 7px; margin: 0 0 18px; text-align: left; color: var(--muted); font-size: 14px; }
-.song-choice select { min-width: 0; width: 100%; min-height: 48px; border: 1px solid #b9c8ad; border-radius: 12px; padding: 10px 12px; background: var(--panel); color: var(--ink); font-size: 16px; }
-.song-details { color: var(--muted); font-size: 14px; margin: -12px 0 20px; }
-.primary-button, .outline-button { display: flex; width: 100%; min-height: 58px; align-items: center; justify-content: center; padding: 14px 16px; border: 1px solid var(--green); border-radius: 14px; font-size: 18px; font-weight: 650; text-decoration: none; }
-.primary-button { color: white; background: var(--green); }
-.primary-button:hover:not(:disabled) { background: #326c50; }
-.outline-button { margin-top: 12px; color: var(--green); background: transparent; }
-.outline-button:hover { background: #e9efdf; }
-.result-mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; color: var(--green); background: #e2ecd4; }
-.result-mark svg { width: 40px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.result-caption { margin: 0 0 8px; color: var(--green); font-size: 16px; }
-.celebration { position: absolute; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
-.firework { position: absolute; width: 1px; height: 1px; }
-.firework-spark { position: absolute; width: 3px; height: 7px; border-radius: 2px; background: var(--spark-color); opacity: 0; animation: spark 850ms var(--delay) ease-out both; }
-@keyframes spark { 0% { opacity: 0; transform: translate(0, 0) rotate(var(--angle)) scale(.4); } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--angle)) scale(.3); } }
-@media (min-width: 761px) { .playfield { align-items: center; } .controls-dock { padding-bottom: 18px; } }
-@media (max-width: 350px) {
-  .playfield { padding: 8px 10px 0; } .controls-dock { padding: 0 12px 6px; }
-  .cube-command { grid-template-columns: 60px minmax(0, 1fr) 60px; gap: 8px; }
-  .turn-button, .touch-face-control select { height: 58px; }
-  .completion { font-size: 14px; } #correct-count { font-size: 32px; }
-  .orbit-legend { font-size: 15px; gap: 7px; }
-  dialog { padding: 24px 20px 20px; } dialog h1, dialog h2 { font-size: 28px; }
+
+.secondary-actions { display: flex; justify-content: space-between; gap: 12px; }
+.hint-host { display: none; }
+.hint-slot { display:flex; align-items:stretch; min-width:0; }
+.hint-slot #hint { width:100%; min-height:64px; border:1px solid #bac9ae; border-radius:14px; background:var(--panel); font-size:18px; }
+.secondary-button { min-width: 44px; }
+.turn-button { font-size: 32px; font-weight: 400; line-height: 1; }
+.turn-button.hinted { background: #b97732; border-color: #9a5e25; box-shadow: 0 0 0 3px #d4a65c55; }
+@media(max-width:350px) {
+  .controls-dock { padding:0 12px 6px; }
+  .cube-command { grid-template-columns:60px minmax(0,1fr) 60px; gap:8px; }
+  .turn-button,.hint-slot #hint { min-height:58px; height:58px; }
 }
-@media (max-height: 500px) and (min-aspect-ratio: 4/3) {
-  .app { min-height: 280px; grid-template-columns: minmax(0, 1fr) minmax(280px, 36%); grid-template-rows: minmax(0, 1fr); }
-  .playfield { padding: 10px; align-items: center; } .controls-dock { align-self: end; padding: 12px 16px; }
-  .cube-command { grid-template-columns: 60px minmax(0, 1fr) 60px; gap: 8px; }
-  .turn-button, .touch-face-control select { height: 58px; } .touch-face-control select { font-size: 16px; }
-  dialog { width: min(460px, calc(100% - 40px)); padding: 18px 24px; }
-  .record-mark { display: none; } .result-mark { width: 44px; height: 44px; margin-bottom: 10px; } .result-mark svg { width: 30px; }
-  dialog h1, dialog h2 { font-size: 28px; } .song-meta { margin: 10px 0 16px; }
-  .primary-button, .outline-button { min-height: 52px; padding: 10px; }
+@media(max-height:500px) and (min-aspect-ratio:4/3) {
+  .controls-dock { padding:12px 16px; }
+  .cube-command { grid-template-columns:60px minmax(0,1fr) 60px; gap:8px; }
+  .turn-button,.hint-slot #hint { min-height:58px; height:58px; }
+  .hint-slot #hint { font-size:16px; padding:7px 4px; }
+  .secondary-button { padding:7px 4px; gap:6px; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+</style>
+  <style>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+.cube-stage { position: absolute; left: 50%; top: 50%; width: 52%; height: 52%; transform: translate(-50%, -50%); cursor: grab; touch-action: none; border-radius: 25%; overflow: hidden; }
+#cube-view { position: absolute; inset: 0; }
+#cube-view canvas { display: block; width: 100%; height: 100%; }
+#cube-input { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; overflow: visible; pointer-events: none; }
+.cube-hit { fill: transparent; stroke: none; pointer-events: all; cursor: pointer; }
+.cube-feedback { pointer-events: none; color: #28533b; }
+.cube-face-outline { fill: #f7c97812; stroke: #aa6531; stroke-width: 2.3; stroke-linejoin: round; }
+.cube-half-highlight { fill: #f8ca7b70; stroke: #fff9e4; stroke-width: 1; }
+.cube-turn-underlay { fill: none; stroke: #fffdf0; stroke-width: 5.3; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+.cube-turn-arrow { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+#cube-input.is-busy { visibility: hidden; }
+#view-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: 16px; background: var(--panel); }
+
+</style>
+  <style>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+.twiddle-stage { width: 66%; height: 56%; display: grid; place-items: center; }
+.twiddle-stage > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.twiddle-base { fill: #d7dfcc; stroke: #9fae95; stroke-width: 1.4; }
+.twiddle-edge { fill: #a8b99d; stroke: #83967b; stroke-width: 1; }
+.twiddle-side { fill: #bdcbb0; stroke: #83967b; stroke-width: 1; }
+.twiddle-piece { cursor: pointer; }
+.tile-top { fill: var(--piece-color); stroke: #314e3e; stroke-width: 1.4; stroke-linejoin: round; }
+.tile-edge { fill: color-mix(in srgb, var(--piece-color) 65%, #203a2c); stroke: #314e3e; stroke-width: 1; }
+.tile-side { fill: color-mix(in srgb, var(--piece-color) 80%, #203a2c); stroke: #314e3e; stroke-width: 1; }
+.tile-number { fill: #182d25; font: 650 27px Inter, Arial, sans-serif; pointer-events: none; }
+.twiddle-selection { fill: none; stroke: #a75c26; stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
 
 </style>
 </head>
 <body data-phase="ready">
-<main class="app" aria-label="Музыкальный кубик">
+<main class="app" aria-label="Музыкальная головоломка">
   <section class="playfield" aria-label="Головоломка и музыкальный рисунок">
     <div class="orbital-workspace" id="orbital-workspace">
-      <aside class="completion" aria-label="Прогресс сборки">
-        <span id="correct-count">0<span>/8</span></span>
-        <span>деталей<br>на месте</span>
-      </aside>
-      <aside class="orbit-legend" aria-label="Обозначения рисунка">
-        <span><i class="legend-note" aria-hidden="true"></i>сейчас</span>
-        <span><i class="legend-ghost" aria-hidden="true"></i>цель</span>
-      </aside>
+      <aside class="completion" aria-label="Прогресс сборки"><span id="correct-count">0</span><span>деталей<br>на месте</span></aside>
+      <aside class="orbit-legend" aria-label="Обозначения рисунка"><span><i class="legend-note" aria-hidden="true"></i>сейчас</span><span><i class="legend-ghost" aria-hidden="true"></i>цель</span></aside>
       <div class="orbit-sequencer" id="orbit-sequencer">
-        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели. Время идёт по часовой стрелке."></svg>
-        <div class="cube-stage" id="cube-stage" tabindex="0" aria-label="Кубик. Касание выбирает грань, перетаскивание меняет ракурс. Повороты — кнопками внизу.">
-          <div id="cube-view"></div>
-          <svg id="cube-input" aria-label="Выбранная грань и направление поворота"></svg>
-          <div id="view-error" hidden>3D недоступно</div>
-        </div>
+        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели"></svg>
+        <div class="puzzle-stage" id="puzzle-stage" tabindex="0"></div>
       </div>
-      <div id="celebration" class="celebration" aria-hidden="true" hidden></div>
     </div>
   </section>
-
-  <section class="controls-dock" aria-label="Управление">
-    <label class="song-seek">
-      <span class="sr-only">Позиция в композиции</span>
-      <input id="song-seek" type="range" min="0" max="1" step="0.25" value="0" aria-label="Позиция в композиции" aria-valuetext="Начало композиции">
-    </label>
-    <div class="cube-command" role="group" aria-label="Поворот выбранной грани">
-      <button id="turn-left" class="turn-button" aria-label="Повернуть выбранную грань против часовой стрелки" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 10a10 10 0 1 1-2 11M9 4v8H1"/></svg></button>
-      <label class="touch-face-control"><span class="sr-only">Выбранная грань</span><select id="touch-face" aria-label="Выбранная грань" disabled><option value="U">Сверху</option><option value="R">Справа</option><option value="F" selected>Спереди</option><option value="D">Снизу</option><option value="L">Слева</option><option value="B">Сзади</option></select></label>
-      <button id="turn-right" class="turn-button" aria-label="Повернуть выбранную грань по часовой стрелке" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M23 10a10 10 0 1 0 2 11M23 4v8h8"/></svg></button>
-    </div>
-    <div class="secondary-actions">
-      <button id="undo" class="secondary-button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Отменить</span></button>
-      <button id="pause" class="secondary-button" aria-pressed="false" disabled><span id="pause-icon" aria-hidden="true">Ⅱ</span><span id="pause-label">Пауза</span></button>
-    </div>
-  </section>
+  <section class="controls-dock" id="player-controls" aria-label="Управление"></section>
 </main>
-
-<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title" aria-describedby="song-meta session-feedback">
-  <div class="record-mark" aria-hidden="true"><span>◈</span></div>
-  <label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled><option>Загрузка…</option></select></label>
-  <h1 id="session-title">Музыкальный кубик</h1>
-  <p id="song-meta" class="song-meta"></p>
-  <p id="song-details" class="song-details"></p>
-  <p id="session-feedback" class="session-feedback" role="status">Загружаем звук…</p>
-  <button id="start" class="primary-button" disabled>Начать</button>
-</dialog>
-
-<dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title" aria-describedby="result-song">
-  <div class="result-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="m10 21 7 7 14-16"/></svg></div>
-  <p class="result-caption">Композиция собрана</p>
-  <h2 id="result-title">Композиция собрана</h2>
-  <p id="result-song" class="song-meta"></p>
-  <a id="download-mp3" class="primary-button" href="#" download>Скачать трек · MP3</a>
-  <button id="play-again" class="outline-button">Ещё раз</button>
-  <button id="choose-song" class="outline-button">Выбрать композицию</button>
-</dialog>
+<div id="dialogs"></div>
 <output id="audio-diagnostics" hidden aria-hidden="true"></output>
 <script>
 console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
@@ -1462,6 +1470,7 @@ globalThis.PhaseCubeEmbeddedCompositions={"turkish-circuit":(()=>{/* SPDX-Licens
 // Editable Strudel composition. Metadata and form live beside the actual music.
 // Browser adaptation of levels/music/raves/turkish_circuit; no pre-rendered song audio.
 const metadata = {
+  schema: "music-composition/1", version: 1,
   title: "Моцарт на конвейере", style: "Piano / industrial rave", bpm: 150,
   download: 'assets/turkish-circuit-game.mp3',
     credit: "Wolfgang Amadeus Mozart / Mutopia 108 (Public Domain); VCSL CC0; Biba arrangement"
@@ -1692,6 +1701,7 @@ lanes.stab = stabSound(stack(
 // Editable Strudel composition. Metadata and form live beside the actual music.
 // Browser adaptation of levels/music/raves/steel_shift; no pre-rendered song audio.
 const metadata = {
+  schema: "music-composition/1", version: 1,
   title: "Цех горного короля", style: "Industrial rave", bpm: 140,
   download: 'assets/steel-shift-game.mp3',
     credit: "Edvard Grieg / Mutopia 1888 (Public Domain); VCSL CC0; Biba arrangement"
@@ -2064,6 +2074,7 @@ lanes.noise = noiseSound(stack(
 // Editable Strudel composition. Metadata and form live beside the actual music.
 // Browser adaptation of levels/music/raves/elise_after_hours; no pre-rendered song audio.
 const metadata = {
+  schema: "music-composition/1", version: 1,
   title: "Элиза после смены", style: "Piano / acid breakbeat", bpm: 150,
   download: 'assets/elise-after-hours-game.mp3',
     credit: "Ludwig van Beethoven / Mutopia 931 / Stelios Samelis (Public Domain); VCSL CC0; Biba arrangement"
@@ -2492,70 +2503,48 @@ lanes.noise = noiseSound(stack(
     return attacks(p,from,from+bars).map(h=>JSON.stringify([quantize(onset(h)-from),quantize(Number(h.duration)),h.value])) .sort();
   }
   function analyze(S,raw,id,palette){
+    if(raw?.schema!=='music-composition/1'||!Number.isInteger(raw.version)||raw.version<1)throw new Error('Неподдерживаемый контракт композиции');
     if(!raw||!raw.title||!raw.style||!Number.isFinite(raw.bpm)||raw.bpm<=0)throw new Error('Композиции нужны название, стиль и темп');
+    if(raw.meter&&JSON.stringify(raw.meter)!=='[4,4]')throw new Error('Текущий транспорт поддерживает размер 4/4');
+    if(raw.phaseOptions?.subdivisionsPerBeat&&(!Array.isArray(raw.phaseOptions.subdivisionsPerBeat)||!raw.phaseOptions.subdivisionsPerBeat.length||raw.phaseOptions.subdivisionsPerBeat.length>4||raw.phaseOptions.subdivisionsPerBeat.some(n=>!Number.isInteger(n)||n<1||n>8)))throw new Error('Неверная сетка фаз');
     if(!Number.isFinite(raw.periodBars)||raw.periodBars<=0)throw new Error('Нужен период игровых партий');
     let bars=0;
     const sections=raw.sections.map(section=>{
       if(!section.name||!Number.isFinite(section.bars)||section.bars<=0)throw new Error('Неверная секция композиции');
-      const result={name:section.name,bars:section.bars,from:bars,to:bars+section.bars};bars=result.to;return result;
+      const result={...section,from:bars,to:bars+section.bars};bars=result.to;return result;
     });
     if(!bars||bars%raw.periodBars)throw new Error('Длина песни должна содержать целое число игровых циклов');
-    if(!Array.isArray(raw.playerParts)||!raw.playerParts.length||raw.playerParts.length>8)throw new Error('Нужно от одной до восьми партий игрока');
-    const assigned=raw.playerParts.reduce((sum,part)=>sum+(part.pieces||0),0);
-    const automatic=raw.playerParts.filter(part=>part.pieces==null).length;
-    const available=8-assigned;
-    if(available<automatic||(!automatic&&available!==0))throw new Error('Неверное распределение восьми деталей');
-    let automaticIndex=0;
-    const parts=raw.playerParts.map(part=>({...part,pieces:part.pieces??(Math.floor(available/automatic)+(automaticIndex++<available%automatic?1:0))}));
-    const voices=[],basePatterns=[],partStats=[];
-    const keys=new Set();
-    for(const part of parts){
-      if(!part.key||keys.has(part.key)||!part.name||!Number.isInteger(part.pieces)||part.pieces<1||!part.pattern?.queryArc)throw new Error('Неверная игровая партия');
+    if(!Array.isArray(raw.playerParts)||!raw.playerParts.length)throw new Error('Нужно указать список игровых партий');
+    const keys=new Set(),partStats=[],patterns=[];
+    for(const part of raw.playerParts){
+      if(['weight','pieces'].some(k=>part[k]!==undefined&&(!Number.isFinite(part[k])||part[k]<=0))||(part.groups&&(!Array.isArray(part.groups)||part.groups.some(g=>!g||!Array.isArray(g.onsetsBeats)||g.onsetsBeats.some(at=>!Number.isFinite(at)||at<0||at>=raw.periodBars*4)))))throw new Error('Неверные ограничения разбиения партии');
+      if(!part.key||keys.has(part.key)||!part.name||!part.pattern?.queryArc)throw new Error('Неверная игровая партия');
       keys.add(part.key);
       const local=attacks(part.pattern,0,raw.periodBars);
       if(!local.length)throw new Error('Пустая игровая партия: '+part.name);
-      const starts=[...new Set(local.map(h=>quantize(onset(h))))].sort((a,b)=>a-b);
-      const rank=new Map(starts.map((time,i)=>[time,i]));
-      // Verify all authored repetitions, rather than estimating a period from arbitrary JS.
       const reference=JSON.stringify(signature(part.pattern,0,raw.periodBars));
       for(let from=raw.periodBars;from<=bars;from+=raw.periodBars){
         if(JSON.stringify(signature(part.pattern,from,raw.periodBars))!==reference)throw new Error('Изменяется игровая партия: '+part.name);
       }
-      partStats.push({key:part.key,name:part.name,attacks:local.length,pieces:part.pieces});
-      for(let piece=0;piece<part.pieces;piece++){
-        const index=voices.length;
-        const p=part.pattern.filterHaps(h=>{
-          const at=quantize(mod(onset(h),raw.periodBars));
-          return (part.split==='time'?Math.min(part.pieces-1,Math.floor(at/raw.periodBars*part.pieces)):rank.get(at)%part.pieces)===piece;
-        }).withValue(value=>({...value,_phaseCubeVoice:index,_phaseCubePart:part.key}));
-        const events=attacks(p,0,raw.periodBars);
-        if(!events.length)throw new Error('Пустая деталь кубика: '+part.name);
-        voices.push({name:`${part.name} · ${piece+1}/${part.pieces}`,part:part.key,color:palette[index],attacks:events.length});
-        basePatterns.push(p);
-      }
+      partStats.push({key:part.key,name:part.name,attacks:local.length});
+      patterns.push(part.pattern.withValue(v=>({...v,_phaseCubePart:part.key})));
     }
-    if(voices.length!==8)throw new Error('Композиция должна давать ровно восемь деталей кубика');
     if(!raw.backing?.queryArc)throw new Error('Отсутствует Strudel-фон');
-    const pattern=S.stack(raw.backing,...basePatterns);
-    const events=attacks(pattern,0,bars);
-    for(const h of events){
-      if(!Number.isFinite(onset(h))||!Number.isFinite(Number(h.duration))||Number(h.duration)<=0)throw new Error('Неверная длительность ноты');
-    }
+    const pattern=S.stack(raw.backing,...patterns),events=attacks(pattern,0,bars);
+    for(const h of events)if(!Number.isFinite(onset(h))||!Number.isFinite(Number(h.duration))||Number(h.duration)<=0)throw new Error('Неверная длительность ноты');
     if(JSON.stringify(signature(raw.backing,0,raw.periodBars))!==JSON.stringify(signature(raw.backing,bars,raw.periodBars)))throw new Error('Фон не зациклен по длине формы');
-    const sounds=[...new Set(events.map(h=>h.value.s))].sort();
-    const instruments=new Set(events.map(h=>h.value._phaseCubePart));
-    const game=Object.freeze({periodBars:raw.periodBars,voices,basePatterns,targetRows:basePatterns.map(p=>eventsOf(p,raw.periodBars))});
-    return Object.freeze({...raw,id,bars,sections,game,pattern,
+    const sounds=[...new Set(events.map(h=>h.value.s))].sort(),instruments=new Set(events.map(h=>h.value._phaseCubePart));
+    return Object.freeze({...raw,id,bars,sections,pattern,timing:Object.freeze({bpm:raw.bpm,meter:[4,4],periodBeats:raw.periodBars*4,songBeats:bars*4}),
       stats:Object.freeze({bars,bpm:raw.bpm,seconds:bars*240/raw.bpm,periodBars:raw.periodBars,periodSeconds:raw.periodBars*240/raw.bpm,
-        attacks:events.length,instruments:instruments.size,sounds,parts:partStats,sections:sections.length,
-        maxGateBars:Math.max(...events.map(h=>Number(h.duration)))})});
+        attacks:events.length,instruments:instruments.size,sounds,parts:partStats,sections:sections.length,maxGateBars:Math.max(...events.map(h=>Number(h.duration)))})});
   }
   class Loader{
     constructor(S,{palette,baseURL}={}){this.S=S;this.palette=palette;this.baseURL=baseURL||new URL('./',document.baseURI);this.cache=new Map();this.modules=new Map();}
     async module(id){
       if(!files.includes(id))throw new Error('Неизвестная композиция: '+id);
       if(!this.modules.has(id)){
-        const promise=globalThis.PhaseCubeEmbeddedCompositions?.[id]||import(new URL(`compositions/${id}.strudel.mjs`,this.baseURL).href);
+        const url=new URL(`compositions/${id}.strudel.mjs`,this.baseURL);url.searchParams.set('v','contracts1');
+        const promise=globalThis.PhaseCubeEmbeddedCompositions?.[id]||import(url.href);
         this.modules.set(id,Promise.resolve(promise));
       }
       return this.modules.get(id);
@@ -2579,70 +2568,9 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Cube moves come from cubejs. This adapter uses its corner action only. */
-(function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.PhaseCube = factory();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-  'use strict';
-  const FACES = ['U', 'R', 'F', 'D', 'L', 'B'];
-  const SLOTS = ['URF', 'UFL', 'ULB', 'UBR', 'DFR', 'DLF', 'DBL', 'DRB'];
-  const CORNER_FACES = SLOTS.map(s => s.split(''));
-  const POSITIONS = [[1,1,1],[-1,1,1],[-1,1,-1],[1,1,-1],[1,-1,1],[-1,-1,1],[-1,-1,-1],[1,-1,-1]];
-  const mod = (n, m) => ((n % m) + m) % m;
-  function snapshot(cube) { return { cp: [...cube.cp], co: [...cube.co] }; }
-  function valid(s) {
-    return s && Array.isArray(s.cp) && Array.isArray(s.co) && s.cp.length === 8 && s.co.length === 8 &&
-      new Set(s.cp).size === 8 && s.cp.every(x => Number.isInteger(x) && x >= 0 && x < 8) &&
-      s.co.every(x => Number.isInteger(x) && x >= 0 && x < 3) && s.co.reduce((a,b) => a+b, 0) % 3 === 0;
-  }
-  function restore(cube, s) {
-    if (!valid(s)) throw new Error('Invalid corner configuration');
-    cube.identity(); cube.cp = [...s.cp]; cube.co = [...s.co]; return cube;
-  }
-  function solved(s) { return s.cp.every((id, j) => id === j && s.co[j] === 0); }
-  function correct(s) { return s.cp.reduce((n,id,j) => n + (id === j && s.co[j] === 0), 0); }
-  function phases(s) {
-    const result = Array(8);
-    s.cp.forEach((id, slot) => { result[id] = { id, slot, orientation: s.co[slot], ticks: mod(3*slot + 8*s.co[slot] - 3*id, 24) }; });
-    return result;
-  }
-  function inverse(move) { return move.endsWith('2') ? move : move.endsWith("'") ? move[0] : move + "'"; }
-  function appendPath(path, move) {
-    const power = m => m.endsWith('2') ? 2 : m.endsWith("'") ? 3 : 1;
-    const out = [...path];
-    if (out.length && out[out.length-1][0] === move[0]) {
-      const n = (power(out.pop()) + power(move)) % 4;
-      if (n) out.push(move[0] + (n === 2 ? '2' : n === 3 ? "'" : ''));
-    } else out.push(move);
-    return out;
-  }
-  function scramble(seed, length = 3) {
-    let x = seed >>> 0;
-    const random = () => { x = (Math.imul(x,1664525)+1013904223) >>> 0; return x / 4294967296; };
-    const moves = []; let last = '';
-    for (let i=0; i<length; i++) {
-      const available = FACES.filter(f => f !== last);
-      const face = available[Math.floor(random()*available.length)];
-      moves.push(face + (random() < .5 ? "'" : '')); last = face;
-    }
-    return moves;
-  }
-  function stickers(s, slot) {
-    const id = s.cp[slot], co = s.co[slot];
-    return CORNER_FACES[id].map((color, n) => ({ color, face: CORNER_FACES[slot][(n+co)%3], id }));
-  }
-  return { FACES, SLOTS, CORNER_FACES, POSITIONS, mod, snapshot, restore, valid, solved, correct, phases, inverse, appendPath, scramble, stickers };
-});
-
-</script>
-<script>
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PhaseCubeConfig=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
-  const colors={U:'#e9dca6',R:'#dc8e70',F:'#739e87',D:'#c5ad63',L:'#a4b6c3',B:'#a196b6'};
-  const names={U:'верх',R:'справа',F:'спереди',D:'низ',L:'слева',B:'сзади'};
   const palette=['#507c63','#739774','#af7658','#c5966a','#588c91','#809eaf','#a183a0','#ab7270'];
-  return Object.freeze({palette,colors,names,volume:.80,outputGain:1,scrambleLength:3});
+  return Object.freeze({palette,volume:1,outputGain:1,scrambleLength:3,defaultPuzzle:'twiddle',defaultSong:'turkish-circuit'});
 });
 
 </script>
@@ -2675,19 +2603,278 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* The cube shifts eight note patterns; the full Strudel backing stays independent. */
-window.PhaseCubeMusic=(()=>{
-  const eventKey=rows=>JSON.stringify(rows);
-  const eventsOf=PhaseCubeLibrary.eventsOf;
-  class Music{
-    constructor(S,M,Cube,song){Object.assign(this,{S,M,Cube,song});this.voices=song.game.voices;this.localBars=song.game.periodBars;
-      this.basePatterns=song.game.basePatterns;
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../composition-loader.js'));else root.PuzzleParts=factory(root.PhaseCubeLibrary);})(globalThis,function(L){
+  'use strict';
+  // This partitions native Strudel events; it never rewrites notes or interprets mini-notation.
+  function build(S,song,{count,palette}){
+    const source=song.playerParts;
+    if(!Number.isInteger(count)||count<source.length)throw new Error('Недостаточно деталей для партий композиции');
+    const units=source.map(part=>{
+      const starts=[...new Set(L.attacks(part.pattern,0,song.periodBars).map(h=>Math.round(Number(h.whole.begin)*1e9)/1e9))].sort((a,b)=>a-b);
+      if(!part.groups)return starts.map(at=>[at]);
+      if(part.split==='time')throw new Error('Группировка фраз несовместима с split:time');
+      const groups=part.groups.map(g=>g.onsetsBeats.map(at=>Math.round(at/4*1e9)/1e9)),flat=groups.flat();
+      if(groups.some(g=>!g.length)||flat.length!==starts.length||new Set(flat).size!==flat.length||flat.some(at=>!starts.includes(at)))throw new Error('Группы должны покрывать все атаки ровно один раз: '+part.name);
+      return groups;
+    });
+    if(units.reduce((n,u)=>n+u.length,0)<count)throw new Error('Недостаточно независимых фраз для деталей головоломки');
+    const counts=source.map(()=>1);
+    {
+      const weights=source.map(p=>p.weight||p.pieces||1),sum=weights.reduce((a,b)=>a+b,0),remaining=count-source.length;
+      const quotas=weights.map(w=>remaining*w/sum);
+      quotas.forEach((q,i)=>counts[i]+=Math.min(units[i].length-1,Math.floor(q)));
+      while(counts.reduce((a,b)=>a+b,0)<count){
+        const order=quotas.map((q,i)=>({i,deficit:1+q-counts[i]})).filter(e=>counts[e.i]<units[e.i].length).sort((a,b)=>b.deficit-a.deficit||a.i-b.i);
+        if(!order.length)throw new Error('Недостаточно непустых фрагментов');counts[order[0].i]++;
+      }
     }
-    shifted(state){const ps=this.M.phases(state);return this.basePatterns.map((p,id)=>p.late(this.S.Fraction([ps[id].ticks*this.localBars,24])));}
-    rows(s){return this.shifted(s).map(p=>eventsOf(p,this.localBars));}
-    predict(move,state,currentRows){const c=new this.Cube();this.M.restore(c,state);c.move(move);const next=this.M.snapshot(c),phases=this.M.phases(next),before=this.M.phases(state),rows=this.rows(next);return{move,phases,rows,phaseChanged:phases.filter((p,i)=>p.ticks!==before[i].ticks).map(p=>p.id),changed:rows.map((r,i)=>eventKey(r)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};}
-    pattern(state,{solo=-1,muted=[]},respectMix=true){const ps=this.shifted(state).filter((p,id)=>!respectMix||(!muted.includes(id)&&(solo<0||solo===id)));return ps.length?this.S.stack(...ps):this.S.silence;}
-    code(state){const phases=this.M.phases(state);return [`// ${this.song.title}: ${this.song.bars} тактов. Игровой период: ${this.localBars}.`,`// compositions/${this.song.id}.strudel.mjs`,`setcpm(${this.song.bpm}/4)`,'stack(',...this.voices.map((v,i)=>`  pieces[${i}].late(${phases[i].ticks}*${this.localBars}/24), // ${v.name}`),'  backing',')'].join('\n');}
+    const voices=[],basePatterns=[],parts=[];
+    source.forEach((part,partIndex)=>{
+      const pieces=counts[partIndex],local=L.attacks(part.pattern,0,song.periodBars);
+      const rank=new Map(units[partIndex].flatMap((group,i)=>group.map(at=>[at,i])));
+      parts.push({key:part.key,name:part.name,pieces,attacks:local.length});
+      for(let piece=0;piece<pieces;piece++){
+        const index=voices.length;
+        const p=part.pattern.filterHaps(h=>{
+          const at=Math.round((((Number(h.whole.begin)%song.periodBars)+song.periodBars)%song.periodBars)*1e9)/1e9;
+          return (part.split==='time'?Math.min(pieces-1,Math.floor(at/song.periodBars*pieces)):rank.get(at)%pieces)===piece;
+        }).withValue(v=>({...v,_phaseCubeVoice:index,_phaseCubePart:part.key}));
+        const events=L.attacks(p,0,song.periodBars);
+        if(!events.length)throw new Error('Пустая музыкальная деталь: '+part.name);
+        voices.push({id:part.key+':'+piece,pieceId:index,name:part.name+' · '+(piece+1)+'/'+pieces,part:part.key,color:palette[index%palette.length],attacks:events.length});basePatterns.push(p);
+      }
+    });
+    return Object.freeze({periodBars:song.periodBars,count,voices,basePatterns,parts,targetRows:basePatterns.map(p=>L.eventsOf(p,song.periodBars))});
+  }
+  return {build};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PuzzleContract=factory();})(globalThis,function(){
+  'use strict';
+  const key=state=>JSON.stringify(state);
+  function inspect(puzzle){
+    const spec=puzzle.manifest,model=puzzle.create();
+    if(spec?.schema!=='music-puzzle/1'||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
+    if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
+    for(const field of ['pieceIds','poseIds'])if(!Array.isArray(spec[field])||!spec[field].length||new Set(spec[field]).size!==spec[field].length)throw new Error('Неверный домен '+field);
+    if(spec.pieceIds.some(id=>!Number.isInteger(id))||spec.pieceIds.some((id,i)=>id!==i))throw new Error('Деталям нужны последовательные числовые id');
+    if(spec.pieceIds.length!==model.count)throw new Error('Число деталей не совпадает с манифестом');
+    if(spec.poseIds.some(id=>!['number','string'].includes(typeof id)))throw new Error('Положениям нужны строковые или числовые id');
+    if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
+    for(const name of ['initialState','legalMoves','applyTo','inverse','placements','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    const initial=model.initialState();
+    if(!model.solved(initial))throw new Error('Исходная цель не собрана');
+    project({manifest:spec,model},initial);
+    return {manifest:spec,model};
+  }
+  function project(puzzle,state){
+    const {manifest:spec,model}=puzzle;
+    // This is an explicit terminal-goal policy, not a change of frame on every move.
+    const canonical=spec.goalPolicy==='all-solved-to-reference'&&model.solved(state)?model.initialState():state;
+    const result=model.placements(canonical),ids=new Set();
+    if(result.length!==spec.pieceIds.length)throw new Error('Неверное число положений деталей');
+    for(const p of result){
+      if(!spec.pieceIds.includes(p.pieceId)||ids.has(p.pieceId)||!spec.poseIds.includes(p.poseId))throw new Error('Положение вне контракта головоломки');
+      ids.add(p.pieceId);
+    }
+    return [...result].sort((a,b)=>a.pieceId-b.pieceId);
+  }
+  function probes(puzzle,{stateLimit=192,edgeLimit=384,seed=1730}={}){
+    const {model}=puzzle,states=new Map(),edges=new Map();
+    const add=s=>{const k=key(s);if(!states.has(k))states.set(k,s);return k;};
+    const edge=(state,move)=>{const next=model.applyTo(state,move),a=add(state),b=add(next),k=[a,b].sort().join('|');if(key(model.applyTo(next,model.inverse(move)))!==a)throw new Error('Обратный ход не восстанавливает состояние');if(!edges.has(k))edges.set(k,{before:a,after:b});return next;};
+    const exact=typeof model.allStates==='function';
+    if(exact){
+      for(const state of model.allStates())add(state);
+      const expected=states.size;
+      for(const state of [...states.values()])for(const move of model.legalMoves(state))edge(state,move);
+      if(states.size!==expected)throw new Error('Заявленный полный граф не замкнут');
+    }else{
+      let x=seed>>>0;
+      const random=n=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x%n;};
+      const goals=model.goalStates?.()||[model.initialState()];
+      // Include transitions from every accepted target, including rotated cubes.
+      for(const state of goals){add(state);for(const move of model.legalMoves(state))edge(state,move);}
+      let state=model.initialState();
+      for(let i=0;i<stateLimit&&edges.size<edgeLimit;i++){
+        const moves=model.legalMoves(state);state=edge(state,moves[random(moves.length)]);
+        if(i%12===11)state=model.initialState();
+      }
+    }
+    const entries=[...states].map(([id,state])=>({id,state,placements:project(puzzle,state),solved:model.solved(state)}));
+    return {states:entries,edges:[...edges.values()],coverage:exact?'complete':'sampled'};
+  }
+  return {inspect,project,probes};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Symbolic discrimination of Strudel events, not an acoustic quality certificate. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./puzzle-contract.js'));else root.PuzzlePhases=factory(root.PuzzleContract);})(globalThis,function(Contract){
+  'use strict';
+  const VERSION='pose-phase/1',mod=(n,d)=>((n%d)+d)%d,round=n=>Math.round(n*1e8)/1e8;
+  const valueKey=value=>JSON.stringify(Object.fromEntries(Object.entries(value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b))));
+  function analyzePattern(events,periodBeats){
+    if(!events.length||!Number.isFinite(periodBeats)||periodBeats<=0)throw new Error('Нужен непустой периодический паттерн');
+    const notes=events.map(e=>({at:round(e.start*periodBeats),duration:round(e.duration*periodBeats),velocity:e.value.velocity??1,value:valueKey(e.value)}));
+    const starts=[...new Set(notes.map(e=>e.at))].sort((a,b)=>a-b);
+    const signature=shift=>notes.map(e=>JSON.stringify([round(mod(e.at+shift,periodBeats)),e.duration,e.velocity])).sort().join('|');
+    const target=signature(0),symmetries=[];
+    // Any exact symmetry must carry the first attack to another attack.
+    for(const at of starts){const shift=round(mod(at-starts[0],periodBeats));if(shift&&signature(shift)===target)symmetries.push(shift);}
+    return {periodBeats,notes,attacks:notes.length,rhythmicSymmetriesBeats:symmetries};
+  }
+  function validateTable(table,spec){
+    return table?.algorithm===VERSION&&Number.isInteger(table.gridSteps)&&table.gridSteps>=spec.poseIds.length&&
+      Array.isArray(table.poseTicks)&&table.poseTicks.length===spec.poseIds.length&&new Set(table.poseTicks).size===table.poseTicks.length&&
+      table.poseTicks.every(t=>Number.isInteger(t)&&t>=0&&t<table.gridSteps);
+  }
+  function shifts(table,placements,home,spec){
+    const poseIndex=new Map(spec.poseIds.map((id,i)=>[id,i]));
+    return placements.map(p=>({id:p.pieceId,poseId:p.poseId,ticks:mod(table.poseTicks[poseIndex.get(p.poseId)]-table.poseTicks[poseIndex.get(home[p.pieceId].poseId)],table.gridSteps),gridSteps:table.gridSteps}));
+  }
+  function signatures(table,placements,home,spec,analysis,voices){
+    const phases=shifts(table,placements,home,spec),rhythm=new Map(),pitched=[];
+    phases.forEach((p,id)=>{
+      const a=analysis[id],shift=p.ticks*a.periodBeats/table.gridSteps;
+      for(const e of a.notes){
+        const at=round(mod(e.at+shift,a.periodBeats)),key=JSON.stringify([voices[id].part,at,e.duration,e.velocity]);
+        const old=rhythm.get(key);if(old)old.count++;else rhythm.set(key,{count:1,at});
+        pitched.push(JSON.stringify([voices[id].part,at,e.duration,e.value]));
+      }
+    });
+    return {rhythm,key:[...rhythm].map(([k,v])=>k+':'+v.count).sort().join('|'),pitchKey:pitched.sort().join('|')};
+  }
+  function difference(a,b,periodBeats){
+    let distance=0,total=0;const changed=[];
+    for(const k of new Set([...a.keys(),...b.keys()])){
+      const x=a.get(k),y=b.get(k),d=Math.abs((x?.count||0)-(y?.count||0));distance+=d;total+=(x?.count||0)+(y?.count||0);if(d)changed.push((x||y).at);
+    }
+    if(!changed.length)return {distance:0,gap:periodBeats};
+    changed.sort((x,y)=>x-y);let gap=periodBeats-changed.at(-1)+changed[0];
+    for(let i=1;i<changed.length;i++)gap=Math.max(gap,changed[i]-changed[i-1]);
+    return {distance:distance/total,gap};
+  }
+  function assess(table,puzzle,game,analysis,probe){
+    const home=Contract.project(puzzle,puzzle.model.initialState()),all=new Map(),rhythms=new Set(),pitches=new Set();
+    let goalKey,aliases=0,goals=0;
+    for(const s of probe.states){const sig=signatures(table,s.placements,home,puzzle.manifest,analysis,game.voices);all.set(s.id,sig);rhythms.add(sig.key);pitches.add(sig.pitchKey);if(s.solved){goalKey=sig.key;goals++;}}
+    for(const s of probe.states)if(!s.solved&&all.get(s.id).key===goalKey)aliases++;
+    let silentMoves=0,minMoveDistance=1,sum=0,maxGap=0;
+    for(const edge of probe.edges){const d=difference(all.get(edge.before).rhythm,all.get(edge.after).rhythm,analysis[0].periodBeats);if(!d.distance)silentMoves++;minMoveDistance=Math.min(minMoveDistance,d.distance);sum+=d.distance;maxGap=Math.max(maxGap,d.gap);}
+    const report={coverage:probe.coverage,states:probe.states.length,edges:probe.edges.length,equivalentGoals:goals,distinctRhythms:rhythms.size,distinctPitchedPatterns:pitches.size,unexpectedRhythmAliases:probe.states.length-Math.max(0,goals-1)-rhythms.size,unsolvedGoalRhythmAliases:aliases,silentMoves,minMoveDistance:round(minMoveDistance),meanMoveDistance:round(sum/probe.edges.length),maxRhythmicResponseGapBeats:round(maxGap)};
+    report.discrimination=report.unexpectedRhythmAliases||silentMoves?'weak':'distinct-in-probes';
+    report.response=report.maxRhythmicResponseGapBeats>2?'delayed':'within-two-beats-in-probes';
+    return report;
+  }
+  const score=r=>[r.unsolvedGoalRhythmAliases,r.silentMoves,r.unexpectedRhythmAliases,r.maxRhythmicResponseGapBeats,-r.minMoveDistance,-r.meanMoveDistance];
+  const better=(a,b)=>{const x=score(a),y=score(b);for(let i=0;i<x.length;i++){if(x[i]!==y[i])return x[i]<y[i];}return false;};
+  function candidates(spec,periodBeats,subdivisions){
+    const tables=[],seen=new Set(),count=spec.poseIds.length;
+    for(const division of subdivisions){
+      const gridSteps=periodBeats*division;if(!Number.isInteger(gridSteps)||gridSteps<count)continue;
+      const add=poseTicks=>{const k=gridSteps+':'+poseTicks;if(!seen.has(k)&&new Set(poseTicks).size===count){seen.add(k);tables.push({algorithm:VERSION,gridSteps,poseTicks});}};
+      for(const step of [1,3,5,7])add(spec.poseIds.map((_,i)=>i*step%gridSteps));
+      add(spec.poseIds.map((_,i)=>Math.floor(i*gridSteps/count)));
+      let x=1730,order=Array.from({length:gridSteps},(_,i)=>i);
+      for(let i=order.length-1;i>0;i--){x=(Math.imul(x,1664525)+1013904223)>>>0;const j=x%(i+1);[order[i],order[j]]=[order[j],order[i]];}
+      add(order.slice(0,count));
+    }
+    return tables;
+  }
+  async function fitPhaseMap({puzzle,game,analysis,subdivisions=[2,4],signal,onProgress=()=>{}}){
+    const started=performance.now(),probe=Contract.probes(puzzle),tables=candidates(puzzle.manifest,analysis[0].periodBeats,subdivisions);
+    if(!tables.length)throw new Error('Музыкальная сетка не вмещает положения головоломки');
+    let best;
+    for(let i=0;i<tables.length;i++){
+      if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
+      const diagnostics=assess(tables[i],puzzle,game,analysis,probe);
+      if(!best||better(diagnostics,best.diagnostics))best={...tables[i],diagnostics};
+      onProgress({candidate:i+1,total:tables.length});
+      // Yield between bounded candidates so the mobile loading UI remains responsive.
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    best.diagnostics={...best.diagnostics,candidates:tables.length,elapsedMs:round(performance.now()-started),acousticAcceptance:'unverified'};
+    return best;
+  }
+  function projectMusic(binding,puzzle,state){
+    return shifts(binding,Contract.project(puzzle,state),Contract.project(puzzle,puzzle.model.initialState()),puzzle.manifest)
+      .map(p=>({...p,offset:p.ticks/binding.gridSteps,offsetBeats:p.ticks*binding.periodBeats/binding.gridSteps}));
+  }
+  return {VERSION,analyzePattern,validateTable,fitPhaseMap,projectMusic,assess};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./phase-map.js'));else root.PuzzleSessionLoader=factory(root.PhaseCubeLibrary,root.PuzzleParts,root.PuzzleContract,root.PuzzlePhases);})(globalThis,function(L,Parts,Contract,Phases){
+  'use strict';
+  const CACHE='music-puzzle-phase-cache/1';
+  const aborted=signal=>{if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');};
+  async function fingerprint(value){
+    const bytes=new TextEncoder().encode(JSON.stringify(value));
+    if(!globalThis.crypto?.subtle)return null;
+    const digest=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('');
+  }
+  class Loader{
+    constructor(S,{palette,registry,library,preload=async()=>{},storage}={}){
+      Object.assign(this,{S,palette,registry,preload});this.library=library||new L.Loader(S);this.bindings=new Map();
+      try{this.storage=storage===undefined?globalThis.localStorage:storage;}catch{this.storage=null;}
+    }
+    read(key,spec){
+      if(!key)return null;
+      try{const entry=JSON.parse(this.storage?.getItem(CACHE)||'[]').find(e=>e.key===key);if(entry&&Phases.validateTable(entry.binding,spec))return entry.binding;}catch{}
+      return null;
+    }
+    write(key,binding){
+      if(!key)return;
+      try{const entries=JSON.parse(this.storage?.getItem(CACHE)||'[]').filter(e=>e.key!==key);entries.push({key,binding});this.storage?.setItem(CACHE,JSON.stringify(entries.slice(-12)));}catch{}
+    }
+    async prepareSession({songId,puzzleId,signal,onProgress}={}){
+      aborted(signal);
+      const module=this.registry.get(puzzleId),puzzle=Contract.inspect(module),song=await this.library.load(songId);aborted(signal);
+      const game=Parts.build(this.S,song,{count:puzzle.manifest.pieceIds.length,palette:this.palette});
+      const analysis=game.targetRows.map(row=>Phases.analyzePattern(row,song.timing.periodBeats));
+      const subdivisions=song.phaseOptions?.subdivisionsPerBeat||[2,4];
+      const input={algorithm:Phases.VERSION,spec:puzzle.manifest,home:Contract.project(puzzle,puzzle.model.initialState()),parts:game.voices.map(v=>v.part),analysis,subdivisions};
+      const hash=await fingerprint(input),key=hash||JSON.stringify(input);aborted(signal);
+      let binding=this.bindings.get(key)||this.read(hash,puzzle.manifest),cache=binding?'hit':'miss';
+      if(binding&&binding.periodBeats!==song.timing.periodBeats){binding=null;cache='miss';}
+      if(!binding){
+        const prepared=await Promise.all([Phases.fitPhaseMap({puzzle,game,analysis,subdivisions,signal,onProgress}),this.preload(this.S,song.pattern,song.bars)]);
+        binding={...prepared[0],periodBeats:song.timing.periodBeats,fingerprint:hash};aborted(signal);
+        this.write(hash,binding);
+      }else await this.preload(this.S,song.pattern,song.bars);
+      aborted(signal);
+      binding=Object.freeze({...binding,poseTicks:Object.freeze([...binding.poseTicks]),diagnostics:Object.freeze({...binding.diagnostics})});this.bindings.set(key,binding);
+      return {composition:song,module,model:puzzle.model,puzzle,fragments:game,phaseMap:binding,analysis,
+        stats:{composition:song.stats,binding:{pieces:game.count,gridSteps:binding.gridSteps,periodBeats:binding.periodBeats}},diagnostics:{...binding.diagnostics,cache}};
+    }
+  }
+  return {Loader,fingerprint};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Native Strudel phase transforms, independent of puzzle geometry or piece count. */
+window.PuzzleMusic=(()=>{
+  const eventsOf=(p,bars)=>PhaseCubeLibrary.eventsOf(p,bars),eventKey=rows=>JSON.stringify(rows);
+  class Music{
+    constructor(S,prepared){Object.assign(this,{S,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.phaseMap});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;}
+    phases(state){return PuzzlePhases.projectMusic(this.binding,this.puzzle,state);}
+    shifted(state){const phases=this.phases(state);return this.basePatterns.map((p,id)=>p.late(this.S.Fraction([phases[id].ticks*this.localBars,this.binding.gridSteps])));}
+    rows(state){return this.shifted(state).map(p=>eventsOf(p,this.localBars));}
+    predict(move,state,currentRows=this.rows(state)){
+      const next=this.model.applyTo(state,move),phases=this.phases(next),rows=this.rows(next);
+      return {move,phases,rows,changed:rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
+    }
+    pattern(state){return this.S.stack(...this.shifted(state));}
+    code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n');}
   }
   return {Music,eventsOf,eventKey};
 })();
@@ -2707,7 +2894,7 @@ window.PhaseCubeMusic=(()=>{
       this.want=false;this.running=false;this.token=0;this.revision=0;
       this.entries=[];this.retired=[];this.active=null;this.pending=null;
       this.lifecycle=Promise.resolve();this.stopPromise=Promise.resolve();
-      this.baseCycle=0;this.cursor=0;this.volume=.65;this.log=[];this.changes=[];this.analyser=null;this.master=null;
+      this.baseCycle=0;this.cursor=0;this.volume=1;this.log=[];this.changes=[];this.analyser=null;this.master=null;
       this.router=new S.Pattern(localState=>{
         const state=localState.withSpan(span=>span.withTime(t=>t.add(this.baseCycle)));
         return this.entries.flatMap(entry=>{
@@ -2910,7 +3097,7 @@ window.PhaseCubeMusic=(()=>{
 /* SVG score view. Sound, clock and musical events stay in Strudel. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.PhaseCubeOrbit = factory();
+  else root.PuzzleEqualizer = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=204, STEP=17;
@@ -2931,18 +3118,20 @@ window.PhaseCubeMusic=(()=>{
   }
   function node(tag,attrs={},parent){const el=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,v);if(parent)parent.append(el);return el;}
   class Score {
-    constructor(svg,voices,onSelect){
+    constructor(svg,voices,{gridSteps=16,periodBeats=16}={}){
       this.svg=svg;this.voices=voices;this.rows=[];this.frameHits=[];
+      const spacing=119/Math.max(1,voices.length-1);
       const grid=node('g',{'class':'orbit-grid','aria-hidden':'true'},svg);
-      for(let t=0;t<24;t++){
-        const a=point(INNER-12,t/24),b=point(INNER+STEP*7+13,t/24);
-        node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':t%6===0?'quarter-line':'subdivision-line'},grid);
-        const c=point(337,t/24),d=point(t%6===0?347:342,t/24);
+      for(let t=0;t<gridSteps;t++){
+        const major=Math.abs(t*periodBeats/gridSteps/4-Math.round(t*periodBeats/gridSteps/4))<1e-8;
+        const a=point(INNER-12,t/gridSteps),b=point(336,t/gridSteps);
+        node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':major?'quarter-line':'subdivision-line'},grid);
+        const c=point(337,t/gridSteps),d=point(major?347:342,t/gridSteps);
         node('line',{x1:c[0],y1:c[1],x2:d[0],y2:d[1],'class':'ruler-tick'},grid);
       }
       voices.forEach((v,id)=>{
-        const r=INNER+id*STEP,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
-        const title=node('title',{},g);title.textContent=`${id+1}. ${v.name} — выбрать дорожку`;
+        const r=INNER+id*spacing,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
+        const title=node('title',{},g);title.textContent=`${id+1}. ${v.name}`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
         node('circle',{cx:CENTER,cy:CENTER,r:r+5.5,'class':'orbit-target-rail'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g),preview=node('g',{'class':'orbit-preview','aria-hidden':'true'},g);
@@ -3021,6 +3210,148 @@ window.PhaseCubeMusic=(()=>{
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+window.PuzzleTurnControls=class{
+  constructor(host,{model,onMove,onSelect,onPreview}){
+    this.model=model;this.host=host;this.hinted=null;
+    const hint=document.getElementById('hint');hint.remove();
+    host.innerHTML='<button id="turn-left" class="turn-button" aria-label="Поворот против часовой стрелки">↶</button><span class="hint-slot"></span><button id="turn-right" class="turn-button" aria-label="Поворот по часовой стрелке">↷</button>';
+    host.querySelector('.hint-slot').append(hint);
+    this.buttons=[host.querySelector('#turn-left'),host.querySelector('#turn-right')];
+    this.buttons.forEach((b,i)=>{
+      const move=()=>model.moveFor(model.selected,i===0);
+      b.onclick=()=>onMove(move());
+      b.onpointerenter=e=>{if(e.pointerType!=='touch')onPreview(move());};
+      b.onpointerleave=b.onblur=()=>onPreview(null);
+    });
+  }
+  update(disabled){
+    this.buttons.forEach((b,i)=>{b.disabled=disabled;b.classList.toggle('hinted',this.hinted===this.model.moveFor(this.model.selected,i===0));
+      b.setAttribute('aria-label',this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
+  }
+  hint(move){this.hinted=move;if(move)this.model.select(move[0]);}
+  focus(){this.buttons[1].focus({preventScroll:true});}
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+window.PuzzleHint=class{
+  constructor(host,onRequest){
+    this.button=document.createElement('button');this.button.id='hint';this.button.className='secondary-button';
+    this.button.textContent='Подсказка';this.button.setAttribute('aria-pressed','false');this.button.onclick=onRequest;host.append(this.button);
+  }
+  update(available,active){this.button.disabled=!available;this.button.setAttribute('aria-pressed',String(!!active));}
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+window.PuzzlePlayer=class{
+  constructor(host,{onSeek,onUndo,onPause,onHint}){
+    host.innerHTML='<label class="song-seek"><span class="sr-only">Позиция в композиции</span><input id="song-seek" type="range" min="0" max="1" step="0.25" value="0" aria-label="Позиция в композиции"></label><div class="puzzle-command cube-command" role="group" aria-label="Поворот выбранного блока"></div><div class="secondary-actions"><button id="undo" class="secondary-button" aria-label="Отменить ход"><span aria-hidden="true">↩</span><span class="action-label">Отменить</span></button><span class="hint-host"></span><button id="pause" class="secondary-button" aria-label="Пауза"><span id="pause-icon" aria-hidden="true">Ⅱ</span><span class="action-label" id="pause-label">Пауза</span></button></div>';
+    this.commands=host.querySelector('.puzzle-command');this.seek=host.querySelector('#song-seek');this.undo=host.querySelector('#undo');this.pause=host.querySelector('#pause');
+    this.dragging=false;this.seek.oninput=()=>{this.dragging=true;};this.seek.onpointercancel=()=>{this.dragging=false;};
+    this.seek.onchange=()=>{this.dragging=false;onSeek(Number(this.seek.value));};this.undo.onclick=onUndo;this.pause.onclick=onPause;
+    this.hint=new PuzzleHint(host.querySelector('.hint-host'),onHint);
+  }
+  update({disabled,canUndo,canHint,hinted,phase,busy,song}){
+    this.undo.disabled=disabled||!canUndo;this.pause.disabled=busy||!['playing','paused'].includes(phase);
+    this.pause.setAttribute('aria-pressed',String(phase==='paused'));this.pause.setAttribute('aria-label',phase==='paused'?'Продолжить':'Пауза');
+    this.pause.querySelector('#pause-icon').textContent=phase==='paused'?'▶':'Ⅱ';this.pause.querySelector('#pause-label').textContent=phase==='paused'?'Продолжить':'Пауза';
+    this.seek.disabled=busy||!song||phase==='won';if(song)this.seek.max=song.bars-.25;
+    this.hint.update(!disabled&&canHint,hinted);
+  }
+  frame(bar,song){if(song&&!this.dragging){this.seek.value=Math.min(song.bars-.25,bar);this.seek.setAttribute('aria-valuetext',(bar*240/song.bpm).toFixed(1)+' с из '+song.stats.seconds.toFixed(1)+' с');}}
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+window.PuzzleDialogs=class{
+  constructor(host,{onStart,onChoose,onAgain,onMenu}){
+    host.innerHTML='<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title"><div class="record-mark" aria-hidden="true"><span>◈</span></div><div class="setup-choices"><label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled></select></label><label class="song-choice"><span>Головоломка</span><select id="puzzle-select" aria-label="Головоломка" disabled></select></label></div><h1 id="session-title">Музыкальная головоломка</h1><p id="song-meta" class="song-meta"></p><p id="session-feedback" class="session-feedback" role="status">Загрузка…</p><button id="start" class="primary-button" disabled>Начать</button></dialog><dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title"><div id="celebration" class="celebration" aria-hidden="true" hidden></div><p class="result-caption">Композиция собрана</p><h2 id="result-title"></h2><p id="result-song" class="song-meta"></p><a id="download-mp3" class="primary-button" download>Скачать трек · MP3</a><button id="play-again" class="outline-button">Ещё раз</button><button id="choose-song" class="outline-button">Выбрать композицию</button></dialog>';
+    this.root=host;this.$=id=>host.querySelector('#'+id);
+    this.$('start').onclick=onStart;this.$('play-again').onclick=onAgain;this.$('choose-song').onclick=onMenu;
+    for(const id of ['song-select','puzzle-select'])this.$(id).onchange=()=>onChoose({songId:this.$('song-select').value,puzzleId:this.$('puzzle-select').value});
+    host.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>e.preventDefault()));
+  }
+  catalog(songs,puzzles){for(const[id,list]of [['song-select',songs],['puzzle-select',puzzles]])this.$(id).replaceChildren(...list.map(item=>{const o=document.createElement('option');o.value=item.id;o.textContent=item.title;return o;}));}
+  update({song,puzzleId,phase,loading,starting,error}){
+    if(song){
+      const duration=Math.floor(song.stats.seconds/60)+':'+String(Math.floor(song.stats.seconds%60)).padStart(2,'0');
+      const meta=song.style+' · '+song.bpm+' BPM · '+duration;
+      document.title=song.title+' — музыкальная головоломка';this.$('session-title').textContent=this.$('result-title').textContent=song.title;
+      this.$('song-meta').textContent=this.$('result-song').textContent=meta;this.$('song-select').value=song.id;
+      const link=this.$('download-mp3');link.href=globalThis.PhaseCubeEmbeddedAssets?.[song.download]||song.download;link.download=song.title+'.mp3';
+    }
+    this.$('puzzle-select').value=puzzleId;
+    this.$('session-feedback').textContent=error?'Не удалось загрузить: '+error:loading?'Загружаем композицию…':starting?'Включаем звук…':'';
+    this.$('start').disabled=!song||loading||starting||!!error;this.$('start').textContent=phase==='paused'?'Продолжить':'Начать';
+    for(const id of ['song-select','puzzle-select'])this.$(id).disabled=loading||starting;
+    for(const[id,open]of [['session-overlay',phase==='ready'||phase==='paused'||starting],['result-dialog',phase==='won']]){
+      const d=this.$(id);if(open&&!d.open)d.showModal();else if(!open&&d.open)d.close();
+    }
+  }
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Cube moves come from cubejs. This adapter uses its corner action only. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.PhaseCube = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  const FACES = ['U', 'R', 'F', 'D', 'L', 'B'];
+  const SLOTS = ['URF', 'UFL', 'ULB', 'UBR', 'DFR', 'DLF', 'DBL', 'DRB'];
+  const CORNER_FACES = SLOTS.map(s => s.split(''));
+  const POSITIONS = [[1,1,1],[-1,1,1],[-1,1,-1],[1,1,-1],[1,-1,1],[-1,-1,1],[-1,-1,-1],[1,-1,-1]];
+  const mod = (n, m) => ((n % m) + m) % m;
+  function snapshot(cube) { return { cp: [...cube.cp], co: [...cube.co] }; }
+  function valid(s) {
+    return s && Array.isArray(s.cp) && Array.isArray(s.co) && s.cp.length === 8 && s.co.length === 8 &&
+      new Set(s.cp).size === 8 && s.cp.every(x => Number.isInteger(x) && x >= 0 && x < 8) &&
+      s.co.every(x => Number.isInteger(x) && x >= 0 && x < 3) && s.co.reduce((a,b) => a+b, 0) % 3 === 0;
+  }
+  function restore(cube, s) {
+    if (!valid(s)) throw new Error('Invalid corner configuration');
+    cube.identity(); cube.cp = [...s.cp]; cube.co = [...s.co]; return cube;
+  }
+  function solved(s) { return s.cp.every((id, j) => id === j && s.co[j] === 0); }
+  function correct(s) { return s.cp.reduce((n,id,j) => n + (id === j && s.co[j] === 0), 0); }
+  function placements(s) {return s.cp.map((pieceId,slot)=>({pieceId,poseId:slot+':'+s.co[slot]}));}
+  function inverse(move) { return move.endsWith('2') ? move : move.endsWith("'") ? move[0] : move + "'"; }
+  function appendPath(path, move) {
+    const power = m => m.endsWith('2') ? 2 : m.endsWith("'") ? 3 : 1;
+    const out = [...path];
+    if (out.length && out[out.length-1][0] === move[0]) {
+      const n = (power(out.pop()) + power(move)) % 4;
+      if (n) out.push(move[0] + (n === 2 ? '2' : n === 3 ? "'" : ''));
+    } else out.push(move);
+    return out;
+  }
+  function scramble(seed, length = 3) {
+    let x = seed >>> 0;
+    const random = () => { x = (Math.imul(x,1664525)+1013904223) >>> 0; return x / 4294967296; };
+    const moves = []; let last = '';
+    for (let i=0; i<length; i++) {
+      const available = FACES.filter(f => f !== last);
+      const face = available[Math.floor(random()*available.length)];
+      moves.push(face + (random() < .5 ? "'" : '')); last = face;
+    }
+    return moves;
+  }
+  function stickers(s, slot) {
+    const id = s.cp[slot], co = s.co[slot];
+    return CORNER_FACES[id].map((color, n) => ({ color, face: CORNER_FACES[slot][(n+co)%3], id }));
+  }
+  return { FACES, SLOTS, CORNER_FACES, POSITIONS, mod, snapshot, restore, valid, solved, correct, placements, inverse, appendPath, scramble, stickers };
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Input/feedback adapter for this cube: native Three.js raycasts + projected SVG. */
 (function(root,factory){
   if(typeof module==='object'&&module.exports)module.exports=factory();
@@ -3044,37 +3375,48 @@ window.PhaseCubeMusic=(()=>{
     constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace=()=>null,selectOnly=()=>false}){
       Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace,selectOnly});
       this.ray=new T.Raycaster();this.pointer=null;this.hover=null;this.hint=null;this.buttonMove=null;this.dirty=true;this.signature='';
+      this.bounds=new T.Box3(new T.Vector3(-1.03,-1.03,-1.03),new T.Vector3(1.03,1.03,1.03));
+      this.events=new AbortController();
+      const listen=(type,handler)=>stage.addEventListener(type,handler,{signal:this.events.signal});
       const defs=el('defs',{},svg),marker=el('marker',{id:'cube-arrowhead',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:4,markerHeight:4,orient:'auto-start-reverse'},defs);
       el('path',{d:'M1 1 L9 5 L1 9 Z',fill:'currentColor'},marker);
       this.hits=el('g',{'class':'cube-hit-areas'},svg);
       this.feedback=el('g',{'class':'cube-feedback','aria-hidden':'true'},svg);
-      stage.addEventListener('pointerdown',e=>{
-        if(e.button!==0||this.isBusy())return;
-        this.onDrag?.();this.pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};
+      listen('pointerdown',e=>{
+        if(e.button!==0||e.isPrimary===false||this.pointer||this.isBusy())return;
+        this.onDrag?.();this.pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,
+          slop:e.pointerType==='touch'?12:6,hit:this.pick(e.clientX,e.clientY),moved:false};
         stage.setPointerCapture(e.pointerId);e.preventDefault();
       });
-      stage.addEventListener('pointermove',e=>{
+      listen('pointermove',e=>{
         if(this.pointer){
           const p=this.pointer;
-          if(Math.hypot(e.clientX-p.startX,e.clientY-p.startY)>6)p.moved=true;
+          if(p.id!==e.pointerId)return;
+          if(Math.hypot(e.clientX-p.startX,e.clientY-p.startY)>p.slop)p.moved=true;
           if(p.moved){root.rotation.y+=(e.clientX-p.x)*.009;root.rotation.x+=(e.clientY-p.y)*.009;this.setHover(null);this.refresh();}
           p.x=e.clientX;p.y=e.clientY;
         }else this.setHover(this.pick(e.clientX,e.clientY));
       });
-      stage.addEventListener('pointerup',e=>{
+      listen('pointerup',e=>{
         if(!this.pointer||this.pointer.id!==e.pointerId)return;
         const p=this.pointer;this.pointer=null;
         if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId);
         if(p.moved||this.isBusy())return;
-        const hit=this.pick(e.clientX,e.clientY);
+        const hit=p.hit||this.pick(e.clientX,e.clientY);
         if(hit){
           if(e.pointerType==='touch'||this.selectOnly())this.onSelect?.(hit.face,hit.id);
           else{svg.dataset.lastMove=hit.move;svg.dataset.lastHalf=hit.left?'left':'right';this.onMove(hit.move,hit.id);}
         }
       });
       const cancel=()=>{this.pointer=null;this.setHover(null);};
-      stage.addEventListener('pointercancel',cancel);stage.addEventListener('lostpointercapture',()=>{if(this.pointer)cancel();});
-      stage.addEventListener('pointerleave',()=>{if(!this.pointer)this.setHover(null);});
+      listen('pointercancel',e=>{if(this.pointer?.id===e.pointerId)cancel();});listen('lostpointercapture',()=>{if(this.pointer)cancel();});
+      listen('pointerleave',()=>{if(!this.pointer)this.setHover(null);});
+    }
+    destroy(){
+      this.events.abort();const id=this.pointer?.id;this.pointer=null;
+      if(id!==undefined&&this.stage.hasPointerCapture(id))this.stage.releasePointerCapture(id);
+      this.hover=null;this.hint=null;this.buttonMove=null;this.stage.style.cursor='';
+      this.hits.replaceChildren();this.feedback.replaceChildren();
     }
     refresh(){this.dirty=true;}
     previewMove(move){this.buttonMove=move;this.notify();}
@@ -3095,9 +3437,17 @@ window.PhaseCubeMusic=(()=>{
       this.root.updateMatrixWorld(true);
       const rect=this.view.getBoundingClientRect();
       this.ray.setFromCamera(new this.T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.camera);
-      const hit=this.ray.intersectObjects(this.getStickers())[0];if(!hit)return null;
-      const center=this.project(hit.object.getWorldPosition(new this.T.Vector3())),left=x-rect.left<center[0],face=hit.object.userData.face;
-      return{face,id:hit.object.userData.id,left,move:face+(left?"'":'')};
+      // Pick the solid face, including seams between its four stickers.
+      const local=this.ray.ray.clone().applyMatrix4(this.root.matrixWorld.clone().invert());
+      const point=local.intersectBox(this.bounds,new this.T.Vector3());if(!point)return null;
+      const axis=['x','y','z'].reduce((a,b)=>Math.abs(point[a])>Math.abs(point[b])?a:b);
+      const face=(point[axis]>0?{x:'R',y:'U',z:'F'}:{x:'L',y:'D',z:'B'})[axis];
+      const world=this.root.localToWorld(point);
+      const candidates=this.getStickers().filter(s=>s.userData.face===face);
+      const sticker=candidates.sort((a,b)=>a.getWorldPosition(new this.T.Vector3()).distanceToSquared(world)-b.getWorldPosition(new this.T.Vector3()).distanceToSquared(world))[0];
+      if(!sticker)return null;
+      const center=this.project(sticker.getWorldPosition(new this.T.Vector3())),left=x-rect.left<center[0];
+      return{face,id:sticker.userData.id,left,move:face+(left?"'":'')};
     }
     facePoint(face,x,y){
       const n=new this.T.Vector3(...NORMALS[face]),q=new this.T.Quaternion().setFromUnitVectors(new this.T.Vector3(0,0,1),n);
@@ -3239,13 +3589,191 @@ window.PhaseCubeView=(()=>{
     }
     renderCube();frameId=requestAnimationFrame(frame);
     return {input:inputView,render:renderCube,animate:animateTurn,reset:resetView,focus:focusFace,
-      destroy(){cancelAnimationFrame(frameId);observer.disconnect();clear();textures.forEach(t=>t.dispose());
+      destroy(){cancelAnimationFrame(frameId);observer.disconnect();inputView.destroy();clear();textures.forEach(t=>t.dispose());
         geo.dispose();edgeGeo.dispose();stickerGeo.dispose();materials.body.dispose();materials.edge.dispose();renderer.dispose();}
     };
   }
 
   return {create};
 })();
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../vendor/cube-1.3.2.js'));else root.RubikPuzzle=factory(root.PhaseCube,root.Cube);})(globalThis,function(M,Cube){
+  const colors={U:'#e9dca6',R:'#dc8e70',F:'#739e87',D:'#c5ad63',L:'#a4b6c3',B:'#a196b6'};
+  // A physical 2x2 is assembled in any of its 24 rigid orientations.
+  const goals=[],seen=new Set(),queue=[new Cube()];
+  for(let i=0;i<queue.length;i++){
+    const state=M.snapshot(queue[i]),key=JSON.stringify(state);if(seen.has(key))continue;
+    seen.add(key);goals.push(state);
+    for(const turn of ['x','y','z']){const c=M.restore(new Cube(),state);c.move(turn);if(!seen.has(JSON.stringify(M.snapshot(c))))queue.push(c);}
+  }
+  const correct=state=>Math.max(...goals.map(goal=>state.cp.reduce((n,id,slot)=>n+(id===goal.cp[slot]&&state.co[slot]===goal.co[slot]),0)));
+  class Model{
+    constructor(){this.cube=new Cube();this.count=8;this.selected='F';this.history=[];this.path=[];this.moves=[];}
+    snapshot(){return M.snapshot(this.cube);}
+    initialState(){return M.snapshot(new Cube());}
+    goalStates(){return goals.map(s=>({cp:[...s.cp],co:[...s.co]}));}
+    legalMoves(){return M.FACES.flatMap(face=>[face,face+"'"]);}
+    placements(state=this.snapshot()){return M.placements(state);}
+    restore(state){M.restore(this.cube,state);}
+    applyTo(state,move){return M.snapshot(M.restore(new Cube(),state).move(move));}
+    inverse(move){return M.inverse(move);}
+    validMove(move){return /^([URFDLB])('|2)?$/.test(move);}
+    select(value){if(!M.FACES.includes(value))throw new Error('Неверная грань');this.selected=value;}
+    moveFor(value,inverted=false){return value+(inverted?"'":'');}
+    choices(){return M.FACES.map((key,i)=>({key,label:['Сверху','Справа','Спереди','Снизу','Слева','Сзади'][i]}));}
+    reset(seed,depth){this.cube.identity();this.path=M.scramble(seed,depth);this.cube.move(this.path.join(' '));this.history=[];this.moves=[];this.selected='F';}
+    apply(move){this.history.push({state:this.snapshot(),path:[...this.path],move});this.cube.move(move);this.path=M.appendPath(this.path,move);this.moves.push(move);this.selected=move[0];}
+    undo(){const old=this.history.pop();if(!old)return null;M.restore(this.cube,old.state);this.path=old.path;this.moves.pop();this.selected=old.move[0];return M.inverse(old.move);}
+    hint(){return this.path.length?M.inverse(this.path[this.path.length-1]):null;}
+    solved(state=this.snapshot()){return correct(state)===8;}
+    correct(state=this.snapshot()){return correct(state);}
+  }
+  return {id:'rubik',title:'Кубик 2×2',colors,goals,create:()=>new Model(),
+    manifest:Object.freeze({schema:'music-puzzle/1',id:'rubik',version:1,pieceIds:[0,1,2,3,4,5,6,7],poseIds:Array.from({length:8},(_,slot)=>[0,1,2].map(o=>slot+':'+o)).flat(),goalPolicy:'all-solved-to-reference'})};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+RubikPuzzle.mount=function({stage,commands,model,game,canInteract,onMove,onPreview,onSelect}){
+  let selected=0,animating=false;
+  stage.className='puzzle-stage cube-stage';stage.innerHTML='<div id="cube-view"></div><svg id="cube-input" aria-label="Выбранная грань"></svg><div id="view-error" hidden>3D недоступно</div>';
+  stage.setAttribute('aria-label','Кубик: коснись грани для выбора, перетаскивай для осмотра');
+  const view=PhaseCubeView.create({T:THREE,M:PhaseCube,colors:RubikPuzzle.colors,view:stage.querySelector('#cube-view'),stage,svg:stage.querySelector('#cube-input'),
+    getState:()=>model.snapshot(),getSelected:()=>selected,getSelectedFace:()=>model.selected,isBusy:()=>!canInteract(),
+    onMove,onPreview,onSelect:(face,id)=>{if(canInteract()){model.select(face);selected=id;controls.hint(null);onSelect();}},selectOnly:()=>true,
+    onError:()=>{stage.querySelector('#view-error').hidden=false;}});
+  const controls=new PuzzleTurnControls(commands,{model,onMove,onPreview:move=>view?.input.previewMove(move)});
+  return {
+    update(disabled){stage.inert=disabled;stage.setAttribute('aria-disabled',String(disabled));controls.update(disabled);if(!animating)view?.render();},
+    async animate(move){animating=true;try{await view?.animate(move);}finally{animating=false;}},
+    hint(move){controls.hint(move);view?.focus(model.selected);view?.input.setHint(move);},
+    clearHint(){controls.hint(null);view?.input.resetPreview();},
+    focus:()=>controls.focus(),destroy:()=>view?.destroy(),
+    key(event){const key=event.code?.replace('Key','');if(PhaseCube.FACES.includes(key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
+  };
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.TwiddleModel=factory();})(globalThis,function(){
+  'use strict';
+  const HOME=[0,1,2,3,4,5],rings={A:[0,1,4,3],B:[1,2,5,4]},key=s=>s.join('');
+  const inverse=m=>m.endsWith("'")?m[0]:m+"'";
+  const moves=['A',"A'",'B',"B'"];
+  function applyTo(state,move){
+    if(!moves.includes(move))throw new Error('Неверный поворот Twiddle');
+    const next=[...state],ring=rings[move[0]],step=move.endsWith("'")?-1:1;
+    ring.forEach((slot,i)=>{next[ring[(i+step+4)%4]]=state[slot];});return next;
+  }
+  let graph;
+  function states(){
+    if(graph)return graph;
+    graph=new Map([[key(HOME),{state:HOME,depth:0,hint:null}]]);const queue=[HOME];
+    for(let i=0;i<queue.length;i++)for(const move of moves){
+      const next=applyTo(queue[i],move),k=key(next);
+      if(!graph.has(k)){graph.set(k,{state:next,depth:graph.get(key(queue[i])).depth+1,hint:inverse(move)});queue.push(next);}
+    }
+    return graph;
+  }
+  class Model{
+    constructor(){this.count=6;this.selected='A';this.history=[];this.current=[...HOME];this.moves=[];}
+    snapshot(){return [...this.current];}
+    initialState(){return [...HOME];}
+    legalMoves(){return [...moves];}
+    allStates(){return [...states().values()].map(e=>[...e.state]);}
+    placements(state=this.current){return state.map((pieceId,slot)=>({pieceId,poseId:slot}));}
+    restore(state){if(!states().has(key(state)))throw new Error('Недостижимая позиция Twiddle');this.current=[...state];}
+    applyTo(state,move){return applyTo(state,move);}
+    inverse(move){return inverse(move);}
+    validMove(move){return moves.includes(move);}
+    select(value){if(!rings[value])throw new Error('Неверный блок');this.selected=value;}
+    moveFor(value,inverted=false){return value+(inverted?"'":'');}
+    choices(){return [{key:'A',label:'Левый блок'},{key:'B',label:'Правый блок'}];}
+    reset(seed=1730,depth=3){
+      const pool=[...states().values()].filter(e=>e.depth===Math.max(1,Math.min(7,depth)));
+      this.current=[...pool[(seed>>>0)%pool.length].state];this.history=[];this.moves=[];this.selected='A';
+    }
+    apply(move){this.history.push({state:this.snapshot(),move});this.current=applyTo(this.current,move);this.moves.push(move);this.selected=move[0];}
+    undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=old.move[0];return inverse(old.move);}
+    hint(){return states().get(key(this.current)).hint;}
+    distance(){return states().get(key(this.current)).depth;}
+    solved(state=this.current){return state.every((id,slot)=>id===slot);}
+    correct(state=this.current){return state.filter((id,slot)=>id===slot).length;}
+  }
+  return {Model,applyTo,inverse,states,rings,moves};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.TwiddlePuzzle=factory(root.TwiddleModel);})(globalThis,function(T){
+  return {id:'twiddle',title:'Поворотные плитки 2×3',create:()=>new T.Model(),
+    manifest:Object.freeze({schema:'music-puzzle/1',id:'twiddle',version:1,pieceIds:[0,1,2,3,4,5],poseIds:[0,1,2,3,4,5],goalPolicy:'single-reference'})};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+TwiddlePuzzle.mount=function({stage,commands,model,game,canInteract,onMove,onPreview,onSelect}){
+  const NS='http://www.w3.org/2000/svg';let frame=0,dead=false;
+  stage.className='puzzle-stage twiddle-stage';stage.innerHTML='<svg viewBox="0 0 360 250" role="img" aria-label="Изометрическое поле: шесть плиток, левый и правый вращающиеся блоки"></svg>';
+  stage.setAttribute('aria-label','Поворотные плитки: выбери левый или правый блок');
+  const svg=stage.firstElementChild,project=(x,y,z=0)=>[154+(x-y)*57,28+(x+y)*31-z];
+  const points=vertices=>vertices.map(p=>project(...p).join(',')).join(' ');
+  const add=(tag,attrs,parent=svg)=>{const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);parent.append(e);return e;};
+  function draw(positions){
+    svg.replaceChildren();
+    add('polygon',{points:points([[0,0],[3,0],[3,2],[0,2]]),class:'twiddle-base'});
+    add('polygon',{points:points([[0,2],[3,2],[3,2,-12],[0,2,-12]]),class:'twiddle-edge'});
+    add('polygon',{points:points([[3,0],[3,2],[3,2,-12],[3,0,-12]]),class:'twiddle-side'});
+    const pieces=positions||model.snapshot().map((id,slot)=>({id,x:slot%3+.5,y:Math.floor(slot/3)+.5,z:0}));
+    pieces.sort((a,b)=>a.x+a.y-b.x-b.y).forEach(({id,x,y,z=0})=>{
+      const g=add('g',{'data-piece':id,class:'twiddle-piece',style:'--piece-color:'+game.voices[id].color});
+      const d=.44;
+      add('polygon',{points:points([[x-d,y+d,z],[x+d,y+d,z],[x+d,y+d,z-7],[x-d,y+d,z-7]]),class:'tile-edge'},g);
+      add('polygon',{points:points([[x+d,y-d,z],[x+d,y+d,z],[x+d,y+d,z-7],[x+d,y-d,z-7]]),class:'tile-side'},g);
+      add('polygon',{points:points([[x-d,y-d,z],[x+d,y-d,z],[x+d,y+d,z],[x-d,y+d,z]]),class:'tile-top'},g);
+      const p=project(x,y,z);add('text',{x:p[0],y:p[1]+6,'text-anchor':'middle',class:'tile-number'},g).textContent=id+1;
+      g.addEventListener('click',()=>{if(canInteract()){
+        // The shared middle column belongs to both blocks: tapping it switches blocks.
+        model.select(x===1.5?(model.selected==='A'?'B':'A'):x<1.5?'A':'B');controls.hint(null);onSelect();
+      }});
+    });
+    const left=model.selected==='A'?0:1;
+    add('polygon',{points:points([[left+.02,.02,2],[left+1.98,.02,2],[left+1.98,1.98,2],[left+.02,1.98,2]]),class:'twiddle-selection'});
+  }
+  const controls=new PuzzleTurnControls(commands,{model,onMove,onPreview,onSelect});
+  draw();
+  return {
+    update(disabled){stage.inert=disabled;stage.setAttribute('aria-disabled',String(disabled));controls.update(disabled);draw();},
+    animate(move,before){
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){draw();return Promise.resolve();}
+      const ring=TwiddleModel.rings[move[0]],cx=move[0]==='A'?1:2,cy=1,sign=move.endsWith("'")?-1:1,start=performance.now();
+      return new Promise(resolve=>{
+        const tick=now=>{if(dead){resolve();return;}const t=Math.min(1,(now-start)/300),q=t*t*(3-2*t),angle=sign*q*Math.PI/2;
+          draw(before.map((id,slot)=>{let x=slot%3+.5,y=Math.floor(slot/3)+.5,z=0;if(ring.includes(slot)){const dx=x-cx,dy=y-cy;x=cx+dx*Math.cos(angle)-dy*Math.sin(angle);y=cy+dx*Math.sin(angle)+dy*Math.cos(angle);z=Math.sin(t*Math.PI)*9;}return{id,x,y,z};}));
+          if(t<1)frame=requestAnimationFrame(tick);else{draw();resolve();}
+        };frame=requestAnimationFrame(tick);
+      });
+    },
+    hint(move){controls.hint(move);draw();},clearHint(){controls.hint(null);},focus:()=>controls.focus(),
+    destroy(){dead=true;cancelAnimationFrame(frame);svg.replaceChildren();},
+    key(event){const k=event.code?.replace('Key','');if(['A','B'].includes(k)){onMove(model.moveFor(k,event.shiftKey));return true;}return false;}
+  };
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./twiddle/module.js'),require('./rubik/module.js'));else root.PuzzleRegistry=factory(root.TwiddlePuzzle,root.RubikPuzzle);})(globalThis,function(...modules){
+  const get=id=>{const module=modules.find(p=>p.id===id);if(!module)throw new Error('Неизвестная головоломка: '+id);return module;};
+  return {modules,get};
+});
 
 </script>
 <script>
@@ -3281,270 +3809,147 @@ window.PhaseCubeCelebration=(()=>{
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Viewport UI; cubejs and Strudel remain the model and sound engine. */
+/* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const M=PhaseCube, C=PhaseCubeConfig, S=PhaseCubeSession;
-  const $=id=>document.getElementById(id), cube=new Cube();
-  const identity=M.snapshot(new Cube()), params=new URLSearchParams(location.search);
-  const debug=params.has('debug'), {colors,names}=C;
-  const celebration=PhaseCubeCelebration.create($('celebration'));
-  const volume=C.volume;
-  const library=new PhaseCubeLibrary.Loader(strudel,{palette:C.palette});
-  let song=null,bpm=0,voices=C.palette.map((color,id)=>({name:`Деталь ${id+1}`,color})),catalog=[],loadToken=0;
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug');
+  const library=new PhaseCubeLibrary.Loader(strudel);
+  const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
-  let session=S.initial(), path=[], userMoves=[], undoStack=[], seed=Number(params.get('seed'))||1730;
-  let selected=0, selectedFace='F', previewMoveValue=null, affected=[], pulseTimer;
-  let busy=false, seeking=false, starting=false, loading=true, draggingSeek=false, fatal=null;
-  let view=null, orbit, music=null, repl, soundReady, currentRows=[], targetRows=[], visualPhase=0;
-  let lastDiagnostics=0, analysisData;
-  const requestedMeta=()=>({state:M.snapshot(cube),mode:'current',...mix()});
-  const heardMeta=()=>transport.running&&transport.active?transport.active.meta:requestedMeta();
-  const transport=new PhaseCubeTransport(strudel,{onChange:refreshTransport,onError:reportError,outputGain:C.outputGain});
-  const canMove=()=>S.canMove(session)&&transport.running&&!busy&&!seeking&&!transport.pending&&!starting;
-  const renderCube=()=>{if(!busy)view?.render();};
-
-  function setDialog(id,open){
-    const dialog=$(id);
-    if(open&&!dialog.open)dialog.showModal();
-    else if(!open&&dialog.open)dialog.close();
-  }
-  function refreshTransport(){updateUI();}
-  function reportError(error){
-    console.error(error);fatal=String(error.message||error);starting=false;
-    session=S.transition(session,'pause');updateUI();
-  }
-  function previewMove(move){
-    if(move===previewMoveValue)return;
-    previewMoveValue=move;updateRows();
-  }
-  function clearPreview(){view?.input.resetPreview();previewMoveValue=null;}
-  function selectFace(face,id){
-    if(!canMove())return;
-    clearPreview();selectedFace=face;if(id!=null)selected=id;
-    view?.input.refresh();updateUI();renderCube();
-  }
-  function requestPreview(move){if(canMove())view?.input.previewMove(move);}
+  let module=PuzzleRegistry.get(params.get('puzzle')||C.defaultPuzzle),model=null,control=null,music=null,game=null,song=null,catalog=[];
+  let session=S.initial(),seed=Number(params.get('seed'))||1730,loading=true,starting=false,busy=false,seeking=false,error=null,loadToken=0;
+  let preparation=null,loadAbort=null;
+  let orbit=null,rows=[],preview=null,hintMove=null,affected=[],pulseTimer,repl,soundReady,analysisData,lastDiagnostics=0;
+  const transport=new PhaseCubeTransport(strudel,{onChange:()=>updateUI(),onError:fail,outputGain:C.outputGain});
+  const canMove=()=>!!model&&session.phase==='playing'&&transport.running&&!loading&&!starting&&!busy&&!seeking&&!transport.pending;
+  const metadata=()=>({state:model.snapshot(),mode:'current',...mix()});
+  const heardState=()=>transport.running&&transport.active?transport.active.meta.state:model.snapshot();
+  const player=new PuzzlePlayer($('player-controls'),{onSeek:bar=>seekSong(bar).catch(fail),onUndo:()=>undo().catch(fail),
+    onPause:()=>dispatch(session.phase==='playing'?'pause':'start').catch(fail),onHint:showHint});
+  const dialogs=new PuzzleDialogs($('dialogs'),{onStart:()=>dispatch('start').catch(fail),onChoose:choice=>choose(choice).catch(fail),
+    onAgain:()=>restart().catch(fail),onMenu:async()=>{await transport.stop();session=S.initial();celebration.clear();updateUI();}});
+  const celebration=PhaseCubeCelebration.create($('celebration'));
+  function fail(e){console.error(e);error=String(e.message||e);starting=false;session=S.transition(session,'pause');updateUI();}
+  function clearHint(){hintMove=null;preview=null;control?.clearHint();}
   function updateRows(){
-    if(!music||!orbit)return;
-    // The score follows the version that can actually be heard.
-    const state=transport.running?heardMeta().state:M.snapshot(cube),phases=M.phases(state);
-    currentRows=music.rows(state);
-    const forecast=previewMoveValue&&canMove()?music.predict(previewMoveValue,state,currentRows):null;
-    orbit.update({rows:currentRows,target:targetRows,phases,selected,muted:[],solo:-1,mode:'current',
-      showTarget:true,pending:!!transport.pending,forecast,affected});
+    if(!music||!model||!orbit)return;
+    const state=heardState();rows=music.rows(state);
+    const forecast=preview&&canMove()?music.predict(preview,state,rows):null;
+    orbit.update({rows,target:game.targetRows,phases:music.phases(state),selected:-1,muted:[],solo:-1,mode:'current',showTarget:true,pending:!!transport.pending,forecast,affected});
   }
   function updateUI(){
-    if(!orbit)return;
-    const state=M.snapshot(cube);
-    if(session.phase==='playing'&&!starting&&!busy&&!seeking&&transport.running&&!transport.pending&&M.solved(state)){
-      session=S.transition(session,'complete');celebration.play();
+    let won=false;
+    if(model&&music&&!loading&&!starting&&!busy&&!seeking&&session.phase==='playing'&&transport.running&&!transport.pending&&model.solved()){
+      session=S.transition(session,'complete');won=true;
     }
-    document.body.dataset.phase=session.phase;
-    $('correct-count').innerHTML=M.correct(state)+'<span>/8</span>';
-    $('correct-count').setAttribute('aria-label',M.correct(state)+' из 8 деталей на месте');
-    const disabled=!canMove();
-    $('touch-face').value=selectedFace;$('touch-face').disabled=disabled;
-    $('touch-face').style.setProperty('--face-color',colors[selectedFace]);
-    for(const [id,inverse]of [['turn-left',true],['turn-right',false]]){
-      $(id).disabled=disabled;
-      $(id).setAttribute('aria-label',names[selectedFace]+': '+(inverse?'против':'по')+' часовой стрелке');
-    }
-    $('undo').disabled=disabled||!undoStack.length;
-    $('pause').disabled=!['playing','paused'].includes(session.phase)||starting||seeking;
-    $('pause').setAttribute('aria-pressed',String(session.phase==='paused'));
-    $('pause-icon').textContent=session.phase==='paused'?'▶':'Ⅱ';
-    $('pause-label').textContent=session.phase==='paused'?'Продолжить':'Пауза';
-    $('song-seek').disabled=!music||busy||seeking||starting||!!transport.pending||session.phase==='won';
-    $('cube-stage').inert=disabled;$('cube-stage').setAttribute('aria-disabled',String(disabled));
-    $('cube-stage').setAttribute('aria-busy',String(busy));
-    $('session-feedback').textContent=fatal?'Не удалось загрузить композицию. '+fatal:loading?'Загружаем композицию…':starting?'Включаем звук…':'';
-    $('start').disabled=!music||loading||starting||!!fatal;
-    $('song-select').disabled=loading||starting;
-    $('start').textContent=session.phase==='paused'?'Продолжить':'Начать';
-    setDialog('session-overlay',session.phase==='ready'||session.phase==='paused'||starting);
-    setDialog('result-dialog',session.phase==='won');
+    document.body.dataset.phase=session.phase;document.body.dataset.puzzle=module.id;
+    if(model){const n=model.correct();$('correct-count').innerHTML=n+'<span>/'+model.count+'</span>';$('correct-count').setAttribute('aria-label',n+' из '+model.count+' деталей на месте');}
+    control?.update(!canMove());
+    player.update({disabled:!canMove(),canUndo:!!model?.history.length,canHint:!!model?.hint(),hinted:hintMove,phase:session.phase,
+      busy:loading||starting||busy||seeking||!!transport.pending,song});
+    dialogs.update({song,puzzleId:module.id,phase:session.phase,loading,starting,error});
+    if(won)celebration.play();
     updateRows();
-    if(debug){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnosticSnapshot());}
   }
-  async function dispatch(action){
-    starting=action==='start';session=S.transition(session,action);clearPreview();updateUI();
-    try{await syncAudio();}finally{starting=false;updateUI();}
-    if(action==='start'&&session.phase==='playing')$('turn-right').focus({preventScroll:true});
+  async function choose({songId=song?.id||C.defaultSong,puzzleId=module.id}={}){
+    const token=++loadToken,nextModule=PuzzleRegistry.get(puzzleId);
+    loadAbort?.abort();const controller=new AbortController();loadAbort=controller;
+    loading=true;error=null;session=S.initial();clearHint();updateUI();
+    try{
+      await transport.stop();const next=await loader.prepareSession({songId,puzzleId:nextModule.id,signal:controller.signal});
+      if(token!==loadToken)return;
+      control?.destroy();preparation=next;module=next.module;model=next.model;game=next.fragments;song=next.composition;
+      model.reset(seed++,C.scrambleLength);music=new PuzzleMusic.Music(strudel,next);transport.setComposition(song);
+      $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{gridSteps:next.phaseMap.gridSteps,periodBeats:song.timing.periodBeats});
+      control=module.mount({stage:$('puzzle-stage'),commands:player.commands,model,game,canInteract:canMove,
+        onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:move=>{preview=move;updateRows();}});
+      celebration.clear();loading=false;affected=[];updateUI();
+      const url=new URL(location.href);url.searchParams.set('song',song.id);url.searchParams.set('puzzle',module.id);
+      try{history.replaceState(null,'',url);}catch{}
+    }catch(e){if(token!==loadToken||e.name==='AbortError')return;if(token===loadToken){loading=false;fail(e);}throw e;}
   }
-  function makePattern(state=M.snapshot(cube),respectMix=true){
-    if(!music)throw new Error('Звук ещё загружается');
-    return music.pattern(state,mix(),respectMix);
-  }
+  function makePattern(state=model.snapshot()){if(!music)throw new Error('Музыка ещё загружается');return music.pattern(state);}
   async function syncAudio(){
     if(!S.shouldPlay(session)){if(transport.want||transport.running)await transport.stop();return;}
-    if(transport.want)return;
-    await transport.start(()=>({pattern:makePattern(),meta:requestedMeta()}),bpm,volume,null,soundReady);
-    transport.setBackingMix(mix());
+    if(!transport.want)await transport.start(()=>({pattern:makePattern(),meta:metadata()}),song.bpm,C.volume,null,soundReady);
   }
-  function updateAudio(){if(transport.running&&music)transport.queue(makePattern(),requestedMeta());}
-  function newPuzzle(){
-    clearTimeout(pulseTimer);affected=[];clearPreview();celebration.clear();
-    cube.identity();const moves=M.scramble(seed++,C.scrambleLength);cube.move(moves.join(' '));
-    path=[...moves];userMoves=[];undoStack=[];selected=0;selectedFace='F';
-    session=S.transition(session,'shuffle');renderCube();view?.reset();updateUI();
+  function updateAudio(){if(transport.running&&music)transport.queue(makePattern(),metadata());}
+  async function dispatch(action){
+    starting=action==='start';session=S.transition(session,action);clearHint();updateUI();
+    try{await syncAudio();}finally{starting=false;updateUI();}
+    if(action==='start'&&session.phase==='playing')control?.focus();
   }
-  function pulse(ids){
-    clearTimeout(pulseTimer);affected=ids;updateRows();
-    pulseTimer=setTimeout(()=>{affected=[];updateRows();},650);
-  }
-  async function turn(move){
-    if(!canMove()||!/^([URFDLB])('|2)?$/.test(move))return;
-    clearPreview();selectedFace=move[0];
-    const state=M.snapshot(cube),changes=music.predict(move,state,music.rows(state)).changed;
-    undoStack.push({state,path:[...path],moves:[...userMoves],move});
-    busy=true;affected=changes;view?.input.refresh();
+  function pulse(ids){clearTimeout(pulseTimer);affected=ids;updateRows();pulseTimer=setTimeout(()=>{affected=[];updateRows();},650);}
+  async function perform(move,isUndo=false){
+    if(!canMove()||(isUndo?!model.history.length:!model.validMove(move)))return;
+    if(isUndo)move=model.inverse(model.history[model.history.length-1].move);
+    const before=model.snapshot(),changes=music.predict(move,before).changed;
+    clearHint();model.select(move[0]);busy=true;affected=changes;
     try{
-      const animation=view?.animate(move);
-      cube.move(move);path=M.appendPath(path,move);userMoves.push(move);session=S.transition(session,'move');
+      const animation=control?.animate(move,before);
+      if(isUndo)model.undo();else model.apply(move);
       updateUI();updateAudio();await animation;
       while(transport.pending)await new Promise(requestAnimationFrame);
       pulse(changes);
-    }catch(error){reportError(error);}
-    finally{busy=false;renderCube();updateUI();}
+    }finally{busy=false;updateUI();}
   }
-  async function undo(){
-    if(!canMove()||!undoStack.length)return;
-    const previous=undoStack.pop(),move=M.inverse(previous.move),state=M.snapshot(cube);
-    const changes=music.predict(move,state,music.rows(state)).changed;
-    clearPreview();selectedFace=previous.move[0];busy=true;affected=changes;
-    try{
-      const animation=view?.animate(move);
-      M.restore(cube,previous.state);path=previous.path;userMoves=previous.moves;
-      updateUI();updateAudio();await animation;
-      while(transport.pending)await new Promise(requestAnimationFrame);
-      pulse(changes);
-    }catch(error){reportError(error);}
-    finally{busy=false;renderCube();updateUI();}
+  const turn=move=>perform(move),undo=()=>perform(null,true);
+  function showHint(){
+    if(!canMove())return;const move=model.hint();if(!move)return;
+    hintMove=move;control.hint(move);preview=move;updateUI();
   }
   async function restart(){
-    if(busy||seeking||starting)return;
-    await transport.stop();transport.cursor=0;
-    session=S.transition(session,'restart');newPuzzle();await dispatch('start');
+    if(loading||busy||seeking||starting)return;
+    busy=true;
+    await transport.stop();transport.cursor=0;clearHint();celebration.clear();clearTimeout(pulseTimer);affected=[];
+    model.reset(seed++,C.scrambleLength);session=S.transition(session,'restart');busy=false;updateUI();await dispatch('start');
   }
   async function seekSong(bar){
-    if(busy||seeking||transport.pending||starting||session.phase==='won')return;
-    seeking=true;updateUI();const wasPlaying=transport.want;
-    try{
-      await transport.stop();transport.cursor=Math.max(0,Math.min(song.bars-.25,bar));
-      if(wasPlaying)await syncAudio();
-    }finally{seeking=false;updateUI();}
+    if(!song||busy||seeking||starting||transport.pending||session.phase==='won')return;
+    seeking=true;updateUI();const playing=transport.want;
+    try{await transport.stop();transport.cursor=Math.max(0,Math.min(song.bars-.25,bar));if(playing)await syncAudio();}
+    finally{seeking=false;updateUI();}
   }
-  const durationText=seconds=>`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`;
-  function renderSongInfo(){
-    document.title=song.title+' — музыкальный кубик';
-    $('session-title').textContent=$('result-title').textContent=song.title;
-    for(const id of ['song-meta','result-song']){
-      $(id).replaceChildren(...[song.style,`${song.bpm} BPM`,durationText(song.stats.seconds)].map(text=>{
-        const span=document.createElement('span');span.textContent=text;return span;
-      }));
-    }
-    $('song-details').textContent=`${song.bars} тактов · ${song.stats.instruments} инструментов · игровой круг ${song.periodBars} такта`;
-    $('download-mp3').href=PhaseCubeBank.asset(song.download);
-    $('download-mp3').download=song.title+'.mp3';
-    $('song-seek').max=song.bars-.25;$('song-seek').value=0;
-    $('song-select').value=song.id;
+  async function init(){
+    repl=await strudel.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
+      prebake:()=>PhaseCubeBank.register(strudel),defaultOutput:(...args)=>transport.output(...args),onUpdateState:state=>{if(state.error)fail(state.error);}});
+    transport.attach(repl);catalog=await library.catalog();dialogs.catalog(catalog,PuzzleRegistry.modules);
+    const requested=params.get('song');await choose({songId:catalog.some(s=>s.id===requested)?requested:C.defaultSong,puzzleId:module.id});
   }
-  async function chooseSong(id){
-    const token=++loadToken;loading=true;fatal=null;music=null;
-    await transport.stop();session=S.initial();updateUI();
-    try{
-      const next=await library.load(id);
-      await PhaseCubeBank.preload(strudel,next.pattern,next.bars);
-      if(token!==loadToken)return;
-      song=next;bpm=song.bpm;voices=song.game.voices;transport.setComposition(song);
-      music=new PhaseCubeMusic.Music(strudel,M,Cube,song);targetRows=song.game.targetRows;
-      $('orbit-score').replaceChildren();orbit=new PhaseCubeOrbit.Score($('orbit-score'),voices);
-      renderSongInfo();loading=false;newPuzzle();
-    }catch(error){if(token===loadToken){loading=false;reportError(error);}throw error;}
-  }
-  async function initSound(){
-    const instance=await strudel.initStrudel({sync:false,miniAllStrings:true,
-      setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
-      prebake:()=>PhaseCubeBank.register(strudel),defaultOutput:(...args)=>transport.output(...args),
-      onUpdateState:state=>{if(state.error)reportError(state.error);}
-    });
-    repl=instance;transport.attach(repl);catalog=await library.catalog();
-    $('song-select').replaceChildren(...catalog.map(item=>{const option=document.createElement('option');option.value=item.id;option.textContent=item.title;return option;}));
-    const requested=params.get('song');await chooseSong(catalog.some(item=>item.id===requested)?requested:catalog[0].id);
-    return instance;
-  }
-  function diagnosticSnapshot(){
-    let peak=0,rms=0;
-    if(transport.analyser){
-      analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);
-      for(const value of analysisData){peak=Math.max(peak,Math.abs(value));rms+=value*value;}rms=Math.sqrt(rms/analysisData.length);
-    }
-    return {build:'phase-cube/compositions1',songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,loading,backingStarts:transport.backingStarts||0,backingId:transport.backingId||0,
-      sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,requested:transport.want,mode:'current',heardMode:heardMeta().mode,bpm,...mix(),
-      selectedVoice:selected,selectedFace,moves:[...userMoves],busy,seeking,phases:M.phases(M.snapshot(cube)).map(p=>p.ticks),
-      ...transport.info(),volume,outputGain:C.outputGain,masterGain:transport.master?.gain.value??0,peak,rms,error:fatal,changes:transport.changes,log:transport.log.slice(-30)};
+  function diagnostics(){
+    let peak=0,rms=0;if(transport.analyser){analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);
+      for(const v of analysisData){peak=Math.max(peak,Math.abs(v));rms+=v*v;}rms=Math.sqrt(rms/analysisData.length);}
+    return {build:'music-puzzles/contracts1',puzzleId:module.id,pieceCount:model?.count,songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,
+      sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,loading,starting,busy,seeking,selectedFace:model?.selected,moves:model?.moves,hint:hintMove,
+      phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks):null,phaseMap:preparation?{gridSteps:preparation.phaseMap.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
+      peak,rms,error,changes:transport.changes,log:transport.log.slice(-30)};
   }
   function tick(){
-    transport.poll();if(transport.running&&song)visualPhase=M.mod(transport.clock()/song.periodBars,1);
-    const songBar=song?M.mod(transport.clock(),song.bars):0;
-    if(song&&!draggingSeek&&!seeking){
-      $('song-seek').value=Math.min(song.bars-.25,songBar);
-      $('song-seek').setAttribute('aria-valuetext',(songBar*240/bpm).toFixed(1)+' с из '+(song.bars*240/bpm).toFixed(1)+' с');
+    transport.poll();
+    if(song&&model&&orbit){
+      const cycle=transport.clock(),phase=((cycle/song.periodBars)%1+1)%1;
+      player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
+      const hits=game.voices.map((v,id)=>transport.running&&(rows[id]||[]).some(e=>(phase-e.start+1)%1<.045));orbit.frame(phase,hits,transport.running);
     }
-    const hits=voices.map((v,id)=>transport.running&&(currentRows[id]||[]).some(e=>M.mod(visualPhase-e.start,1)<.045));
-    orbit.frame(visualPhase,hits,transport.running);
-    if(debug&&performance.now()-lastDiagnostics>100){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnosticSnapshot());}
+    if(debug&&performance.now()-lastDiagnostics>150){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnostics());}
     requestAnimationFrame(tick);
   }
-  orbit=new PhaseCubeOrbit.Score($('orbit-score'),voices);
-  try{
-    view=PhaseCubeView.create({T:window.THREE,M,colors,view:$('cube-view'),stage:$('cube-stage'),svg:$('cube-input'),
-      getState:()=>M.snapshot(cube),getSelected:()=>selected,getSelectedFace:()=>selectedFace,isBusy:()=>!canMove(),
-      onMove:(move,id)=>{selected=id;turn(move);},onSelect:selectFace,selectOnly:()=>true,
-      onPreview:previewMove,onError:()=>{$('view-error').hidden=false;}});
-  }catch(error){console.error(error);$('view-error').hidden=false;}
-  $('start').onclick=()=>dispatch('start').catch(reportError);
-  $('pause').onclick=()=>dispatch(session.phase==='playing'?'pause':'start').catch(reportError);
-  $('undo').onclick=()=>undo().catch(reportError);
-  $('play-again').onclick=()=>restart().catch(reportError);
-  $('song-select').onchange=event=>{soundReady=chooseSong(event.target.value);soundReady.catch(reportError);};
-  $('choose-song').onclick=async()=>{await transport.stop();session=S.initial();celebration.clear();updateUI();};
-  for(const dialog of [$('session-overlay'),$('result-dialog')])dialog.addEventListener('cancel',event=>event.preventDefault());
-  for(const [id,inverse]of [['turn-left',true],['turn-right',false]]){
-    const move=()=>selectedFace+(inverse?"'":'');
-    $(id).onclick=()=>turn(move());
-    $(id).onpointerenter=event=>{if(event.pointerType!=='touch')requestPreview(move());};
-    $(id).onfocus=()=>{if(matchMedia('(hover: hover)').matches)requestPreview(move());};
-    $(id).onpointerleave=$(id).onblur=()=>{view?.input.previewMove(null);};
-  }
-  $('touch-face').onchange=event=>{selectFace(event.target.value);view?.focus(selectedFace);};
-  $('song-seek').oninput=()=>{draggingSeek=true;};
-  $('song-seek').onpointercancel=()=>{draggingSeek=false;};
-  $('song-seek').onchange=async event=>{draggingSeek=false;await seekSong(Number(event.target.value)).catch(reportError);};
   window.addEventListener('keydown',event=>{
-    if(document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
-    if(event.ctrlKey&&event.code==='KeyZ'){event.preventDefault();undo();return;}
+    if(document.querySelector('dialog[open]')||event.target.closest('input,select,textarea,[contenteditable=true]'))return;
+    if(event.ctrlKey&&event.code==='KeyZ'){event.preventDefault();undo().catch(fail);return;}
     if(event.repeat||event.ctrlKey||event.altKey||event.metaKey)return;
-    if(event.code==='Space'){
-      if(event.target.closest('button'))return;
-      event.preventDefault();dispatch(session.phase==='playing'?'pause':'start').catch(reportError);return;
-    }
-    const key=event.code?.startsWith('Key')?event.code.slice(3):event.key.toUpperCase();
-    if(M.FACES.includes(key)){event.preventDefault();turn(key+(event.shiftKey?"'":''));}
+    if(event.code==='Space'&&!event.target.closest('button')){event.preventDefault();dispatch(session.phase==='playing'?'pause':'start').catch(fail);return;}
+    if(canMove()&&control?.key(event))event.preventDefault();
   });
-  window.addEventListener('pagehide',event=>{
-    if(session.phase!=='won')session=S.transition(session,'pause');
-    transport.stop();if(!event.persisted)view?.destroy();
-  });
-  soundReady=initSound();soundReady.catch(reportError);updateUI();requestAnimationFrame(tick);
+  window.addEventListener('pagehide',event=>{if(session.phase!=='won')session=S.transition(session,'pause');transport.stop();if(!event.persisted)control?.destroy();});
+  soundReady=init();soundReady.catch(fail);updateUI();requestAnimationFrame(tick);
   if(debug)window.phaseCubeApp={
-    ready:soundReady,state:()=>M.snapshot(cube),phases:()=>M.phases(M.snapshot(cube)),turn,undo,
-    reset:()=>{clearPreview();M.restore(cube,identity);path=[];userMoves=[];undoStack=[];renderCube();updateUI();updateAudio();},
-    makePattern,eventsOf:PhaseCubeMusic.eventsOf,code:()=>music.code(M.snapshot(cube),mix(),bpm),
-    diagnostics:diagnosticSnapshot,getSourcePattern:id=>music.basePatterns[id],getMusic:()=>music,
+    ready:soundReady,diagnostics,state:()=>model.snapshot(),phases:()=>music.phases(model.snapshot()),turn,undo,hint:showHint,getPreparation:()=>preparation,
+    getPuzzle:()=>model,getPuzzleModule:()=>module,getGame:()=>game,getMusic:()=>music,getSong:()=>song,getCatalog:()=>catalog,getTransport:()=>transport,getRepl:()=>repl,
+    choose,chooseSong:id=>choose({songId:id}),choosePuzzle:id=>choose({puzzleId:id}),seekSong,makePattern,
+    code:()=>music.code(model.snapshot()),getSourcePattern:id=>game.basePatterns[id],eventsOf:PuzzleMusic.eventsOf,
     sampleAudio:()=>{if(!transport.analyser)return null;const a=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(a);return Array.from(a);},
-    getRepl:()=>repl,getTransport:()=>transport,getSong:()=>song,getCatalog:()=>catalog,chooseSong,seekSong
+    reset:async()=>{busy=true;model.restore(module.create().snapshot());updateAudio();while(transport.pending)await new Promise(requestAnimationFrame);busy=false;updateUI();}
   };
 })();
 

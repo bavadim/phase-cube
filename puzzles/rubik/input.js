@@ -22,37 +22,48 @@
     constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace=()=>null,selectOnly=()=>false}){
       Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace,selectOnly});
       this.ray=new T.Raycaster();this.pointer=null;this.hover=null;this.hint=null;this.buttonMove=null;this.dirty=true;this.signature='';
+      this.bounds=new T.Box3(new T.Vector3(-1.03,-1.03,-1.03),new T.Vector3(1.03,1.03,1.03));
+      this.events=new AbortController();
+      const listen=(type,handler)=>stage.addEventListener(type,handler,{signal:this.events.signal});
       const defs=el('defs',{},svg),marker=el('marker',{id:'cube-arrowhead',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:4,markerHeight:4,orient:'auto-start-reverse'},defs);
       el('path',{d:'M1 1 L9 5 L1 9 Z',fill:'currentColor'},marker);
       this.hits=el('g',{'class':'cube-hit-areas'},svg);
       this.feedback=el('g',{'class':'cube-feedback','aria-hidden':'true'},svg);
-      stage.addEventListener('pointerdown',e=>{
-        if(e.button!==0||this.isBusy())return;
-        this.onDrag?.();this.pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};
+      listen('pointerdown',e=>{
+        if(e.button!==0||e.isPrimary===false||this.pointer||this.isBusy())return;
+        this.onDrag?.();this.pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,
+          slop:e.pointerType==='touch'?12:6,hit:this.pick(e.clientX,e.clientY),moved:false};
         stage.setPointerCapture(e.pointerId);e.preventDefault();
       });
-      stage.addEventListener('pointermove',e=>{
+      listen('pointermove',e=>{
         if(this.pointer){
           const p=this.pointer;
-          if(Math.hypot(e.clientX-p.startX,e.clientY-p.startY)>6)p.moved=true;
+          if(p.id!==e.pointerId)return;
+          if(Math.hypot(e.clientX-p.startX,e.clientY-p.startY)>p.slop)p.moved=true;
           if(p.moved){root.rotation.y+=(e.clientX-p.x)*.009;root.rotation.x+=(e.clientY-p.y)*.009;this.setHover(null);this.refresh();}
           p.x=e.clientX;p.y=e.clientY;
         }else this.setHover(this.pick(e.clientX,e.clientY));
       });
-      stage.addEventListener('pointerup',e=>{
+      listen('pointerup',e=>{
         if(!this.pointer||this.pointer.id!==e.pointerId)return;
         const p=this.pointer;this.pointer=null;
         if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId);
         if(p.moved||this.isBusy())return;
-        const hit=this.pick(e.clientX,e.clientY);
+        const hit=p.hit||this.pick(e.clientX,e.clientY);
         if(hit){
           if(e.pointerType==='touch'||this.selectOnly())this.onSelect?.(hit.face,hit.id);
           else{svg.dataset.lastMove=hit.move;svg.dataset.lastHalf=hit.left?'left':'right';this.onMove(hit.move,hit.id);}
         }
       });
       const cancel=()=>{this.pointer=null;this.setHover(null);};
-      stage.addEventListener('pointercancel',cancel);stage.addEventListener('lostpointercapture',()=>{if(this.pointer)cancel();});
-      stage.addEventListener('pointerleave',()=>{if(!this.pointer)this.setHover(null);});
+      listen('pointercancel',e=>{if(this.pointer?.id===e.pointerId)cancel();});listen('lostpointercapture',()=>{if(this.pointer)cancel();});
+      listen('pointerleave',()=>{if(!this.pointer)this.setHover(null);});
+    }
+    destroy(){
+      this.events.abort();const id=this.pointer?.id;this.pointer=null;
+      if(id!==undefined&&this.stage.hasPointerCapture(id))this.stage.releasePointerCapture(id);
+      this.hover=null;this.hint=null;this.buttonMove=null;this.stage.style.cursor='';
+      this.hits.replaceChildren();this.feedback.replaceChildren();
     }
     refresh(){this.dirty=true;}
     previewMove(move){this.buttonMove=move;this.notify();}
@@ -73,9 +84,17 @@
       this.root.updateMatrixWorld(true);
       const rect=this.view.getBoundingClientRect();
       this.ray.setFromCamera(new this.T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.camera);
-      const hit=this.ray.intersectObjects(this.getStickers())[0];if(!hit)return null;
-      const center=this.project(hit.object.getWorldPosition(new this.T.Vector3())),left=x-rect.left<center[0],face=hit.object.userData.face;
-      return{face,id:hit.object.userData.id,left,move:face+(left?"'":'')};
+      // Pick the solid face, including seams between its four stickers.
+      const local=this.ray.ray.clone().applyMatrix4(this.root.matrixWorld.clone().invert());
+      const point=local.intersectBox(this.bounds,new this.T.Vector3());if(!point)return null;
+      const axis=['x','y','z'].reduce((a,b)=>Math.abs(point[a])>Math.abs(point[b])?a:b);
+      const face=(point[axis]>0?{x:'R',y:'U',z:'F'}:{x:'L',y:'D',z:'B'})[axis];
+      const world=this.root.localToWorld(point);
+      const candidates=this.getStickers().filter(s=>s.userData.face===face);
+      const sticker=candidates.sort((a,b)=>a.getWorldPosition(new this.T.Vector3()).distanceToSquared(world)-b.getWorldPosition(new this.T.Vector3()).distanceToSquared(world))[0];
+      if(!sticker)return null;
+      const center=this.project(sticker.getWorldPosition(new this.T.Vector3())),left=x-rect.left<center[0];
+      return{face,id:sticker.userData.id,left,move:face+(left?"'":'')};
     }
     facePoint(face,x,y){
       const n=new this.T.Vector3(...NORMALS[face]),q=new this.T.Quaternion().setFromUnitVectors(new this.T.Vector3(0,0,1),n);

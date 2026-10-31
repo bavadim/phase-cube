@@ -15,8 +15,9 @@ for(const file of [...scripts,'check.mjs','export.mjs',...files.map(id=>`composi
 }
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(new Set(ids).size,ids.length,'Duplicate HTML ids');
-for(const id of ['session-overlay','start','song-select','choose-song','turn-left','turn-right','touch-face','undo','pause','song-seek','result-dialog','download-mp3','play-again'])assert(ids.includes(id),id);
-for(const id of ['listen-target','scramble','hint','tracks','track-select','tempo','show-target','foundation'])assert(!ids.includes(id),`Removed control: ${id}`);
+for(const id of ['puzzle-stage','player-controls','dialogs','orbit-score'])assert(ids.includes(id),id);
+for(const id of ['listen-target','scramble','tracks','track-select','tempo','show-target','foundation'])assert(!ids.includes(id),`Removed control: ${id}`);
+for(const match of html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g))assert((await readFile(new URL(match[1].split('?')[0],root))).length>0);
 for(const id of files)assert((await readFile(new URL(`assets/${id}-game.mp3`,root))).length>1000,`MP3 missing: ${id}`);
 assert(!html.includes('song-assets.js'),'The app must play note patterns rather than the old PCM song');
 for(const item of JSON.parse(await readFile(new URL('vendor/manifest.json',root),'utf8'))){

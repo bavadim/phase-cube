@@ -1,4 +1,7 @@
 node_modules/
 phase-cube.html
-qa/
 .DS_Store
+qa/*
+!qa/modules/
+qa/modules/*
+!qa/modules/*.mjs

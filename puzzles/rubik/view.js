@@ -81,7 +81,7 @@ window.PhaseCubeView=(()=>{
     }
     renderCube();frameId=requestAnimationFrame(frame);
     return {input:inputView,render:renderCube,animate:animateTurn,reset:resetView,focus:focusFace,
-      destroy(){cancelAnimationFrame(frameId);observer.disconnect();clear();textures.forEach(t=>t.dispose());
+      destroy(){cancelAnimationFrame(frameId);observer.disconnect();inputView.destroy();clear();textures.forEach(t=>t.dispose());
         geo.dispose();edgeGeo.dispose();stickerGeo.dispose();materials.body.dispose();materials.edge.dispose();renderer.dispose();}
     };
   }

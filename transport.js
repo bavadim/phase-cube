@@ -11,7 +11,7 @@
       this.want=false;this.running=false;this.token=0;this.revision=0;
       this.entries=[];this.retired=[];this.active=null;this.pending=null;
       this.lifecycle=Promise.resolve();this.stopPromise=Promise.resolve();
-      this.baseCycle=0;this.cursor=0;this.volume=.65;this.log=[];this.changes=[];this.analyser=null;this.master=null;
+      this.baseCycle=0;this.cursor=0;this.volume=1;this.log=[];this.changes=[];this.analyser=null;this.master=null;
       this.router=new S.Pattern(localState=>{
         const state=localState.withSpan(span=>span.withTime(t=>t.add(this.baseCycle)));
         return this.entries.flatMap(entry=>{

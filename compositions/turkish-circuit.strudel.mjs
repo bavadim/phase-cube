@@ -2,6 +2,7 @@
 // Editable Strudel composition. Metadata and form live beside the actual music.
 // Browser adaptation of levels/music/raves/turkish_circuit; no pre-rendered song audio.
 export const metadata = {
+  schema: "music-composition/1", version: 1,
   title: "Моцарт на конвейере", style: "Piano / industrial rave", bpm: 150,
   download: 'assets/turkish-circuit-game.mp3',
     credit: "Wolfgang Amadeus Mozart / Mutopia 108 (Public Domain); VCSL CC0; Biba arrangement"

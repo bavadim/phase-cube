@@ -2,7 +2,7 @@
 /* SVG score view. Sound, clock and musical events stay in Strudel. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.PhaseCubeOrbit = factory();
+  else root.PuzzleEqualizer = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=204, STEP=17;
@@ -23,18 +23,20 @@
   }
   function node(tag,attrs={},parent){const el=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,v);if(parent)parent.append(el);return el;}
   class Score {
-    constructor(svg,voices,onSelect){
+    constructor(svg,voices,{gridSteps=16,periodBeats=16}={}){
       this.svg=svg;this.voices=voices;this.rows=[];this.frameHits=[];
+      const spacing=119/Math.max(1,voices.length-1);
       const grid=node('g',{'class':'orbit-grid','aria-hidden':'true'},svg);
-      for(let t=0;t<24;t++){
-        const a=point(INNER-12,t/24),b=point(INNER+STEP*7+13,t/24);
-        node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':t%6===0?'quarter-line':'subdivision-line'},grid);
-        const c=point(337,t/24),d=point(t%6===0?347:342,t/24);
+      for(let t=0;t<gridSteps;t++){
+        const major=Math.abs(t*periodBeats/gridSteps/4-Math.round(t*periodBeats/gridSteps/4))<1e-8;
+        const a=point(INNER-12,t/gridSteps),b=point(336,t/gridSteps);
+        node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':major?'quarter-line':'subdivision-line'},grid);
+        const c=point(337,t/gridSteps),d=point(major?347:342,t/gridSteps);
         node('line',{x1:c[0],y1:c[1],x2:d[0],y2:d[1],'class':'ruler-tick'},grid);
       }
       voices.forEach((v,id)=>{
-        const r=INNER+id*STEP,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
-        const title=node('title',{},g);title.textContent=`${id+1}. ${v.name} — выбрать дорожку`;
+        const r=INNER+id*spacing,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
+        const title=node('title',{},g);title.textContent=`${id+1}. ${v.name}`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
         node('circle',{cx:CENTER,cy:CENTER,r:r+5.5,'class':'orbit-target-rail'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g),preview=node('g',{'class':'orbit-preview','aria-hidden':'true'},g);

@@ -3,87 +3,60 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Собери музыкальный кубик: три рейв-композиции из живых Strudel-паттернов.">
+  <meta name="description" content="Музыкальные головоломки из Strudel-композиций.">
   <meta name="color-scheme" content="light">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%23225a43'/%3E%3Cpath d='M32 15 49 25v17L32 52 15 42V25Z' fill='none' stroke='%23e1eaad' stroke-width='4'/%3E%3C/svg%3E">
-  <title>Музыкальный кубик</title>
-  <link rel="stylesheet" href="style.css?v=compositions1">
+  <title>Музыкальная головоломка</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css?v=contracts1">
+  <link rel="stylesheet" href="controls/equalizer.css?v=contracts1">
+  <link rel="stylesheet" href="controls/player.css?v=contracts1">
+  <link rel="stylesheet" href="puzzles/rubik/style.css?v=contracts1">
+  <link rel="stylesheet" href="puzzles/twiddle/style.css?v=contracts1">
 </head>
 <body data-phase="ready">
-<main class="app" aria-label="Музыкальный кубик">
+<main class="app" aria-label="Музыкальная головоломка">
   <section class="playfield" aria-label="Головоломка и музыкальный рисунок">
     <div class="orbital-workspace" id="orbital-workspace">
-      <aside class="completion" aria-label="Прогресс сборки">
-        <span id="correct-count">0<span>/8</span></span>
-        <span>деталей<br>на месте</span>
-      </aside>
-      <aside class="orbit-legend" aria-label="Обозначения рисунка">
-        <span><i class="legend-note" aria-hidden="true"></i>сейчас</span>
-        <span><i class="legend-ghost" aria-hidden="true"></i>цель</span>
-      </aside>
+      <aside class="completion" aria-label="Прогресс сборки"><span id="correct-count">0</span><span>деталей<br>на месте</span></aside>
+      <aside class="orbit-legend" aria-label="Обозначения рисунка"><span><i class="legend-note" aria-hidden="true"></i>сейчас</span><span><i class="legend-ghost" aria-hidden="true"></i>цель</span></aside>
       <div class="orbit-sequencer" id="orbit-sequencer">
-        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели. Время идёт по часовой стрелке."></svg>
-        <div class="cube-stage" id="cube-stage" tabindex="0" aria-label="Кубик. Касание выбирает грань, перетаскивание меняет ракурс. Повороты — кнопками внизу.">
-          <div id="cube-view"></div>
-          <svg id="cube-input" aria-label="Выбранная грань и направление поворота"></svg>
-          <div id="view-error" hidden>3D недоступно</div>
-        </div>
+        <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели"></svg>
+        <div class="puzzle-stage" id="puzzle-stage" tabindex="0"></div>
       </div>
-      <div id="celebration" class="celebration" aria-hidden="true" hidden></div>
     </div>
   </section>
-
-  <section class="controls-dock" aria-label="Управление">
-    <label class="song-seek">
-      <span class="sr-only">Позиция в композиции</span>
-      <input id="song-seek" type="range" min="0" max="1" step="0.25" value="0" aria-label="Позиция в композиции" aria-valuetext="Начало композиции">
-    </label>
-    <div class="cube-command" role="group" aria-label="Поворот выбранной грани">
-      <button id="turn-left" class="turn-button" aria-label="Повернуть выбранную грань против часовой стрелки" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 10a10 10 0 1 1-2 11M9 4v8H1"/></svg></button>
-      <label class="touch-face-control"><span class="sr-only">Выбранная грань</span><select id="touch-face" aria-label="Выбранная грань" disabled><option value="U">Сверху</option><option value="R">Справа</option><option value="F" selected>Спереди</option><option value="D">Снизу</option><option value="L">Слева</option><option value="B">Сзади</option></select></label>
-      <button id="turn-right" class="turn-button" aria-label="Повернуть выбранную грань по часовой стрелке" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M23 10a10 10 0 1 0 2 11M23 4v8h8"/></svg></button>
-    </div>
-    <div class="secondary-actions">
-      <button id="undo" class="secondary-button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Отменить</span></button>
-      <button id="pause" class="secondary-button" aria-pressed="false" disabled><span id="pause-icon" aria-hidden="true">Ⅱ</span><span id="pause-label">Пауза</span></button>
-    </div>
-  </section>
+  <section class="controls-dock" id="player-controls" aria-label="Управление"></section>
 </main>
-
-<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title" aria-describedby="song-meta session-feedback">
-  <div class="record-mark" aria-hidden="true"><span>◈</span></div>
-  <label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled><option>Загрузка…</option></select></label>
-  <h1 id="session-title">Музыкальный кубик</h1>
-  <p id="song-meta" class="song-meta"></p>
-  <p id="song-details" class="song-details"></p>
-  <p id="session-feedback" class="session-feedback" role="status">Загружаем звук…</p>
-  <button id="start" class="primary-button" disabled>Начать</button>
-</dialog>
-
-<dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title" aria-describedby="result-song">
-  <div class="result-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="m10 21 7 7 14-16"/></svg></div>
-  <p class="result-caption">Композиция собрана</p>
-  <h2 id="result-title">Композиция собрана</h2>
-  <p id="result-song" class="song-meta"></p>
-  <a id="download-mp3" class="primary-button" href="#" download>Скачать трек · MP3</a>
-  <button id="play-again" class="outline-button">Ещё раз</button>
-  <button id="choose-song" class="outline-button">Выбрать композицию</button>
-</dialog>
+<div id="dialogs"></div>
 <output id="audio-diagnostics" hidden aria-hidden="true"></output>
 <script src="vendor/three-0.160.1.min.js"></script>
 <script src="vendor/cube-1.3.2.js"></script>
 <script src="vendor/strudel-web-1.3.0.js"></script>
-<script src="audio-bank.js?v=compositions1"></script>
-<script src="composition-loader.js?v=compositions1"></script>
-<script src="model.js?v=mobile6"></script>
-<script src="config.js?v=compositions1"></script>
-<script src="session.js?v=mobile6"></script>
-<script src="music.js?v=compositions1"></script>
-<script src="transport.js?v=compositions1"></script>
-<script src="orbit.js?v=mobile6"></script>
-<script src="cube-input.js?v=mobile6"></script>
-<script src="cube-view.js?v=mobile6"></script>
-<script src="celebration.js?v=mobile6"></script>
-<script src="app.js?v=compositions1"></script>
+<script src="audio-bank.js?v=contracts1"></script>
+<script src="composition-loader.js?v=contracts1"></script>
+<script src="config.js?v=contracts1"></script>
+<script src="session.js?v=contracts1"></script>
+<script src="controls/pattern-pieces.js?v=contracts1"></script>
+<script src="puzzle-contract.js?v=contracts1"></script>
+<script src="phase-map.js?v=contracts1"></script>
+<script src="session-loader.js?v=contracts1"></script>
+<script src="music.js?v=contracts1"></script>
+<script src="transport.js?v=contracts1"></script>
+<script src="controls/equalizer.js?v=contracts1"></script>
+<script src="controls/turn-controls.js?v=contracts1"></script>
+<script src="controls/hint.js?v=contracts1"></script>
+<script src="controls/player.js?v=contracts1"></script>
+<script src="controls/dialogs.js?v=contracts1"></script>
+<script src="puzzles/rubik/model.js?v=contracts1"></script>
+<script src="puzzles/rubik/input.js?v=contracts1"></script>
+<script src="puzzles/rubik/view.js?v=contracts1"></script>
+<script src="puzzles/rubik/module.js?v=contracts1"></script>
+<script src="puzzles/rubik/control.js?v=contracts1"></script>
+<script src="puzzles/twiddle/model.js?v=contracts1"></script>
+<script src="puzzles/twiddle/module.js?v=contracts1"></script>
+<script src="puzzles/twiddle/control.js?v=contracts1"></script>
+<script src="puzzles/registry.js?v=contracts1"></script>
+<script src="celebration.js?v=contracts1"></script>
+<script src="app.js?v=contracts1"></script>
 </body>
 </html>

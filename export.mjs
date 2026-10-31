@@ -6,8 +6,10 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),root=new URL('./',import.meta.url);
 const {files}=require('./composition-loader.js'),bank=require('./audio-bank.js').files;
 let html=await readFile(new URL('index.html',root),'utf8');
-const css=await readFile(new URL('style.css',root),'utf8');
-html=html.replace(/<link rel="stylesheet" href="style\.css(?:\?[^"]*)?">/,()=>`<style>\n${css}\n</style>`);
+for(const match of [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)]){
+ const css=await readFile(new URL(match[1].split('?')[0],root),'utf8');
+ html=html.replace(match[0],()=>`<style>\n${css}\n</style>`);
+}
 const paths=new Set(Object.values(bank).flatMap(v=>Array.isArray(v)?v:Object.values(v)));
 for(const id of files)paths.add(`assets/${id}-game.mp3`);
 const assets={};
@@ -19,7 +21,7 @@ for(const id of files){
  factories.push(`${JSON.stringify(id)}:(()=>{${code.replace('export const metadata','const metadata').replace('export default ','')};return {metadata,default:compose};})()`);
 }
 const embedded=`globalThis.PhaseCubeEmbeddedAssets=${JSON.stringify(assets)};\nglobalThis.PhaseCubeEmbeddedCompositions={${factories.join(',\n')}};`;
-html=html.replace('<script src="audio-bank.js?v=compositions1"></script>',()=>`<script>${embedded.replace(/<\/script/gi,'<\\/script')}</script>\n<script src="audio-bank.js?v=compositions1"></script>`);
+html=html.replace(/<script src="audio-bank\.js[^\"]*"><\/script>/,match=>`<script>${embedded.replace(/<\/script/gi,'<\\/script')}</script>\n${match}`);
 for(const match of [...html.matchAll(/<script src="([^"]+)"><\/script>/g)]){
  const code=(await readFile(new URL(match[1].split('?')[0],root),'utf8')).replace(/<\/script/gi,'<\\/script');
  html=html.replace(match[0],()=>`<script>\n${code}\n</script>`);
