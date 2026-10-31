@@ -5,9 +5,9 @@
 (() => {
   'use strict';
   class PhaseCubeTransport {
-    constructor(S, {onChange=()=>{}, onError=console.error,outputGain=1}={}) {
+    constructor(S, {onChange=()=>{}, onError=console.error,outputGain=1,audioTimeout=8000}={}) {
       this.S=S;this.onChange=onChange;this.onError=onError;
-      this.outputGain=outputGain;
+      this.outputGain=outputGain;this.audioTimeout=audioTimeout;
       this.want=false;this.running=false;this.token=0;this.revision=0;
       this.entries=[];this.retired=[];this.active=null;this.pending=null;
       this.lifecycle=Promise.resolve();this.stopPromise=Promise.resolve();
@@ -114,12 +114,20 @@
     }
     async start(pattern, bpm, volume, meta, ready) {
       this.want=true;this.volume=volume;const token=++this.token;
+      // Call resume in the trusted tap/click stack, before the lifecycle queue or
+      // sample/worklet awaits can consume Safari's transient user activation.
+      const ctx=this.S.getAudioContext();
+      let activation;
+      try{activation=PuzzleAsync.wait(ctx.state==='running'?Promise.resolve():ctx.resume(),'Не удалось включить звук. Нажмите «Повторить».',this.audioTimeout);}
+      catch(e){this.want=false;throw e;}
+      activation.catch(()=>{});
       this.onChange();
       this.lifecycle=this.lifecycle.catch(()=>{}).then(async()=>{
         await this.stopPromise;await ready;
         if(!this.want||token!==this.token)return;
-        const ctx=this.S.getAudioContext();
-        await ctx.resume();await this.S.initAudio();
+        await activation;
+        if(ctx.state!=='running')throw new Error('Браузер приостановил звук. Нажмите «Повторить».');
+        await PuzzleAsync.wait(this.S.initAudio(),'Звуковой движок не ответил. Нажмите «Повторить».',this.audioTimeout);
         if(!this.want||token!==this.token)return;
         this.repl.stop();this.S.resetGlobalEffects();this.connectMaster();this.setVolume(this.volume);
         const initial=typeof pattern==='function'?pattern():{pattern,meta};
@@ -143,6 +151,9 @@
       return this.lifecycle;
     }
     stop() {
+      // Preparing/selecting the first song is silent. In WebKit an interrupted
+      // never-started context can leave suspend() pending until a user gesture.
+      if(!this.want&&!this.running&&!this.entries.length&&!this.pending)return this.stopPromise;
       this.cursor=this.clock();
       this.want=false;this.running=false;++this.token;
       this.repl?.stop();
@@ -155,7 +166,11 @@
       const token=this.token;
       // A short drain gives the analyser an actual silent PCM window before suspend.
       this.stopPromise=new Promise(r=>setTimeout(r,65)).then(async()=>{
-        if(!this.want&&token===this.token)await this.S.getAudioContext().suspend();
+        const ctx=this.S.getAudioContext();
+        if(!this.want&&token===this.token&&ctx.state==='running'){
+          try{await PuzzleAsync.wait(ctx.suspend(),'Аудиоконтекст не ответил на паузу',this.audioTimeout);}
+          catch(e){this.record('suspend-timeout',{message:e.message});}
+        }
       });
       return this.stopPromise;
     }
