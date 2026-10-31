@@ -27,7 +27,7 @@
   ]);
   const clone=v=>JSON.parse(JSON.stringify(v));
   const layer=(i,shape='regular-4',phase=0)=>({shape,phase,enabled:i<3,instrument:instruments[i%6].id,note:instruments[i%6].note,velocity:.7,gateMs:i===2?110:65,complement:false});
-  function initial(){return{schema:'xronomorph-lab/1',mode:'pb',rpm:30,volume:.85,snap:0,selected:0,
+  function initial(){return{schema:'xronomorph-lab/1',mode:'pb',rpm:30,volume:1,snap:0,selected:0,
     pb:[layer(0),layer(1,'regular-3',.08),layer(2,'regular-5',.035)],
     wf:{longs:1,shorts:1,ratio:(1+Math.sqrt(5))/2,phase:0,reverse:Array(6).fill(false),layers:Array.from({length:6},(_,i)=>layer(i))}};}
   function validate(s){

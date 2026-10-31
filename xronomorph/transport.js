@@ -58,7 +58,7 @@
         this.master=S.getSuperdoughAudioController().output.destinationGain;
         if(!this.analyser){this.analyser=ctx.createAnalyser();this.analyser.fftSize=2048;this.master.connect(this.analyser);}
         this.update(this.state);this.master.gain.setValueAtTime(this.state.volume,ctx.currentTime);
-        this.bus=S.getSuperdoughAudioController().getOrbit(2000+epoch,[0,1]);this.bus.output.gain.setValueAtTime(1,ctx.currentTime);
+        this.orbitId=2000+epoch;this.bus=S.getSuperdoughAudioController().getOrbit(this.orbitId,[0,1]);this.bus.output.gain.setValueAtTime(1,ctx.currentTime);
         this.events=[];this.cursor=0;this.running=true;this.repl.scheduler.setCps(this.state.rpm/60);
         await this.repl.setPattern(this.router,true);
         if(epoch!==this.epoch)this.repl.stop();
@@ -78,7 +78,10 @@
     }
     stop(){
       this.cursor=this.clock();this.running=false;this.starting=false;++this.epoch;this.repl?.stop();
-      if(this.bus){const old=this.bus;old.output.gain.setValueAtTime(0,this.S.getAudioContext().currentTime);this.bus=null;setTimeout(()=>old.disconnect(),1000);}
+      if(this.bus){
+        const old=this.bus,id=this.orbitId;old.output.gain.setValueAtTime(0,this.S.getAudioContext().currentTime);this.bus=null;
+        setTimeout(()=>{old.disconnect();const nodes=this.S.getSuperdoughAudioController().nodes;if(nodes[id]===old)delete nodes[id];},1000);
+      }
       this.onChange();
     }
     rms(){if(!this.analyser)return 0;const a=new Float32Array(this.analyser.fftSize);this.analyser.getFloatTimeDomainData(a);return Math.sqrt(a.reduce((s,x)=>s+x*x,0)/a.length);}

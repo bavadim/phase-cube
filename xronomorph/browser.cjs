@@ -47,6 +47,7 @@ const assert=require('node:assert/strict'),{mkdirSync,writeFileSync,readFileSync
    await page.locator('#play').click();assert.equal(await page.evaluate(()=>xronoLab.audio.running),false);
    await page.waitForTimeout(1100);
    const silent=await page.evaluate(()=>xronoLab.audio.rms());assert(silent<.0001,'stop must silence retained voices');
+   assert.equal(await page.evaluate(()=>Object.keys(strudel.getSuperdoughAudioController().nodes).filter(k=>+k>=2000).length),0,'stopped sessions must release cached mixer buses');
    const layout=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,field:document.querySelector('#diagram').getBoundingClientRect().width}));assert(layout.width<=width);assert(layout.viewport<=width);
    await page.screenshot({path:join(output,r.engine+'-'+width+'.png'),fullPage:true});
    report.cases.push({width,height,input:cdp?'native CDP touch':'mouse',independentRotation:true,irregular:true,continuousPhase:fractional,wfHierarchy:true,complement:true,reverse:true,persistence:true,nativePCM:pcm,editingPreservesClock:true,stopRms:silent,layout});
