@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture3';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/chairs1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -216,6 +216,7 @@
       if(displayWindow!==music.displayWindow(cycle))updateRows();
       player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
       orbit.frame(phase,transport.running,now);
+      if(presentation?.active?.view.updateMusic?.({phase,playing:transport.running,rows:music.rows(heardState()),periodSeconds:song.periodBars*240/song.bpm}))presentation.dirty=true;
     }
     if(debug&&performance.now()-lastDiagnostics>150){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnostics());}
     }catch(e){fail(e);}

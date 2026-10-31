@@ -1,19 +1,30 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Six independent riff controls: C8 phase, zero through double gain. */
+/* Six independent riffs: C8 phase and continuous gain from zero to double. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.FourierModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
   const keys=['A','B','C','D','E','F'],levels=Array.from({length:9},(_,i)=>i/4),homePhase=[0,1,3,4,5,7],homeLevel=keys.map(()=>4),radix=8*levels.length,stateCount=radix**keys.length;
-  const mod=(n,d)=>((n%d)+d)%d,validState=s=>Number.isInteger(s)&&s>=0&&s<stateCount;
-  const point=p=>p&&Number.isSafeInteger(p.phase)&&Number.isInteger(p.level)&&p.level>=0&&p.level<levels.length;
+  const mod=(n,d)=>((n%d)+d)%d,round=n=>Math.round(n*1e9)/1e9;
+  const validGrid=s=>Number.isInteger(s)&&s>=0&&s<stateCount;
+  const validState=s=>validGrid(s)||s?.kind==='continuous-levels/1'&&Array.isArray(s.values)&&s.values.length===keys.length&&s.values.every(p=>point(p)&&p.phase>=0&&p.phase<8);
+  const point=p=>p&&Number.isSafeInteger(p.phase)&&Number.isFinite(p.level)&&p.level>=0&&p.level<=8;
   function parameters(state){
     if(!validState(state))throw new Error('Неверное состояние Фурье');
+    if(!validGrid(state))return state.values.map(p=>({...p}));
     return keys.map((_,i)=>{const digit=Math.floor(state/radix**i)%radix;return{phase:mod(homePhase[i]+digit%8,8),level:mod(homeLevel[i]+Math.floor(digit/8),levels.length)};});
   }
-  const encode=values=>values.reduce((s,p,i)=>s+(mod(p.phase-homePhase[i],8)+8*mod(p.level-homeLevel[i],levels.length))*radix**i,0);
-  const coefficient=p=>[levels[p.level]*Math.cos(p.phase*Math.PI/4),levels[p.level]*Math.sin(p.phase*Math.PI/4)];
+  // Keep compact numeric presets; only fractional gains need a structured state.
+  // Canonical decimal precision makes edit/inverse/replay independent of FP drift.
+  const encode=input=>{
+    const values=input.map(p=>({phase:mod(p.phase,8),level:round(p.level)}));
+    return values.every(p=>Number.isInteger(p.level))
+      ?values.reduce((s,p,i)=>s+(mod(p.phase-homePhase[i],8)+8*mod(p.level-homeLevel[i],levels.length))*radix**i,0)
+      :Object.freeze({kind:'continuous-levels/1',values:Object.freeze(values.map(p=>Object.freeze(p)))});
+  };
+  const gain=p=>p.level/4;
+  const coefficient=p=>[gain(p)*Math.cos(p.phase*Math.PI/4),gain(p)*Math.sin(p.phase*Math.PI/4)];
   const coefficients=state=>parameters(state).map(coefficient),reference=coefficients(0);
   const edit=move=>move&&typeof move==='object'&&move.kind==='coefficient'&&keys.includes(move.key)&&point(move.from)&&point(move.to);
-  const match=(a,b)=>mod(a.phase,8)===mod(b.phase,8)&&a.level===b.level;
+  const match=(a,b)=>mod(a.phase,8)===mod(b.phase,8)&&round(a.level)===round(b.level);
   function target(move){if(typeof move==='string'&&/^[ABCDEF]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
   function applyTo(state,move){
     const values=parameters(state),i=keys.indexOf(target(move)),p=values[i];
@@ -37,7 +48,7 @@
     const delta=edit(move)?mod(b[i].phase-a[i].phase+4,8)-4:typeof move==='string'&&move.endsWith("'")?1:typeof move==='string'&&move.length===1?-1:0;
     return a.map((p,j)=>{
       if(j!==i)return coefficient(p);
-      const phase=(p.phase+delta*t)*Math.PI/4,radius=levels[p.level]+(levels[b[i].level]-levels[p.level])*t;
+      const phase=(p.phase+delta*t)*Math.PI/4,radius=gain(p)+(gain(b[i])-gain(p))*t;
       return[radius*Math.cos(phase),radius*Math.sin(phase)];
     });
   }
@@ -47,7 +58,7 @@
     initialState(){return 0;}
     parameters(state=this.current){return parameters(state);}
     coefficients(state=this.current){return coefficients(state);}
-    legalMoves(state=this.current){const p=parameters(state);return keys.flatMap((key,i)=>[key,key+"'",...(p[i].level>0?[key+'-']:[]),...(p[i].level<levels.length-1?[key+'+']:[])]);}
+    legalMoves(state=this.current){return keys.flatMap(key=>[key,key+"'",...[-1,1].map(d=>this.levelMove(key,d,state)).filter(Boolean)]);}
     applyTo(state,move){return applyTo(state,move);}
     inverse(move){return inverse(move);}
     validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
@@ -55,22 +66,29 @@
     select(key){if(!keys.includes(key))throw new Error('Неверный риф');this.selected=key;}
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
     choices(){return keys.map((key,i)=>({key,label:'Риф '+(i+1)}));}
-    selectionLabel(preview){const i=keys.indexOf(this.selected),p=parameters(this.current)[i],phase=preview?.phase??p.phase,gain=preview?.gain??levels[p.level];return 'Риф '+(i+1)+' · '+Math.round(mod(phase,8)*45)+'° · '+Math.round(gain*100)+'%';}
+    selectionLabel(preview){const i=keys.indexOf(this.selected),p=parameters(this.current)[i],phase=preview?.phase??p.phase,gain=preview?.gain??p.level/4;return 'Риф '+(i+1)+' · '+Math.round(mod(phase-homePhase[i],8)*45)+'° · '+Math.round(gain*100)+'%';}
+    levelMove(key,direction,state=this.current){
+      const p=parameters(state)[keys.indexOf(key)];
+      if(Number.isInteger(p.level))return this.validMove(key+(direction>0?'+':'-'),state)?key+(direction>0?'+':'-'):null;
+      let level=Math.max(0,Math.min(8,p.level+direction));
+      if((p.level-4)*(level-4)<=0)level=4;
+      return this.editMove(key,{...p,level},state);
+    }
     actions(callbacks){
       const key=this.selected,n=keys.indexOf(key)+1;
       return [
         {id:'turn-left',label:'Риф '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Фаза',move:key+"'"},
         {id:'turn-right',label:'Риф '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Фаза',move:key},
-        {id:'magnitude-down',label:'Риф '+n+': уровень −25%',icon:{text:'−'},group:'Громкость',move:key+'-'},
-        {id:'magnitude-up',label:'Риф '+n+': уровень +25%',icon:{text:'+'},group:'Громкость',move:key+'+'}
+        {id:'magnitude-down',label:'Риф '+n+': тише',icon:{text:'−'},group:'Громкость',move:this.levelMove(key,-1)},
+        {id:'magnitude-up',label:'Риф '+n+': громче',icon:{text:'+'},group:'Громкость',move:this.levelMove(key,1)}
       ].map(action=>Actions.move(this,callbacks,action));
     }
     editMove(key,to,state=this.current){
       if(!keys.includes(key)||!point(to))throw new Error('Неверные координаты коэффициента');
-      const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{phase:mod(to.phase,8),level:to.level}};
+      const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{phase:mod(to.phase,8),level:round(to.level)}};
     }
     snap(z,fallbackPhase=0){const radius=Math.hypot(...z);return{phase:radius<1e-8?mod(Math.round(fallbackPhase),8):mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:levels.reduce((best,v,i)=>Math.abs(v-radius)<Math.abs(levels[best]-radius)?i:best,0)};}
-    restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=state;}
+    restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=encode(parameters(state));}
     reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleStep=0;}
     shuffle(){
       const radius=this.shuffleStep++%2===1;
@@ -87,7 +105,7 @@
       for(let i=0;i<keys.length;i++){
         const delta=mod(homePhase[i]-p[i].phase,8);
         if(delta)return keys[i]+(delta<=4?"'":'');
-        if(p[i].level!==homeLevel[i])return keys[i]+(p[i].level<homeLevel[i]?'+':'-');
+        if(p[i].level!==homeLevel[i])return this.levelMove(keys[i],p[i].level<homeLevel[i]?1:-1);
       }
       return null;
     }
@@ -98,8 +116,9 @@
       const result=[0];for(let i=0;i<keys.length;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<levels.length;level++){
         const p=parameters(0);p[i]={phase,level};result.push(encode(p));
       }
+      for(let i=0;i<keys.length;i++)for(const level of [.492,2.924,5.348,7.996]){const p=parameters(0);p[i].level=level;result.push(encode(p));}
       return [...new Set(result)];
     }
   }
-  return{Model,coefficients,parameters,interpolate,homePhase:[...homePhase],reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
+  return{Model,gain,coefficients,parameters,interpolate,homePhase:[...homePhase],reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
 });

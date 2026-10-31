@@ -12,7 +12,7 @@ export async function selectionPoint(page,key){
 }
 export async function actionPoint(page,key,inverted){
  const all=await targets(page);
- if(all[0].kind==='point'){
+ if(['point','chair'].includes(all[0].kind)){
   const r=await page.locator(inverted?'#turn-left':'#turn-right').boundingBox();
   return{x:r.x+r.width/2,y:r.y+r.height/2};
  }
@@ -37,7 +37,7 @@ export async function select(page,key,touch){
  const at=await selectionPoint(page,key);
  // Mouse hover selects and previews; touch still needs the first selecting tap.
  if(at.kind==='piece'&&await page.evaluate(key=>phaseCubeApp.diagnostics().selectedFace===key&&!!document.querySelector('.puzzle-action:enabled'),key))return at;
- if(!touch&&!['coefficient-label','point','piece'].includes(at.kind))await page.mouse.move(at.x,at.y);
+ if(!touch&&!['coefficient-label','point','piece','chair'].includes(at.kind))await page.mouse.move(at.x,at.y);
  else await tap(page,at,touch);
  await page.waitForFunction(key=>phaseCubeApp.diagnostics().selectedFace===key,key,{timeout:3000});
  assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),key);

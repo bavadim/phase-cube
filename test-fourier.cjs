@@ -4,7 +4,7 @@ const F=require('./puzzles/fourier/model.js'),Contract=require('./puzzle-contrac
 const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-loader.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
-const samples=m=>[...new Set([...m.probeStates(),...Array.from({length:128},(_,i)=>(Math.imul(i+11,1664525)>>>0)%F.stateCount)])];
+const samples=m=>[...new Set([...m.probeStates().filter(Number.isInteger),...Array.from({length:128},(_,i)=>(Math.imul(i+11,1664525)>>>0)%F.stateCount)])];
 
 test('polar Fourier: independent bounded radii, phases of order 8 and exact inverses',()=>{
  const m=new F.Model();assert.equal(F.stateCount,72**6);assert.equal(m.snapshot(),0);assert.equal(m.correct(),6);
@@ -65,7 +65,7 @@ test('all existing scores: polar projection preserves notes/gates and native Str
    const a=m.applyTo(m.applyTo(0,key),key+'-'),b=m.applyTo(m.applyTo(0,key+'-'),key);assert.equal(a,b,'Rotation and positive scaling commute');
   }
   const again=await new Loader(S,{palette,registry,library,storage}).prepareSession({puzzleId:'fourier',songId});assert.equal(again.diagnostics.cache,'hit');
-  assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.stateSpace,F.stateCount);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(p.diagnostics.independentRiffs,true);
+  assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.gridPresetStates,F.stateCount);assert.equal(p.diagnostics.continuousGain,true);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(p.diagnostics.independentRiffs,true);
   report.pairs.push({songId,fragments:6,progressUnits:6,bindingFingerprint:p.binding.fingerprint,...p.diagnostics});
  }
  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
@@ -132,4 +132,24 @@ test('changing pitches with identical rhythm invalidates the cached riff periods
  const first=await loader.prepareSession({puzzleId:'fourier',songId:'cache-note-test'});revision=1;
  const second=await loader.prepareSession({puzzleId:'fourier',songId:'cache-note-test'});
  assert.equal(second.diagnostics.cache,'miss');assert.notDeepEqual(first.binding.periods,second.binding.periods);
+});
+
+test('continuous chair gain persists, projects into native audio, reverses exactly and has actionable hints',()=>{
+ const m=new F.Model(),binding={periods:Array(6).fill(1)},row=[{id:'n',start:.17,duration:.08,value:{note:60,s:'sine'}}],game={targetRows:Array(6).fill(row)};
+ for(const gain of [0,.001,.123456,.731,1.006,1.337,1.999999,2]){
+  m.reset();const move=m.editMove('A',{phase:3,level:gain*4});m.apply(move);const state=m.snapshot();
+  close(F.gain(m.parameters()[0]),gain);close(Math.hypot(...m.coefficients()[0]),gain);
+  const projected=Binding.project(binding,null,state,game);close(projected.parts[0].gain,gain);close(projected.rows[0][0].value.postgain,gain);
+  const native=L.eventsOf(Projection.nativeEvents(S,projected.rows[0],1),1);assert.equal(norm([native]),norm([projected.rows[0]]));
+  assert.equal(m.applyTo(state,m.inverse(move)),0);
+  for(const operation of m.legalMoves()){const next=m.applyTo(state,operation);assert.deepEqual(m.applyTo(next,m.inverse(operation)),state);}
+  m.undo();assert.equal(m.snapshot(),0);m.restore(state);
+  let n=0;while(!m.solved()){
+    const hint=m.hint();m.select(m.moveTarget(hint));assert(m.actions().some(a=>JSON.stringify(a.move)===JSON.stringify(hint)));m.apply(hint);assert(++n<16);
+  }
+  assert.equal(m.snapshot(),0);
+ }
+ const near=m.editMove('A',{phase:0,level:4.000000001});const almost=m.applyTo(0,near);assert(!m.solved(almost));assert.equal(Binding.project(binding,null,almost,game).parts[0].aligned,false);
+ const a=m.editMove('B',{phase:1,level:4.123456789123});m.apply(a);m.apply("B'");m.apply('B');assert.equal(m.applyTo(m.snapshot(),m.inverse(a)),0);
+ assert.throws(()=>m.editMove('A',{phase:0,level:8.01}));assert.throws(()=>m.restore({kind:'continuous-levels/1',values:Array(6).fill({phase:0,level:NaN})}));
 });

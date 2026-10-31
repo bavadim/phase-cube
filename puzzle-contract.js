@@ -11,7 +11,7 @@
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
-    if(!['pose-phase/1','complex-riff/2','spectral-riff/2'].includes(spec.projection)||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+    if(!['pose-phase/1','complex-riff/3','spectral-riff/2'].includes(spec.projection)||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
     if(!Number.isInteger(spec.controls)||spec.controls<1||model.choices().length!==spec.controls)throw new Error('Число органов управления не совпадает с манифестом');
     if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
     if(spec.projection!=='pose-phase/1'){

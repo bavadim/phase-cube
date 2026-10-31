@@ -10,3 +10,9 @@ qa/scratch/*
 !qa/scratch/*.mjs
 !qa/scratch/*report.json
 !qa/scratch/*.png
+
+!qa/chairs/
+qa/chairs/*
+!qa/chairs/*.mjs
+!qa/chairs/*report.json
+!qa/chairs/*.png

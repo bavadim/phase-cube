@@ -16,10 +16,10 @@
   ],
   "status": "PASS",
   "sourceSha256": {
-    "app.js": "da251cf3dd638b8da06aa2d9a6003c8791ff5baad2800eb169008afe2622191d",
+    "app.js": "043f0998c8268ae9783288fadb423c3f784f9242ff88f1e6a3562cea41f03d49",
     "controls/puzzle.js": "82ef9a76304165dd4ef463eeabb021c2eb208809cd7ac3c5009025d1ba241e42",
     "puzzles/scratch/three-view.js": "657f547607cc05814d925e7e688d1f9ab3b0686634b0e8ce8c490701381dafca",
     "assets/director-puzzle.png": "7c67a1127a4b75a9ccc6b28148c37762ad3cb4c229c52cb812579305ae9563e5",
-    "steel-shift-cube.html": "83a3e95c13e5c4c107e40b643787c8d490d9393685e90a57ca92b4189bfc59b7"
+    "steel-shift-cube.html": "2c47dbba7dcb0e41fb1af9400ccb2d472344538206d70fa08e4083dd127c853c"
   }
 }
