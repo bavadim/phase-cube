@@ -18,14 +18,18 @@ try{
       }else await page.evaluate(({type,point})=>{phaseCubeApp.getPresentation().canvas.dispatchEvent(new PointerEvent({touchStart:'pointerdown',touchMove:'pointermove',touchEnd:'pointerup',touchCancel:'pointercancel'}[type],{pointerId:714,pointerType:'touch',isPrimary:true,button:0,buttons:type==='touchEnd'||type==='touchCancel'?0:1,clientX:point?.x||0,clientY:point?.y||0,bubbles:true,cancelable:true}));},{type,point});
       last=type==='touchEnd'||type==='touchCancel'?null:point;
     }
-    const origin=()=>targets(page).then(a=>a.find(p=>p.key==='A'&&p.kind==='point'));
+    const origin=()=>targets(page).then(a=>a.find(p=>p.key==='A'&&p.kind==='rotation-handle'));
     const before=await page.evaluate(()=>({state:phaseCubeApp.state(),history:phaseCubeApp.getPuzzle().history.length}));
-    const destination=await page.evaluate(()=>{const m=phaseCubeApp.getPuzzle(),phase=m.parameters()[0].phase+.9,a=phase*Math.PI/2;return phaseCubeApp.getPresentation().project(new THREE.Vector3(-1.04+.25*Math.cos(a),-1.43+.25*Math.sin(a),.12));});
+    const destination=await page.evaluate(()=>{const stage=phaseCubeApp.getPresentation(),points=stage.locations(),center=points.find(p=>p.key==='A'&&p.kind==='piece'),handle=points.find(p=>p.key==='A'&&p.kind==='rotation-handle'),origin=stage.unproject(center.x,center.y);return stage.project(stage.unproject(handle.x,handle.y).sub(origin).applyAxisAngle(new THREE.Vector3(0,0,1),-.9*Math.PI/2).add(origin));});
     await touch('touchStart',await origin());await touch('touchMove',destination);
     assert.equal(await page.evaluate(()=>phaseCubeApp.getPresentation().pointer.gesture.custom),true);
     assert.equal(await page.evaluate(()=>phaseCubeApp.state()),before.state);
     assert.equal(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast?.continuous),true);
     await touch('touchEnd',destination);await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.length),before.history+1);
+    await page.locator('#undo').tap();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),before.state);
+    const pieces=(await targets(page)).filter(p=>p.kind==='piece'),a=pieces.find(p=>p.key==='A'),c=pieces.find(p=>p.key==='C');
+    await touch('touchStart',a);await touch('touchMove',c);assert.equal(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast.changed.length),2);
+    await touch('touchEnd',c);await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.at(-1).move.kind),'piece-swap');
     await page.locator('#undo').tap();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),before.state);
     await select(page,'A',true);await touch('touchStart',await origin());await touch('touchMove',destination);await touch('touchCancel',destination);
     assert.equal(await page.evaluate(()=>phaseCubeApp.state()),before.state);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.length),before.history);

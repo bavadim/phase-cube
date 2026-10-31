@@ -40,6 +40,7 @@ window.PuzzleControl = {
       }
     });
     return {
+      ready:view.ready||Promise.resolve(true),
       update(value){
         disabled=value;if(disabled&&!demonstrating)focus.reset();else focus.refresh();
         controls.setFocus(focus.current);updateControls();presentation.update(disabled);feedback();

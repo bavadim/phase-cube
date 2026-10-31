@@ -8,7 +8,7 @@ test('every composition/puzzle: native Strudel, inverses, targets, deterministic
  const report={schema:'music-puzzle-contracts/1',acousticAcceptance:'unverified',pairs:[]};
  for(const puzzleId of ['twiddle','rubik'])for(const songId of ['turkish-circuit','steel-shift','elise-after-hours']){
   const p=await loader.prepareSession({songId,puzzleId}),music=new Music(S,p),m=p.model;prepared.set(puzzleId+'/'+songId,p);
-  assert(Phases.validateTable(p.phaseMap,p.module.manifest));assert(Object.isFrozen(p.phaseMap.poseTicks));assert.equal(p.diagnostics.acousticAcceptance,'unverified');
+  assert(Phases.validateTable(p.binding,p.module.manifest));assert(Object.isFrozen(p.binding.poseTicks));assert.equal(p.diagnostics.acousticAcceptance,'unverified');
   const goal=m.initialState();assert(music.phases(goal).every(v=>v.ticks===0));assert.equal(norm(music.rows(goal)),norm(p.fragments.targetRows));
   const before=m.snapshot();
   for(const move of m.legalMoves(goal)){
@@ -26,9 +26,9 @@ test('every composition/puzzle: native Strudel, inverses, targets, deterministic
   }
   assert.deepEqual(m.snapshot(),before,'Pure projections must not mutate the playable model');
   for(const state of m.goalStates?.()||[goal])assert(music.phases(state).every(v=>v.ticks===0),'Every accepted goal plays the same author score');
-  const again=await loader.prepareSession({songId,puzzleId});assert.equal(again.diagnostics.cache,'hit');assert.deepEqual(again.phaseMap.poseTicks,p.phaseMap.poseTicks);
+  const again=await loader.prepareSession({songId,puzzleId});assert.equal(again.diagnostics.cache,'hit');assert.deepEqual(again.binding.poseTicks,p.binding.poseTicks);
   assert.equal(p.diagnostics.coverage,puzzleId==='twiddle'?'complete':'sampled');
-  report.pairs.push({puzzleId,songId,gridSteps:p.phaseMap.gridSteps,poseTicks:p.phaseMap.poseTicks,...p.diagnostics,cacheFingerprint:p.phaseMap.fingerprint});
+  report.pairs.push({puzzleId,songId,gridSteps:p.binding.gridSteps,poseTicks:p.binding.poseTicks,...p.diagnostics,cacheFingerprint:p.binding.fingerprint});
  }
  const mozart=prepared.get('twiddle/turkish-circuit');assert.equal(mozart.diagnostics.distinctRhythms,120);assert.equal(mozart.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(mozart.diagnostics.silentMoves,0);
  fs.mkdirSync(path.join(__dirname,'qa/contracts'),{recursive:true});fs.writeFileSync(path.join(__dirname,'qa/contracts/report.json'),JSON.stringify(report,null,2)+'\n');
@@ -36,16 +36,16 @@ test('every composition/puzzle: native Strudel, inverses, targets, deterministic
 test('cache survives a fresh loader; changed notes or pose contract invalidate it',async()=>{
  const fresh=new Loader(S,{palette,registry,library,storage});const first=await fresh.prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.equal(first.diagnostics.cache,'hit');
  const changedLibrary={load:async id=>{const song=await library.load(id);return {...song,playerParts:song.playerParts.map((p,i)=>i? p:{...p,pattern:p.pattern.note('c3')})};}};
- const notes=await new Loader(S,{palette,registry,library:changedLibrary,storage}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.notEqual(notes.phaseMap.fingerprint,first.phaseMap.fingerprint);assert.equal(notes.diagnostics.cache,'miss');
+ const notes=await new Loader(S,{palette,registry,library:changedLibrary,storage}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.notEqual(notes.binding.fingerprint,first.binding.fingerprint);assert.equal(notes.diagnostics.cache,'miss');
  const changedRegistry={get:id=>{const p=registry.get(id);return {...p,manifest:{...p.manifest,version:p.manifest.version+1}};}};
- const rules=await new Loader(S,{palette,registry:changedRegistry,library,storage}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.notEqual(rules.phaseMap.fingerprint,first.phaseMap.fingerprint);assert.equal(rules.diagnostics.cache,'miss');
+ const rules=await new Loader(S,{palette,registry:changedRegistry,library,storage}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.notEqual(rules.binding.fingerprint,first.binding.fingerprint);assert.equal(rules.diagnostics.cache,'miss');
  // A malformed persisted table is ignored, not played.
- const entries=JSON.parse([...store.values()][0]);const item=entries.find(e=>e.key===first.phaseMap.fingerprint);item.binding.poseTicks.fill(0);store.set([...store.keys()][0],JSON.stringify(entries));
- const recovered=await new Loader(S,{palette,registry,library,storage}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.equal(recovered.diagnostics.cache,'miss');assert.deepEqual(recovered.phaseMap.poseTicks,first.phaseMap.poseTicks);
+ const entries=JSON.parse([...store.values()][0]);const item=entries.find(e=>e.key===first.binding.fingerprint);item.binding.poseTicks.fill(0);store.set([...store.keys()][0],JSON.stringify(entries));
+ const recovered=await new Loader(S,{palette,registry,library,storage}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});assert.equal(recovered.diagnostics.cache,'miss');assert.deepEqual(recovered.binding.poseTicks,first.binding.poseTicks);
 });
 test('same inputs deterministically select the same phases; cancellation does not cache partial work',async()=>{
  const cold=await new Loader(S,{palette,registry,library,storage:null}).prepareSession({songId:'turkish-circuit',puzzleId:'twiddle'});
- assert.deepEqual(cold.phaseMap.poseTicks,prepared.get('twiddle/turkish-circuit').phaseMap.poseTicks);
+ assert.deepEqual(cold.binding.poseTicks,prepared.get('twiddle/turkish-circuit').binding.poseTicks);
  const controller=new AbortController(),cancelLoader=new Loader(S,{palette,registry,library,storage:null});
  await assert.rejects(()=>cancelLoader.prepareSession({songId:'turkish-circuit',puzzleId:'twiddle',signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelLoader.bindings.size,0);
 });

@@ -43,7 +43,7 @@ test('all existing scores: polar projection preserves notes/gates and native Str
  const report={schema:'fourier-contracts/5',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
  for(const songId of L.files){
   const p=await loader.prepareSession({puzzleId:'fourier',songId}),music=new Music(S,p),m=p.model;
-  assert.equal(m.count,6);assert.equal(p.fragments.count,6);assert(Projection.validate(p.phaseMap,p.module.manifest));
+  assert.equal(m.count,6);assert.equal(p.fragments.count,6);assert(Projection.validate(p.binding,p.module.manifest));
   assert.equal(norm(music.rows(0)),norm(p.fragments.targetRows));assert(music.phases(0).every(d=>d.aligned&&d.ticks===undefined));
   for(const state of samples(m)){
    const rows=music.rows(state),native=music.shifted(state).map(pat=>L.eventsOf(pat,p.fragments.periodBars));
@@ -66,7 +66,7 @@ test('all existing scores: polar projection preserves notes/gates and native Str
   }
   const again=await new Loader(S,{palette,registry,library,storage}).prepareSession({puzzleId:'fourier',songId});assert.equal(again.diagnostics.cache,'hit');
   assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.stateSpace,F.stateCount);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(p.diagnostics.independentRiffs,true);
-  report.pairs.push({songId,fragments:6,progressUnits:6,bindingFingerprint:p.phaseMap.fingerprint,...p.diagnostics});
+  report.pairs.push({songId,fragments:6,progressUnits:6,bindingFingerprint:p.binding.fingerprint,...p.diagnostics});
  }
  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
  await assert.rejects(()=>cancelled.prepareSession({puzzleId:'fourier',songId:L.files[0],signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
@@ -101,7 +101,7 @@ test('volume scales after timbre processing and preserves a source without expli
 test('short native riff repeats four times under one master clock and rotates by its own period',()=>{
  const pattern=S.note('c4 e4').s('sine').fast(4).clip(.5),row=L.eventsOf(pattern,1).map((e,i)=>({...e,id:'event:'+i})),m=new F.Model();
  const period=Binding.period(row);close(period,.25);
- const targetRows=Array(6).fill(row),game={targetRows,basePatterns:Array(6).fill(pattern),periodBars:1},prepared={puzzle:{manifest:registry.get('fourier').manifest,model:m},fragments:game,phaseMap:{periods:Array(6).fill(period)}};
+ const targetRows=Array(6).fill(row),game={targetRows,basePatterns:Array(6).fill(pattern),periodBars:1},prepared={puzzle:{manifest:registry.get('fourier').manifest,model:m},fragments:game,binding:{periods:Array(6).fill(period)}};
  const projection=Projection.project(S,prepared,m.applyTo(0,"A'"));
  projection.rows[0].forEach(e=>{const original=row.find(v=>v.id===e.id);close(((e.start-original.start+period/8+1.5)%1)-.5,0);});
  assert.equal(norm([L.eventsOf(projection.patterns[0],1)]),norm([projection.rows[0]]));
@@ -131,5 +131,5 @@ test('changing pitches with identical rhythm invalidates the cached riff periods
  const loader=new Loader(S,{palette,registry,library:{load:async()=>score()},storage:null});
  const first=await loader.prepareSession({puzzleId:'fourier',songId:'cache-note-test'});revision=1;
  const second=await loader.prepareSession({puzzleId:'fourier',songId:'cache-note-test'});
- assert.equal(second.diagnostics.cache,'miss');assert.notDeepEqual(first.phaseMap.periods,second.phaseMap.periods);
+ assert.equal(second.diagnostics.cache,'miss');assert.notDeepEqual(first.binding.periods,second.binding.periods);
 });

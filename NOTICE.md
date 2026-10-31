@@ -45,3 +45,11 @@ The downloadable MP3 files are listening exports, not inputs to gameplay.
 Mozart/Elise are studio masters from the project composition pipeline; Steel Shift
 retains the earlier game export. Their source and licenses are preserved in the
 project output/music and resources/composer directories.
+
+
+## Портрет для пазла
+
+`assets/director-puzzle.png` создан для прототипа встроенным ImageGen 31 октября
+2026 года без сторонних входных изображений. Точный промпт, имя исходного результата
+и SHA-256 находятся в `assets/director-puzzle.source.json`. Художественная приёмка
+этого нового образа автором проекта пока не проведена.

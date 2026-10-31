@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/scratch1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -73,10 +73,12 @@
       control?.destroy();preparation=next;module=next.module;model=next.model;game=next.fragments;song=next.composition;
       model.reset(seed++);shuffle=newShuffle();music=new PuzzleMusic.Music(strudel,next);transport.setComposition(song);
       $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{periodBeats:song.timing.periodBeats,periodSeconds:song.periodBars*240/song.bpm});
-      control=module.mount({presentation,commands:player.commands,model,game,binding:next.phaseMap,canInteract:canMove,
+      control=module.mount({presentation,commands:player.commands,model,game,binding:next.binding,canInteract:canMove,
         onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:()=>{
           updateRows();player.hint.update(canMove()&&!!model?.hint(),control?.focusState()?.source==='hint');
         }});
+      await PuzzleAsync.wait(control.ready,'Не загрузилось изображение головоломки. Повторите загрузку.',15000);
+      if(token!==loadToken)return;
       celebration.clear();loading=false;updateUI();
       const url=new URL(location.href);url.searchParams.set('song',song.id);url.searchParams.set('puzzle',module.id);
       try{history.replaceState(null,'',url);}catch{}
@@ -195,7 +197,7 @@
       shuffle:shuffle?{total:shuffle.total,moves:[...shuffle.moves],complete:shuffle.complete}:null,
       sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,loading,starting,busy,seeking,selectedFace:model?.selected,moves:model?.moves,
       hint:control?.focusState()?.source==='hint'?control.focusState().move:null,actionFocus:control?.focusState()||null,
-      phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks??null):null,projection:preparation?.phaseMap.algorithm,phaseMap:preparation?{gridSteps:preparation.phaseMap.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
+      phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks??null):null,projection:preparation?.binding.algorithm,binding:preparation?{gridSteps:preparation.binding.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
       peak,rms,error,changes:transport.changes,log:transport.log.slice(-30)};
   }
   function reportSnapshot(){

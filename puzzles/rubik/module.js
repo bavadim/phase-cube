@@ -34,5 +34,5 @@
     correct(state=this.snapshot()){return correct(state);}
   }
   return {id:'rubik',title:'Кубик 2×2',colors,goals,create:()=>new Model(),
-    manifest:Object.freeze({schema:'music-puzzle/1',id:'rubik',version:1,pieceIds:[0,1,2,3,4,5,6,7],poseIds:Array.from({length:8},(_,slot)=>[0,1,2].map(o=>slot+':'+o)).flat(),goalPolicy:'all-solved-to-reference'})};
+    manifest:Object.freeze({schema:'music-puzzle/3',id:'rubik',version:2,projection:'pose-phase/1',controls:6,fragments:8,pieceIds:[0,1,2,3,4,5,6,7],poseIds:Array.from({length:8},(_,slot)=>[0,1,2].map(o=>slot+':'+o)).flat(),goalPolicy:'all-solved-to-reference'})};
 });

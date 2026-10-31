@@ -11,12 +11,9 @@
       "distinctPatterns": 384,
       "unsolvedGoalRhythmAliases": 0,
       "silentMoves": 0,
-      "activePart": "riff",
-      "activeFragments": [
-        2,
-        3
-      ],
-      "signatureScope": "event-identities-onsets-gates-gain",
+      "independentRiffs": true,
+      "scope": "one-piece-one-riff",
+      "signatureScope": "per-riff-native-events-without-visual-ids",
       "acousticAcceptance": "unverified",
       "musicalAcceptance": "unverified",
       "cache": "miss"
@@ -30,16 +27,9 @@
       "distinctPatterns": 384,
       "unsolvedGoalRhythmAliases": 0,
       "silentMoves": 0,
-      "activePart": "riff",
-      "activeFragments": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "signatureScope": "event-identities-onsets-gates-gain",
+      "independentRiffs": true,
+      "scope": "one-piece-one-riff",
+      "signatureScope": "per-riff-native-events-without-visual-ids",
       "acousticAcceptance": "unverified",
       "musicalAcceptance": "unverified",
       "cache": "miss"
@@ -53,12 +43,9 @@
       "distinctPatterns": 384,
       "unsolvedGoalRhythmAliases": 0,
       "silentMoves": 0,
-      "activePart": "riff",
-      "activeFragments": [
-        2,
-        3
-      ],
-      "signatureScope": "event-identities-onsets-gates-gain",
+      "independentRiffs": true,
+      "scope": "one-piece-one-riff",
+      "signatureScope": "per-riff-native-events-without-visual-ids",
       "acousticAcceptance": "unverified",
       "musicalAcceptance": "unverified",
       "cache": "miss"

@@ -16,12 +16,12 @@
         "overflow": false,
         "canvas": {
           "x": 72.90625,
-          "y": 199.890625,
+          "y": 224.78125,
           "width": 244.1875,
           "height": 244.1875,
-          "top": 199.890625,
+          "top": 224.78125,
           "right": 317.09375,
-          "bottom": 444.078125,
+          "bottom": 468.96875,
           "left": 72.90625
         }
       }
@@ -37,24 +37,24 @@
       "layout": {
         "overflow": false,
         "canvas": {
-          "x": 234.09375,
+          "x": 236.53125,
           "y": 72.90625,
           "width": 244.1875,
           "height": 244.1875,
           "top": 72.90625,
-          "right": 478.28125,
+          "right": 480.71875,
           "bottom": 317.09375,
-          "left": 234.09375
+          "left": 236.53125
         }
       }
     }
   ],
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "1c68f23ffabb1886c3c0659cd0acda1dda92b09693debca20eb334754af0f565",
-    "puzzles/scratch/model.js": "b738a4a8ca7afe4ccd22570a01686d5a4ec2c52fc0fdeb00022bcef3b3141279",
-    "puzzles/scratch/three-view.js": "754f975448c29627a566b2af53a8d13518e05510967177fbc329e647ae6e7e78",
+    "index.html": "0d979d5ee971ccb553a568c6d3758548425afca27444e0fa39ef2762d67fed10",
+    "puzzles/scratch/model.js": "c63d36601acedcfec46a940d798647cef42b7b818e7df3e946f664e57778f194",
+    "puzzles/scratch/three-view.js": "bb2a359ee50d5ebf040b3c38b8d4dbdb5772fa8091b0eeb8b387a01e68f31aff",
     "graphics/pointer.js": "e58c7768dc2770b0b2ef73e15247ede60b372a149c6deeee5cca5e0f5afc7479",
-    "controls/puzzle.js": "8ca8403651f1d91e9cfac061205203d00f6f662225bd0911cf51c782a3271b98"
+    "controls/puzzle.js": "82ef9a76304165dd4ef463eeabb021c2eb208809cd7ac3c5009025d1ba241e42"
   }
 }

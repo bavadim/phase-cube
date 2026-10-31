@@ -12,8 +12,9 @@ for(const match of [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)]
 }
 const paths=new Set(Object.values(bank).flatMap(v=>Array.isArray(v)?v:Object.values(v)));
 for(const id of files)paths.add(`assets/${id}-game.mp3`);
+paths.add('assets/director-puzzle.png');
 const assets={};
-for(const path of paths){const data=await readFile(new URL(path,root));assets[path]=`data:${path.endsWith('.mp3')?'audio/mpeg':'audio/wav'};base64,${data.toString('base64')}`;}
+for(const path of paths){const data=await readFile(new URL(path,root));assets[path]=`data:${path.endsWith('.mp3')?'audio/mpeg':path.endsWith('.png')?'image/png':'audio/wav'};base64,${data.toString('base64')}`;}
 const factories=[];
 for(const id of files){
  const code=await readFile(new URL(`compositions/${id}.strudel.mjs`,root),'utf8');

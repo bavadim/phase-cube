@@ -49,7 +49,7 @@ try{
  const c=await r.browser.newContext(),p=await c.newPage();p.on('pageerror',e=>report.errors.push(e.message));await p.goto(r.url+'/?debug=1&puzzle=fourier');await p.waitForFunction(()=>window.phaseCubeApp);await p.evaluate(()=>phaseCubeApp.ready);
  report.audio=await p.evaluate(async()=>{
   const S=strudel,app=phaseCubeApp,m=new FourierModel.Model(),pattern=S.note('c4 e4 g4 e4').s('sine').gain(.4).distort(.4).clip(.15),row=PhaseCubeLibrary.eventsOf(pattern,1).map((e,i)=>({...e,id:String(i)})),game={targetRows:Array(6).fill(row),basePatterns:Array(6).fill(pattern),periodBars:1};
-  const fixture={puzzle:{manifest:FourierPuzzle.manifest,model:m},phaseMap:{periods:Array(6).fill(1)},fragments:game};
+  const fixture={puzzle:{manifest:FourierPuzzle.manifest,model:m},binding:{periods:Array(6).fill(1)},fragments:game};
   const jobs=[0,.5,1,2].map(gain=>{const change=m.editMove('A',{phase:0,level:FourierModel.levels.indexOf(gain)}),state=change?m.applyTo(0,change):0;return{kind:'gain',gain,from:0,bars:1,cps:1,pattern:PuzzleProjection.project(S,fixture,state).patterns[0]};});
   const valueKey=h=>JSON.stringify([Number(h.whole.begin),Number(h.duration),Object.fromEntries(Object.entries(h.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)))]);
   for(const id of ['turkish-circuit','steel-shift','elise-after-hours']){

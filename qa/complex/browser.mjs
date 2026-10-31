@@ -31,7 +31,7 @@ try{
   assert.notEqual(after.state,before.state);assert.equal(after.audio,after.state);assert.equal(after.committed,null);assert.deepEqual(after.rows,preview.rows);
   await p.locator('#undo').click();await p.mouse.move(0,0);await settled(p);assert.equal(await p.evaluate(()=>phaseCubeApp.state()),before.state);
   // A short riff repeats on the global circle; its own phase uses that shorter period.
-  const short=await p.evaluate(()=>{const periods=phaseCubeApp.getPreparation().phaseMap.periods,id=Math.max(0,periods.findIndex(p=>p<1));return{id,key:FourierModel.keys[id],period:periods[id]};});await select(p,short.key,width<500);
+  const short=await p.evaluate(()=>{const periods=phaseCubeApp.getPreparation().binding.periods,id=Math.max(0,periods.findIndex(p=>p<1));return{id,key:FourierModel.keys[id],period:periods[id]};});await select(p,short.key,width<500);
   await p.locator('#turn-left').hover();await p.waitForFunction(()=>!phaseCubeApp.getEqualizer().motion);
   const phase=await p.evaluate(id=>{
    const m=phaseCubeApp.getPuzzle(),music=phaseCubeApp.getMusic(),score=phaseCubeApp.getEqualizer(),f=score.forecast,source=music.rows(m.snapshot())[id],row=f.rows[id];
@@ -60,7 +60,7 @@ try{
  await p.goto(r.url+'/?debug=1&puzzle=fourier');await p.waitForFunction(()=>window.phaseCubeApp);await p.evaluate(()=>phaseCubeApp.ready);
  report.pcm=await p.evaluate(async()=>{
   const S=strudel,app=phaseCubeApp,model=new FourierModel.Model(),base=S.note('c4 e4 g4 e4').s('sine').gain(.4).distort(.4).clip(.15),row=PhaseCubeLibrary.eventsOf(base,1).map((e,i)=>({...e,id:'0:'+i}));
-  const fixture={puzzle:{manifest:FourierPuzzle.manifest,model},phaseMap:{periods:Array(6).fill(FourierBinding.period(row))},fragments:{periodBars:1,targetRows:Array(6).fill(row),basePatterns:Array(6).fill(base)}};
+  const fixture={puzzle:{manifest:FourierPuzzle.manifest,model},binding:{periods:Array(6).fill(FourierBinding.period(row))},fragments:{periodBars:1,targetRows:Array(6).fill(row),basePatterns:Array(6).fill(base)}};
   const states=[0,model.applyTo(0,'A-'),model.applyTo(model.applyTo(0,'A-'),'A-'),model.applyTo(0,"A'")];
   const jobs=states.map(state=>({pattern:PuzzleProjection.project(S,fixture,state).patterns[0],bars:1,cps:1}));
   for(const id of ['turkish-circuit','steel-shift','elise-after-hours']){

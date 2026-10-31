@@ -1,0 +1,24 @@
+{
+  "schema": "picture-assets/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "cases": [
+    {
+      "missingImage": "explicit retry state"
+    },
+    {
+      "cancelledImage": "new puzzle ready; old wait released"
+    },
+    {
+      "offlineHTML": "file://, embedded art, embedded compositions and working audio"
+    }
+  ],
+  "status": "PASS",
+  "sourceSha256": {
+    "app.js": "f3c45262e17d0ccab9594a47fd905537f1dae9afef59680a268e70ab4fbc441c",
+    "controls/puzzle.js": "82ef9a76304165dd4ef463eeabb021c2eb208809cd7ac3c5009025d1ba241e42",
+    "puzzles/scratch/three-view.js": "bb2a359ee50d5ebf040b3c38b8d4dbdb5772fa8091b0eeb8b387a01e68f31aff",
+    "assets/director-puzzle.png": "7c67a1127a4b75a9ccc6b28148c37762ad3cb4c229c52cb812579305ae9563e5",
+    "steel-shift-cube.html": "bac3f2c548cea1bb78cd25a22e6e72920bf976fcbcbd4d29dbc1cb7644641d4a"
+  }
+}

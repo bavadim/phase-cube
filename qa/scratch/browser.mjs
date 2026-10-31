@@ -11,21 +11,22 @@ try{
     const context=await r.browser.newContext({viewport:{width,height},isMobile:width<500,hasTouch:width<500}),page=await context.newPage();
     page.on('pageerror',e=>report.errors.push(e.message));
     await page.goto(r.url+'/?debug=1&puzzle=scratch&song=turkish-circuit');await page.waitForFunction(()=>window.phaseCubeApp);await page.evaluate(()=>phaseCubeApp.ready);
-    assert.equal(await page.locator('#puzzle-select option[value="scratch"]').textContent(),'Спектральный обруч');
+    assert.equal(await page.locator('#puzzle-select option[value="scratch"]').textContent(),'Портрет директора');
+    await page.waitForFunction(()=>[...phaseCubeApp.getPresentation().active.resources.items].some(r=>r.isTexture&&r.image?.naturalWidth>0));
     await page.locator('#start').click();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
     assert.equal(await page.locator('.puzzle-action:enabled').count(),0);
     await select(page,'A',width<500);assert.equal(await page.locator('.puzzle-action:enabled').count(),3);
-    const initial=await page.evaluate(()=>({state:phaseCubeApp.state(),history:phaseCubeApp.getPuzzle().history.length,phase:phaseCubeApp.getPuzzle().parameters()[0].phase,active:phaseCubeApp.getPreparation().phaseMap.activeFragments}));
-    await page.locator('#swap-wave').hover();await page.waitForFunction(()=>!!phaseCubeApp.getEqualizer().forecast);
-    assert.deepEqual(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast.changed),initial.active);
+    const initial=await page.evaluate(()=>({state:phaseCubeApp.state(),history:phaseCubeApp.getPuzzle().history.length,phase:phaseCubeApp.getPuzzle().parameters()[0].phase,active:[phaseCubeApp.getPuzzle().parameters()[0].source],swapped:phaseCubeApp.getPuzzle().parameters().slice(0,2).map(p=>p.source).sort()}));
+    await page.locator('#swap-piece').hover();await page.waitForFunction(()=>!!phaseCubeApp.getEqualizer().forecast);
+    assert.deepEqual(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast.changed),initial.swapped);
     await page.mouse.move(0,0);await page.waitForFunction(()=>!phaseCubeApp.getEqualizer().forecast);
-    const from=(await targets(page)).find(p=>p.key==='A'&&p.kind==='point');await page.mouse.move(from.x,from.y);await page.mouse.down();
+    const from=(await targets(page)).find(p=>p.key==='A'&&p.kind==='rotation-handle');await page.mouse.move(from.x,from.y);await page.mouse.down();
     const samples=[];
     for(const step of [.40,.45,.90]){
-      const destination=await page.evaluate(({phase,step})=>{
-        const radius=.25,a=(phase+step)*Math.PI/2;
-        return phaseCubeApp.getPresentation().project(new THREE.Vector3(-1.04+radius*Math.cos(a),-1.43+radius*Math.sin(a),.12));
-      },{phase:initial.phase,step});
+      const destination=await page.evaluate(({from,step})=>{
+        const stage=phaseCubeApp.getPresentation(),center=stage.locations().find(p=>p.key==='A'&&p.kind==='piece'),origin=stage.unproject(center.x,center.y);
+        return stage.project(stage.unproject(from.x,from.y).sub(origin).applyAxisAngle(new THREE.Vector3(0,0,1),-step*Math.PI/2).add(origin));
+      },{from,step});
       await page.mouse.move(destination.x,destination.y,{steps:5});
       samples.push(await page.evaluate(()=>{const f=phaseCubeApp.getEqualizer().forecast;return{state:phaseCubeApp.state(),history:phaseCubeApp.getPuzzle().history.length,continuous:f?.continuous,changed:f?.changed,rows:JSON.stringify(f?.rows),heard:phaseCubeApp.getTransport().active.meta.state};}));
     }
@@ -33,7 +34,12 @@ try{
     assert.notEqual(samples[0].rows,samples[1].rows,'Preview must not snap to a quarter phase');
     await page.mouse.up();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.length),initial.history+1);
     await page.locator('#undo').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
-    await select(page,'B',width<500);await page.locator('#swap-wave').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.at(-1).move),'Bx');
+    const places=(await targets(page)).filter(p=>p.kind==='piece'),a=places.find(p=>p.key==='A'),c=places.find(p=>p.key==='C');
+    await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(c.x,c.y,{steps:16});
+    assert.deepEqual(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast.changed),await page.evaluate(()=>{const p=phaseCubeApp.getPuzzle().parameters();return[p[0].source,p[2].source].sort();}));
+    await page.mouse.up();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.at(-1).move.kind),'piece-swap');
+    await page.locator('#undo').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
+    await select(page,'B',width<500);await page.locator('#swap-piece').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.at(-1).move),'Bx');
     await page.locator('#undo').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
     await page.screenshot({path:join(root,`qa/scratch/${r.engine}-${width}.png`)});
     const geometry=await page.evaluate(()=>({canvas:document.querySelectorAll('#puzzle-stage canvas').length,overflow:document.documentElement.scrollWidth>innerWidth,info:phaseCubeApp.getPresentation().info()}));
@@ -63,7 +69,7 @@ try{
         await app.chooseSong(songId);const music=app.getMusic(),song=app.getSong(),game=app.getGame(),m=app.getPuzzle();
         const original=PhaseCubeLibrary.attacks(song.pattern,0,song.bars).map(valueKey).sort(),assembled=PhaseCubeLibrary.attacks(S.stack(song.backing,music.pattern(0)),0,song.bars).map(valueKey).sort();
         if(JSON.stringify(original)!==JSON.stringify(assembled))throw Error('Original score mismatch '+songId);
-        const active=app.getPreparation().phaseMap.activeFragments;
+        const active=game.targetRows.map((_,i)=>i);
         const worst=m.allStates().map(state=>({state,energy:music.rows(state).reduce((sum,row,i)=>sum+(active.includes(i)?row.reduce((v,e)=>v+(e.volume??1)**2,0):0),0)})).sort((a,b)=>b.energy-a.energy)[0].state;
         for(const [kind,state]of [['goal',0],['high-gain',worst]])jobs.push({songId,kind,state,from:16,bars:game.periodBars,cps:song.bpm/240,pattern:S.stack(song.backing,music.pattern(state)),nativeScoreEvents:original.length});
       }
@@ -78,7 +84,7 @@ try{
   assert.deepEqual(report.errors,[]);report.status='PASS';
 }catch(error){report.status='FAIL';report.failure=error.stack;throw error;}
 finally{
-  const files=['index.html','app.js','puzzle-contract.js','music-projection.js','music.js','controls/puzzle.js','controls/equalizer.js','puzzles/scratch/model.js','puzzles/scratch/binding.js','puzzles/scratch/module.js','puzzles/scratch/three-view.js'];
+  const files=['index.html','app.js','puzzle-contract.js','music-projection.js','music.js','graphics/stage.js','assets/director-puzzle.png','controls/puzzle.js','controls/equalizer.js','puzzles/scratch/model.js','puzzles/scratch/binding.js','puzzles/scratch/module.js','puzzles/scratch/three-view.js'];
   report.sourceSha256=Object.fromEntries(await Promise.all(files.map(async file=>[file,createHash('sha256').update(await readFile(join(root,file))).digest('hex')])));
   await writeFile(join(root,`qa/scratch/${r.engine}-report.json`),JSON.stringify(report,null,2)+'\n');await r.close();console.log(JSON.stringify({status:report.status,cases:report.cases.length,audio:report.audio,failure:report.failure}));
 }

@@ -17,8 +17,8 @@
         "overflow": false,
         "info": {
           "canvasCount": 1,
-          "geometries": 38,
-          "textures": 3,
+          "geometries": 18,
+          "textures": 1,
           "tweens": 0,
           "puzzle": "scratch",
           "contextLost": false,
@@ -41,8 +41,8 @@
         "overflow": false,
         "info": {
           "canvasCount": 1,
-          "geometries": 38,
-          "textures": 3,
+          "geometries": 18,
+          "textures": 1,
           "tweens": 0,
           "puzzle": "scratch",
           "contextLost": false,
@@ -58,7 +58,7 @@
       "songId": "turkish-circuit",
       "kind": "goal",
       "state": 0,
-      "rms": 0.02402807494943224,
+      "rms": 0.02402807495624519,
       "peak": 0.22785666584968567,
       "clipped": 0,
       "nativeScoreEvents": 2491
@@ -67,8 +67,8 @@
       "songId": "turkish-circuit",
       "kind": "high-gain",
       "state": 42,
-      "rms": 0.02405328221675602,
-      "peak": 0.2302270531654358,
+      "rms": 0.024297323142527194,
+      "peak": 0.26366549730300903,
       "clipped": 0,
       "nativeScoreEvents": 2491
     },
@@ -76,17 +76,17 @@
       "songId": "steel-shift",
       "kind": "goal",
       "state": 0,
-      "rms": 0.05656720888132232,
-      "peak": 0.5800037384033203,
+      "rms": 0.05656720888820444,
+      "peak": 0.5800036787986755,
       "clipped": 0,
       "nativeScoreEvents": 2322
     },
     {
       "songId": "steel-shift",
       "kind": "high-gain",
-      "state": 42,
-      "rms": 0.0562923790626283,
-      "peak": 0.5664196014404297,
+      "state": 19,
+      "rms": 0.056449275949592634,
+      "peak": 0.5280877947807312,
       "clipped": 0,
       "nativeScoreEvents": 2322
     },
@@ -94,7 +94,7 @@
       "songId": "elise-after-hours",
       "kind": "goal",
       "state": 0,
-      "rms": 0.06351160202458901,
+      "rms": 0.06351160209199196,
       "peak": 0.4029538035392761,
       "clipped": 0,
       "nativeScoreEvents": 2580
@@ -103,24 +103,26 @@
       "songId": "elise-after-hours",
       "kind": "high-gain",
       "state": 42,
-      "rms": 0.06347355015458958,
-      "peak": 0.4154524505138397,
+      "rms": 0.06538286663284205,
+      "peak": 0.42464837431907654,
       "clipped": 0,
       "nativeScoreEvents": 2580
     }
   ],
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "1c68f23ffabb1886c3c0659cd0acda1dda92b09693debca20eb334754af0f565",
-    "app.js": "1c764e7ea88bc0ad63a99e29bb30d9b57133816021729bf482262858c28bd3d5",
-    "puzzle-contract.js": "761f9ae0822a2dd4b5b1b67039f17a5280b4e818bb1fbb55d7ef439d566d1281",
-    "music-projection.js": "1e33d47ac4f1657769f803b7441dfdb455add5d7722a7f5f3e86146f8758447e",
-    "music.js": "4385f445d6506f8ef6e3d66dd91bbe27ff9f2c851ab538ab464d7634609eeb3e",
-    "controls/puzzle.js": "8ca8403651f1d91e9cfac061205203d00f6f662225bd0911cf51c782a3271b98",
-    "controls/equalizer.js": "e9cf862d6e57eb7f035a71b5ef377690cd7b8c151f5f30236c2d6579e6473526",
-    "puzzles/scratch/model.js": "2f34c59215f991112b72ee98dd38d2580728a04871924b4857b398d89c93dabb",
-    "puzzles/scratch/binding.js": "748b403c08c30d59d8590a643389b06d80cb09a4a7af300230e579b3e6098d12",
-    "puzzles/scratch/module.js": "4cef881b8667c8beb96a826323eeae3b62be3541977a0c4eaeeb78aa139a07c2",
-    "puzzles/scratch/three-view.js": "754f975448c29627a566b2af53a8d13518e05510967177fbc329e647ae6e7e78"
+    "index.html": "0d979d5ee971ccb553a568c6d3758548425afca27444e0fa39ef2762d67fed10",
+    "app.js": "f3c45262e17d0ccab9594a47fd905537f1dae9afef59680a268e70ab4fbc441c",
+    "puzzle-contract.js": "9a45638e81d8ab56299c55a003630f305f9b1ea978ba9075b3525517669b2098",
+    "music-projection.js": "aeb84fc3f6958d2bfce69372e26c4d825dc2fdd42682c80bf04b8f7e5150243b",
+    "music.js": "3ecdadf7b0daaeb3d048755208d1b71ed1e95184ab5e5825eb0bf04c749e5d68",
+    "graphics/stage.js": "fe19d31d38a5f016500d940b760e8f0cc9604762ba40a2d902613ba9b2e893a8",
+    "assets/director-puzzle.png": "7c67a1127a4b75a9ccc6b28148c37762ad3cb4c229c52cb812579305ae9563e5",
+    "controls/puzzle.js": "82ef9a76304165dd4ef463eeabb021c2eb208809cd7ac3c5009025d1ba241e42",
+    "controls/equalizer.js": "2e0f9393b39287c867f488d2e5bf8f0dd5b360dfc1d1331b8385ef4ccc04136e",
+    "puzzles/scratch/model.js": "c63d36601acedcfec46a940d798647cef42b7b818e7df3e946f664e57778f194",
+    "puzzles/scratch/binding.js": "58cb26ac6da9e34b70c9f865f835fd3835d8670ed2e5863cda2692c18a5fbbae",
+    "puzzles/scratch/module.js": "79d5d263a99336972f8a37902c4e735c873613a6fa592c555d298a42d247a484",
+    "puzzles/scratch/three-view.js": "bb2a359ee50d5ebf040b3c38b8d4dbdb5772fa8091b0eeb8b387a01e68f31aff"
   }
 }

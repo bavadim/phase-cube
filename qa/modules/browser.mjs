@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url);let PW;
 try{PW=require(process.env.BIBA_PLAYWRIGHT||'playwright');}catch{PW=require(join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));}
 export const root=fileURLToPath(new URL('../../',import.meta.url));
 export async function openBrowser({engine=process.env.BIBA_BROWSER||'chromium'}={}){
- const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wav':'audio/wav','.mp3':'audio/mpeg','.json':'application/json'};
+ const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.wav':'audio/wav','.mp3':'audio/mpeg','.json':'application/json'};
  const server=createServer(async(req,res)=>{try{const p=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const file=resolve(root,'.'+(p==='/'?'/index.html':p));if(!file.startsWith(root)){res.writeHead(403).end();return;}res.setHeader('Content-Type',types[extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404).end();}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  if(!['chromium','webkit'].includes(engine))throw new Error('Unsupported test browser '+engine);

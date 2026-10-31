@@ -47,7 +47,7 @@ try{
   if(await page.locator('#song-select').inputValue()!==songId){await page.locator('#song-select').selectOption(songId);await settled(page);}
   await page.waitForFunction(()=>!document.querySelector('#start').disabled);
   assert.equal(await page.evaluate(()=>phaseCubeApp.getGame().count),puzzleId==='twiddle'?6:8);
-  const binding=await page.evaluate(()=>{const p=phaseCubeApp.getPreparation();return{gridSteps:p.phaseMap.gridSteps,...p.diagnostics};});
+  const binding=await page.evaluate(()=>{const p=phaseCubeApp.getPreparation();return{gridSteps:p.binding.gridSteps,...p.diagnostics};});
   assert.equal(binding.coverage,puzzleId==='twiddle'?'complete':'sampled');assert.equal(binding.unsolvedGoalRhythmAliases,0);assert.equal(binding.silentMoves,0);
   await page.screenshot({path:join(root,'qa/modules/'+puzzleId+'-'+songId+'-start.png')});
   await page.locator('#start').click();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().playing);

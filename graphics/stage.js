@@ -40,7 +40,7 @@ window.PuzzleStage = class {
     scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x829478,2.3));
     const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
     try{
-      const view=createView({...context,scene,resources,tween:(...args)=>this.tween(...args)});
+      const view=createView({...context,scene,resources,tween:(...args)=>this.tween(...args),invalidate:()=>{this.dirty=true;}});
       this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};
       this.element.dataset.puzzle=context.module.id;this.element.setAttribute('aria-label',context.module.title);
       this.targets.replaceChildren(...context.model.choices().map(choice=>{

@@ -1,0 +1,10 @@
+{
+  "asset": "director-puzzle.png",
+  "created": "2026-10-31",
+  "tool": "built-in ImageGen",
+  "prompt": "Use case: illustration-story. Asset type: a square finished illustration for a mouse-operated rotating picture puzzle in an indie satirical IT office game. Draw ONE intact image, no puzzle lines, no missing pieces, no UI, no text, no watermark. A smug middle-aged startup director in a teal suit and crooked coral tie, broad expressive square face, short dark swept hair, big asymmetric eyebrows and a self-satisfied grin. He sits behind an office desk in his absurdly self-important corporate portrait. His left hand holds a coffee cup at the left middle of the picture; his other hand signs a blank paper in the lower right. Subtle contemporary startup office backdrop with a plant and window, large clean shapes. Style: hand-drawn western 2D mystery comedy cartoon, bold dark ink outlines, appealing exaggerated anatomy, warm cream paper and muted sage, teal and terracotta colors, simple cel shading. Close square composition, face occupying the upper central third, jacket and hand crossing the central horizontal area, signing hand and paper in the lower right third. Important: readable broad continuous contours, strong distinctive asymmetric features. Keep detail restrained and silhouette clear at 300 pixels. Fill the entire square with the artwork, no border or frame. This will be cut by code into three movable square pieces (upper middle, middle left, lower right) while the rest stays fixed, so continuous lines crossing those areas are valuable.",
+  "input_assets": [],
+  "source_file": "exec-f1b8dda9-4a71-4f77-964d-791207751e29.png",
+  "sha256": "7c67a1127a4b75a9ccc6b28148c37762ad3cb4c229c52cb812579305ae9563e5",
+  "status": "Prototype illustration; pending user art acceptance"
+}

@@ -1,52 +1,47 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* C4^3 semidirect S3: quarter phases and permutations of three Fourier modes. */
+/* Three picture pieces: slot rotations and permutations, C4^3 semidirect S3. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.ScratchModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
   const keys=['A','B','C'],amplitudes=[.48,.30,.18],permutations=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]],stateCount=384;
   const moves=keys.flatMap(key=>[key,key+"'",key+'x']),mod=(x,n)=>((x%n)+n)%n;
   const validState=state=>Number.isInteger(state)&&state>=0&&state<stateCount;
+  const timingDepth=.35,gainDepth=.6;
   function parameters(state){
-    if(!validState(state))throw new Error('Неверное состояние спектрального обруча');
-    const p=permutations[Math.floor(state/64)];return keys.map((key,i)=>({key,source:p[i],phase:Math.floor(state/4**i)%4}));
+    if(!validState(state))throw new Error('Неверное состояние пазла');
+    const p=permutations[Math.floor(state/64)];return keys.map((key,slot)=>({key,slot,source:p[slot],phase:Math.floor(state/4**slot)%4}));
   }
   function encode(values){
     const p=permutations.findIndex(p=>p.every((v,i)=>v===values[i].source));
-    if(p<0)throw new Error('Волны должны оставаться перестановкой');
+    if(p<0)throw new Error('Детали должны оставаться перестановкой');
     return p*64+values.reduce((sum,v,i)=>sum+mod(v.phase,4)*4**i,0);
   }
   const coefficients=state=>parameters(state).map(p=>[amplitudes[p.source]*Math.cos(p.phase*Math.PI/2),amplitudes[p.source]*Math.sin(p.phase*Math.PI/2)]);
-  const edit=move=>move&&typeof move==='object'&&move.kind==='scratch-phase'&&keys.includes(move.key)&&validState(move.from)&&Number.isInteger(move.turns)&&move.turns!==0&&Math.abs(move.turns)<=2;
-  function moveTarget(move){if(typeof move==='string'&&moves.includes(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие спектрального обруча');}
+  const phaseEdit=m=>m&&m.kind==='piece-phase'&&keys.includes(m.key)&&validState(m.from)&&Number.isInteger(m.turns)&&m.turns!==0&&Math.abs(m.turns)<=2;
+  const swapEdit=m=>m&&m.kind==='piece-swap'&&keys.includes(m.key)&&keys.includes(m.to)&&m.to!==m.key&&validState(m.from);
+  function moveTarget(move){if(typeof move==='string'&&moves.includes(move))return move[0];if(phaseEdit(move)||swapEdit(move))return move.key;throw new Error('Неверное действие пазла');}
   function applyTo(state,move){
     const i=keys.indexOf(moveTarget(move)),values=parameters(state);
-    if(edit(move)){if(state!==move.from)throw new Error('Устаревшее перетаскивание');values[i].phase+=move.turns;}
-    else if(move.endsWith('x')){const j=(i+1)%3;[values[i],values[j]]=[values[j],values[i]];}
+    if(phaseEdit(move)||swapEdit(move)){
+      if(state!==move.from)throw new Error('Устаревшее перетаскивание');
+      if(phaseEdit(move))values[i].phase+=move.turns;
+      else{const j=keys.indexOf(move.to);[values[i],values[j]]=[values[j],values[i]];}
+    }else if(move.endsWith('x')){const j=(i+1)%3;[values[i],values[j]]=[values[j],values[i]];}
     else values[i].phase+=move.endsWith("'")?-1:1;
     return encode(values);
   }
   function inverse(move){
     moveTarget(move);
-    if(edit(move))return{...move,from:applyTo(move.from,move),turns:-move.turns};
+    if(phaseEdit(move))return{...move,from:applyTo(move.from,move),turns:-move.turns};
+    if(swapEdit(move))return{...move,from:applyTo(move.from,move)};
     if(move.endsWith('x'))return move;return move.endsWith("'")?move[0]:move+"'";
   }
-  function interpolate(state,move,t){
-    const a=coefficients(state),i=keys.indexOf(moveTarget(move));applyTo(state,move);
-    if(typeof move==='string'&&move.endsWith('x')){
-      const j=(i+1)%3,p=a[i].map((v,k)=>(v+a[j][k])/2),d=a[i].map((v,k)=>(v-a[j][k])/2),angle=Math.PI*t;
-      const v=[d[0]*Math.cos(angle)-d[1]*Math.sin(angle),d[0]*Math.sin(angle)+d[1]*Math.cos(angle)];
-      a[i]=p.map((x,k)=>x+v[k]);a[j]=p.map((x,k)=>x-v[k]);
-    }else{
-      const angle=(edit(move)?move.turns:move.endsWith("'")?-1:1)*Math.PI*t/2,z=a[i];
-      a[i]=[z[0]*Math.cos(angle)-z[1]*Math.sin(angle),z[0]*Math.sin(angle)+z[1]*Math.cos(angle)];
-    }
-    return a;
-  }
-  function field(c,t){
-    let re=0,im=0,derivative=1;
-    c.forEach((z,i)=>{const k=i+1,angle=2*Math.PI*k*t,x=z[0]-amplitudes[i],y=z[1];
-      re+=x*Math.cos(angle)-y*Math.sin(angle);im+=x*Math.sin(angle)+y*Math.cos(angle);
-      derivative+=.2*k*(x*Math.cos(angle)-y*Math.sin(angle));});
-    return{time:t+.2*im/(2*Math.PI),gain:1+.4*re,derivative};
+  // Each immutable source riff follows its picture piece between frequency slots.
+  function field(piece,t){
+    const a=amplitudes[piece.source],k=piece.slot+1,home=piece.source+1;
+    const angle=2*Math.PI*k*t+piece.phase*Math.PI/2,reference=2*Math.PI*home*t;
+    const re=a*(Math.cos(angle)-Math.cos(reference)),im=a*(Math.sin(angle)-Math.sin(reference));
+    return{time:t+timingDepth*im/(2*Math.PI),gain:1+gainDepth*re,
+      derivative:1+timingDepth*a*(k*Math.cos(angle)-home*Math.cos(reference))};
   }
   let graph;
   function states(){
@@ -68,23 +63,24 @@
     inverse(move){return inverse(move);}
     validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
     moveTarget(move){return moveTarget(move);}
-    moveFor(key,inverted=false){if(!keys.includes(key))throw new Error('Неизвестная волна');return key+(inverted?"'":'');}
-    select(key){if(!keys.includes(key))throw new Error('Неизвестная волна');this.selected=key;}
-    choices(){return keys.map((key,i)=>({key,label:'Волна '+(i+1)}));}
-    selectionLabel(point){const i=keys.indexOf(this.selected),p=parameters(this.current)[i],phase=point?.phase??p.phase;
-      return 'Волна '+(i+1)+' · '+Math.round(mod(phase,4)*90)+'° · '+amplitudes[p.source].toFixed(2).replace('.',',');}
-    actions(callbacks){const key=this.selected,i=keys.indexOf(key),n=i+1,j=(i+1)%3+1;
+    moveFor(key,inverted=false){if(!keys.includes(key))throw new Error('Неизвестный паз');return key+(inverted?"'":'');}
+    select(key){if(!keys.includes(key))throw new Error('Неизвестный паз');this.selected=key;}
+    choices(){return keys.map((key,i)=>({key,label:'Фрагмент в пазу '+(i+1)}));}
+    selectionLabel(){return 'Фрагмент '+(parameters(this.current)[keys.indexOf(this.selected)].source+1);}
+    actions(callbacks){
+      const key=this.selected,i=keys.indexOf(key),n=i+1,j=(i+1)%3+1;
       return[
-        {id:'turn-left',label:'Волна '+n+': фаза −90°',icon:{text:'−'},group:'Фаза волны',move:key+"'"},
-        {id:'turn-right',label:'Волна '+n+': фаза +90°',icon:{text:'+'},group:'Фаза волны',move:key},
-        {id:'swap-wave',label:'Обменять волны '+n+' и '+j,icon:{text:'⇄'},group:'Обмен волн',move:key+'x'}
+        {id:'turn-left',label:'Паз '+n+': повернуть против часовой стрелки',icon:{text:'↶'},move:key+"'"},
+        {id:'turn-right',label:'Паз '+n+': повернуть по часовой стрелке',icon:{text:'↷'},move:key},
+        {id:'swap-piece',label:'Поменять детали в пазах '+n+' и '+j,icon:{text:'⇄'},move:key+'x'}
       ].map(action=>Actions.move(this,callbacks,action));
     }
     editMove(key,phase,state=this.current){
-      if(!keys.includes(key)||!Number.isFinite(phase))throw new Error('Неверная фаза волны');
+      if(!keys.includes(key)||!Number.isFinite(phase))throw new Error('Неверная фаза детали');
       const i=keys.indexOf(key),turns=mod(Math.round(phase)-parameters(state)[i].phase+2,4)-2;
-      return turns?{kind:'scratch-phase',key,from:state,turns}:null;
+      return turns?{kind:'piece-phase',key,from:state,turns}:null;
     }
+    swapMove(key,to,state=this.current){const move={kind:'piece-swap',key,to,from:state};return this.validMove(move,state)?move:null;}
     reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);}
     shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){const next=applyTo(this.current,move);this.history.push({state:this.current,move});this.current=next;this.moves.push(move);this.selected=moveTarget(move);}
@@ -94,5 +90,5 @@
     solved(state=this.current){return state===0;}
     correct(state=this.current){return parameters(state).filter((p,i)=>p.source===i&&p.phase===0).length;}
   }
-  return{Model,keys,amplitudes,stateCount,parameters,coefficients,applyTo,inverse,interpolate,field,states,moves};
+  return{Model,keys,amplitudes,timingDepth,gainDepth,stateCount,parameters,coefficients,applyTo,inverse,field,states,moves};
 });

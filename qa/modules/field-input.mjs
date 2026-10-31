@@ -36,7 +36,8 @@ export async function select(page,key,touch){
  const before=await page.evaluate(()=>({state:phaseCubeApp.state(),moves:phaseCubeApp.getPuzzle().history.length}));
  const at=await selectionPoint(page,key);
  // Mouse hover selects and previews; touch still needs the first selecting tap.
- if(!touch&&at.kind!=='coefficient-label'&&at.kind!=='point')await page.mouse.move(at.x,at.y);
+ if(at.kind==='piece'&&await page.evaluate(key=>phaseCubeApp.diagnostics().selectedFace===key&&!!document.querySelector('.puzzle-action:enabled'),key))return at;
+ if(!touch&&!['coefficient-label','point','piece'].includes(at.kind))await page.mouse.move(at.x,at.y);
  else await tap(page,at,touch);
  await page.waitForFunction(key=>phaseCubeApp.diagnostics().selectedFace===key,key,{timeout:3000});
  assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),key);

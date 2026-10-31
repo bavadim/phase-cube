@@ -1,107 +1,119 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Fourier control surface: one hoop, three selectable modes, shared input/tweens. */
-window.ScratchView={create({scene,resources,model,game,binding,tween,onEditPreview}){
-  const T=THREE,F=ScratchModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
-  const camera=new T.OrthographicCamera(-2,2,2,-2,.1,100);camera.position.z=6;camera.lookAt(0,0,0);
-  const color=game.voices[binding.activeFragments[0]].color,center=new T.Vector3(0,.27,0),unit=.72,N=192;
-  const material=(color,opacity=1)=>resources.own(new T.MeshBasicMaterial({color,transparent:opacity<1,opacity,side:T.DoubleSide}));
-  const makeLine=(count,color,opacity=1)=>{
-    const geometry=resources.own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
-    const mesh=new T.Line(geometry,resources.own(new T.LineBasicMaterial({color,transparent:true,opacity})));root.add(mesh);return mesh;
-  };
-  function plot(line,points,z=0){points.forEach((p,i)=>line.geometry.attributes.position.setXYZ(i,p[0],p[1],z));line.geometry.attributes.position.needsUpdate=true;line.geometry.computeBoundingSphere();}
-  const polar=(radius,t)=>[center.x+Math.sin(t)*radius,center.y+Math.cos(t)*radius];
-  const goal=makeLine(97,theme.ink,.5);plot(goal,Array.from({length:97},(_,i)=>polar(unit,2*Math.PI*i/96)),.01);
-  const outer=makeLine(97,0xc4cfbb,.6);plot(outer,Array.from({length:97},(_,i)=>polar(unit*1.85,2*Math.PI*i/96)),-.02);
-  for(let j=0;j<16;j++){const t=2*Math.PI*j/16;plot(makeLine(2,theme.ink,j%4?.22:.65),[polar(unit-.025,t),polar(unit+(j%4?.025:.075),t)],.02);}
-  const ribbonGeometry=resources.own(new T.BufferGeometry());ribbonGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(N*6*3),3));
-  const ribbon=new T.Mesh(ribbonGeometry,material(color));root.add(ribbon);
-  const hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false})),fieldHit=new T.Mesh(resources.own(new T.CircleGeometry(1.4,80)),hitMaterial);fieldHit.position.copy(center);fieldHit.position.z=-.06;root.add(fieldHit);
-  const times=[...new Set(binding.activeFragments.flatMap(id=>game.targetRows[id].map(e=>e.start)))].sort((a,b)=>a-b).slice(0,96);
-  const dotGeometry=resources.own(new T.CircleGeometry(.028,16)),dots=times.map(t=>{const mesh=new T.Mesh(dotGeometry,material(color));root.add(mesh);return{t,mesh};});
-  function number(n){
-    const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#ffffff';ctx.font='600 80px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n,64,66);
-    const map=resources.own(new T.CanvasTexture(canvas));map.colorSpace=T.SRGBColorSpace;
-    return new T.Mesh(resources.own(new T.PlaneGeometry(.23,.23)),resources.own(new T.MeshBasicMaterial({map,color:theme.ink,transparent:true,depthWrite:false})));
+/* One intact picture, three real cutouts. Edge drag rotates; center drag swaps. */
+window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPreview}){
+  const T=THREE,F=ScratchModel,root=new T.Group();scene.add(root);
+  const camera=new T.OrthographicCamera(-2.2,2.2,2.2,-2.2,.1,30);camera.position.z=8;camera.lookAt(0,0,0);
+  const cells=[1,3,8],size=3,cell=size/3;
+  const position=index=>new T.Vector3((index%3-1)*cell,(1-Math.floor(index/3))*cell,0);
+  const centers=cells.map(position),image=new Image(),texture=resources.own(new T.Texture(image));texture.colorSpace=T.SRGBColorSpace;
+  let resolveReady,rejectReady;
+  const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
+  let textureReady=false,disposed=false,animating=false,dragging=null,committed=null,feedback={selected:null,move:null},display=model.parameters();
+  image.onload=()=>{if(!disposed){textureReady=true;texture.needsUpdate=true;invalidate();resolveReady(true);}};
+  image.onerror=()=>{if(!disposed)rejectReady(new Error('Не загрузилась картинка пазла. Повторите загрузку.'));};
+  image.src=globalThis.PhaseCubeEmbeddedAssets?.['assets/director-puzzle.png']||'assets/director-puzzle.png?v=picture1';
+  function material(color,extra={}){return resources.own(new T.MeshBasicMaterial({color,side:T.DoubleSide,...extra}));}
+  function rect(w,h,color,z){const mesh=new T.Mesh(resources.own(new T.PlaneGeometry(w,h)),material(color));mesh.position.z=z;root.add(mesh);return mesh;}
+  // The frame and exposed sockets belong to this single object, not a control panel.
+  rect(3.18,3.18,0x253c36,-.06);rect(3.10,3.10,0xd4b17a,-.05);rect(3.04,3.04,0x293c32,-.04);
+  const artMaterial=material(0xffffff,{map:texture});
+  function tile(index){
+    const geometry=resources.own(new T.PlaneGeometry(cell,cell)),uv=geometry.attributes.uv,col=index%3,row=Math.floor(index/3);
+    for(let i=0;i<uv.count;i++)uv.setXY(i,(col+uv.getX(i))/3,(2-row+uv.getY(i))/3);
+    uv.needsUpdate=true;return new T.Mesh(geometry,artMaterial);
   }
-  const diskGeometry=resources.own(new T.CircleGeometry(.075,24)),hitGeometry=resources.own(new T.CircleGeometry(1,32));
-  const controls=F.keys.map((key,i)=>{
-    const group=new T.Group();group.position.set((i-1)*1.04,-1.43,.08);root.add(group);
-    const ring=new T.Mesh(resources.own(new T.RingGeometry(.27,.28,48)),material(theme.ink,.4));group.add(ring);
-    const halo=new T.Mesh(resources.own(new T.RingGeometry(.31,.325,48)),material(theme.accent));group.add(halo);
-    const label=number(i+1);label.position.set(0,-.46,.02);group.add(label);
-    const legendHit=new T.Mesh(hitGeometry,hitMaterial);legendHit.position.copy(label.position);legendHit.position.z=.1;group.add(legendHit);
-    const handle=new T.Group();group.add(handle);handle.add(new T.Mesh(diskGeometry,material(color)));
-    const hit=new T.Mesh(hitGeometry,hitMaterial);hit.position.z=.1;handle.add(hit);
-    const shaft=makeLine(2,color,.8),wave=makeLine(41,color,.5);
-    return{key,index:i,group,handle,hit,legendHit,halo,label,shaft,wave};
+  for(let index=0;index<9;index++)if(!cells.includes(index)){const mesh=tile(index);mesh.position.copy(position(index));root.add(mesh);}
+  const socketGeometry=resources.own(new T.PlaneGeometry(cell,cell)),socketMaterial=material(0x3c5147);
+  centers.forEach(center=>{const mesh=new T.Mesh(socketGeometry,socketMaterial);mesh.position.copy(center);mesh.position.z=-.02;root.add(mesh);});
+  const outlineGeometry=resources.own(new T.EdgesGeometry(resources.own(new T.PlaneGeometry(cell-.006,cell-.006))));
+  const pieces=cells.map((index,source)=>{
+    const group=new T.Group(),mesh=tile(index);mesh.userData.source=source;group.add(mesh);root.add(group);
+    const shadow=new T.Mesh(resources.own(new T.PlaneGeometry(cell+.025,cell+.025)),material(0x152a23,{transparent:true,opacity:.28}));shadow.position.set(.018,-.025,-.012);group.add(shadow);
+    const edge=new T.LineSegments(outlineGeometry,resources.own(new T.LineBasicMaterial({color:game.voices[source].color,transparent:true,opacity:.8})));edge.position.z=.018;group.add(edge);
+    const gripGeometry=resources.own(new T.RingGeometry(.022,.038,20)),gripMaterial=material(game.voices[source].color);
+    const grips=[[-.40,-.40],[.40,-.40],[.40,.40],[-.40,.40]].map(([x,y])=>{const g=new T.Mesh(gripGeometry,gripMaterial);g.position.set(x,y,.022);group.add(g);return g;});
+    return{source,group,mesh,edge,shadow,grips};
   });
-  let display=model.coefficients(),feedback={selected:null,move:null},animating=false,dragging=null,committed=null,disposed=false;
-  function draw(c){
-    display=c;
-    const points=Array.from({length:N+1},(_,j)=>{const f=F.field(c,j/N);return{r:f.gain*unit,t:f.time*2*Math.PI};}),position=ribbonGeometry.attributes.position;
-    for(let j=0;j<N;j++){
-      const a=points[j],b=points[j+1],vertices=[[a,-1],[a,1],[b,1],[a,-1],[b,1],[b,-1]];
-      vertices.forEach(([p,side],k)=>{const xy=polar(p.r+side*.012,p.t);position.setXYZ(j*6+k,...xy,.04);});
-    }
-    position.needsUpdate=true;ribbonGeometry.computeBoundingSphere();
-    dots.forEach(({t,mesh})=>{const f=F.field(c,t);mesh.position.set(...polar(f.gain*unit,f.time*2*Math.PI),.07);});
-    for(const p of controls){
-      // These handles edit phase only. A fixed radius keeps small-amplitude
-      // modes reachable by a finger; wave height still shows the amplitude.
-      const z=c[p.index],radius=.25/Math.max(.08,Math.hypot(...z)),x=z[0]*radius,y=z[1]*radius;
-      p.handle.position.set(x,y,.04);const gx=p.group.position.x,gy=p.group.position.y;
-      plot(p.shaft,[[gx,gy],[gx+x,gy+y]],.1);
-      const phase=Math.atan2(z[1],z[0]),amplitude=Math.hypot(...z);
-      plot(p.wave,Array.from({length:41},(_,j)=>[gx+(j/40-.5)*.38,gy+Math.cos(j/40*Math.PI*2*(p.index+1)+phase)*amplitude*.1]),.09);
-      p.halo.visible=feedback.selected===p.key||feedback.move===p.key+'x'||feedback.move===F.keys[(p.index+2)%3]+'x';
+  const targetOutline=new T.LineSegments(outlineGeometry,resources.own(new T.LineBasicMaterial({color:0xe7bc67})));targetOutline.visible=false;targetOutline.position.z=.025;root.add(targetOutline);
+  function style(){
+    for(const p of display){const piece=pieces[p.source],active=p.key===feedback.selected||dragging?.source===p.source;
+      piece.edge.visible=active||p.source!==p.slot||Math.abs(p.phase%4)>1e-8;
+      piece.edge.material.opacity=active?1:.45;piece.grips.forEach(g=>{g.visible=active;});
+      piece.shadow.visible=!!dragging&&dragging.source===p.source;
     }
   }
-  function sync(){if(!disposed&&!animating&&!dragging)draw(model.coefficients());}
-  const view={
-    camera,hoverActions:false,requiresSelection:true,selectionPrompt:'Выберите волну 1, 2 или 3',sync,
-    dispose(){disposed=true;dragging=null;},
-    resize(aspect,width,height){
-      const extent=Math.max(2.02,1.62/aspect);camera.top=extent;camera.bottom=-extent;camera.left=-extent*aspect;camera.right=extent*aspect;
-      const hit=Math.max(.13,24*2*extent/height),labelScale=Math.max(1,14*2*extent/(height*.23));
-      controls.forEach(p=>{p.hit.scale.setScalar(hit);p.legendHit.scale.setScalar(hit);p.label.scale.setScalar(labelScale);});
-    },
-    pickTargets:()=>[...controls.flatMap(p=>[p.hit,p.legendHit]),fieldHit],
+  function draw(parameters){
+    display=parameters.map(p=>({...p}));
+    for(const p of display){const piece=pieces[p.source];piece.group.position.copy(centers[p.slot]);piece.group.position.z=.01;piece.group.rotation.z=-p.phase*Math.PI/2;}
+    targetOutline.visible=false;style();
+  }
+  function sync(){if(!disposed&&!animating&&!dragging&&!committed)draw(model.parameters());}
+  const snapshotBySource=values=>values.slice().sort((a,b)=>a.source-b.source);
+  function phaseOf(move){return typeof move==='object'?move.turns:move.endsWith("'")?-1:1;}
+  const view={camera,ready,hoverActions:false,requiresSelection:true,selectionPrompt:'Выберите кусочек картинки',sync,
+    dispose(){disposed=true;image.onload=image.onerror=null;dragging=null;resolveReady(false);},
+    resize(aspect){const extent=Math.max(2.2,2.2/aspect);camera.top=extent;camera.bottom=-extent;camera.left=-extent*aspect;camera.right=extent*aspect;},
+    pickTargets:()=>pieces.map(p=>p.mesh),
     hit(intersection){
-      if(intersection.object===fieldHit)return{key:model.selected,pieceId:F.keys.indexOf(model.selected),kind:'hoop',actionCenter:center.clone()};
-      const p=controls.find(p=>p.hit===intersection.object||p.legendHit===intersection.object),draggable=intersection.object===p.hit;
-      return{key:p.key,pieceId:p.index,kind:draggable?'point':'coefficient-label',selectOnly:true,draggable};
+      const source=intersection.object.userData.source,p=display.find(p=>p.source===source),piece=pieces[source];
+      const local=piece.group.worldToLocal(intersection.point.clone()),rotate=Math.max(Math.abs(local.x),Math.abs(local.y))>.28;
+      return{key:p.key,pieceId:source,kind:rotate?'rotation-handle':'piece',draggable:true,selectOnly:feedback.selected!==p.key,actionCenter:piece.group.getWorldPosition(new T.Vector3()),rotate};
     },
-    locations(){root.updateMatrixWorld(true);return controls.flatMap(p=>[[p.handle,p.hit,'point'],[p.legendHit,p.legendHit,'coefficient-label']].map(([object,hit,kind])=>({key:p.key,pieceId:p.index,kind,selectOnly:true,draggable:kind==='point',point:object.getWorldPosition(new T.Vector3()),
-      region:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>hit.localToWorld(new T.Vector3(x,y,0)))})));},
-    feedback(value){feedback=value;draw(display);},
+    locations(){root.updateMatrixWorld(true);return display.flatMap(p=>{
+      const g=pieces[p.source].group;
+      return[[0,0,'piece'],[.41,.20,'rotation-handle']].map(([x,y,kind])=>({key:p.key,pieceId:p.source,kind,draggable:true,
+        point:g.localToWorld(new T.Vector3(x,y,.03)),region:[[-.49,-.49],[.49,-.49],[.49,.49],[-.49,.49]].map(([x,y])=>g.localToWorld(new T.Vector3(x,y,.03)))}));
+    });},
+    feedback(value){feedback=value;style();},
     beginDrag(hit,world){
-      if(!hit.draggable||animating||!world)return false;
-      const i=F.keys.indexOf(hit.key),local=root.worldToLocal(world.clone()),origin=controls[i].group.position;
-      dragging={key:hit.key,index:i,before:model.snapshot(),phase:model.parameters()[i].phase,angle:Math.atan2(local.y-origin.y,local.x-origin.x),move:null};committed=null;return true;
+      if(animating||!world||!hit.draggable||!textureReady)return false;
+      const p=model.parameters().find(p=>p.key===hit.key),local=root.worldToLocal(world.clone()),center=centers[p.slot];
+      dragging={key:p.key,source:p.source,slot:p.slot,before:model.snapshot(),start:local.clone(),phase:p.phase,
+        angle:Math.atan2(local.y-center.y,local.x-center.x),rotate:hit.rotate,move:null,to:null};
+      committed=null;pieces[p.source].group.position.z=.10;return true;
     },
     dragTo(world){
-      if(!dragging||!world)return;
-      const local=root.worldToLocal(world.clone()),origin=controls[dragging.index].group.position;
-      if(Math.hypot(local.x-origin.x,local.y-origin.y)<.035)return;
-      const angle=Math.atan2(local.y-origin.y,local.x-origin.x),delta=Math.atan2(Math.sin(angle-dragging.angle),Math.cos(angle-dragging.angle));
-      dragging.angle=angle;dragging.phase+=delta/(Math.PI/2);
-      const c=model.coefficients(dragging.before),i=dragging.index,amplitude=Math.hypot(...c[i]),phase=dragging.phase*Math.PI/2;
-      c[i]=[amplitude*Math.cos(phase),amplitude*Math.sin(phase)];draw(c);
-      dragging.move=model.editMove(dragging.key,dragging.phase,dragging.before);
-      onEditPreview(dragging.move,{kind:'scratch-phase',key:dragging.key,phase:dragging.phase});
+      if(!dragging||!world)return;const d=dragging,local=root.worldToLocal(world.clone());
+      if(d.rotate){
+        const center=centers[d.slot],x=local.x-center.x,y=local.y-center.y;if(Math.hypot(x,y)<.08)return;
+        const angle=Math.atan2(y,x),delta=Math.atan2(Math.sin(angle-d.angle),Math.cos(angle-d.angle));d.angle=angle;d.phase-=delta/(Math.PI/2);
+        const values=model.parameters(d.before);values[d.slot].phase=d.phase;draw(values);pieces[d.source].group.position.z=.10;
+        d.move=model.editMove(d.key,d.phase,d.before);onEditPreview(d.move,{kind:'piece-phase',key:d.key,phase:d.phase});
+      }else{
+        const destination=centers[d.slot].clone().add(local.clone().sub(d.start));pieces[d.source].group.position.copy(destination);pieces[d.source].group.position.z=.10;
+        const index=centers.findIndex(c=>Math.abs(c.x-destination.x)<.48&&Math.abs(c.y-destination.y)<.48);
+        const to=index>=0&&index!==d.slot?F.keys[index]:null;
+        targetOutline.visible=!!to;if(to)targetOutline.position.set(centers[index].x,centers[index].y,.03);
+        if(to!==d.to){d.to=to;d.move=to?model.swapMove(d.key,to,d.before):null;onEditPreview(d.move,to?{kind:'piece-swap',key:d.key,to}:null);}
+      }
     },
     endDrag(cancelled){
-      if(!dragging)return null;const old=dragging;dragging=null;onEditPreview(null);
-      if(!cancelled&&old.move&&model.validMove(old.move)){committed=JSON.stringify(old.move);draw(model.coefficients(model.applyTo(old.before,old.move)));return old.move;}
-      sync();return null;
+      if(!dragging)return null;const old=dragging;dragging=null;
+      if(!cancelled&&old.move&&model.validMove(old.move))committed={move:JSON.stringify(old.move),phase:old.phase,rotate:old.rotate};
+      onEditPreview(null);targetOutline.visible=false;
+      if(committed)return old.move;
+      draw(model.parameters());return null;
     },
-    async animate(move,before,{duration=420}={}){
-      if(committed===JSON.stringify(move)){committed=null;draw(model.coefficients(model.applyTo(before,move)));return;}
+    async animate(move,before,{duration=340}={}){
       animating=true;
-      try{await tween('move',duration,t=>draw(F.interpolate(before,move,t)));}
-      finally{animating=false;sync();}
+      const old=committed?.move===JSON.stringify(move)?committed:null;committed=null;
+      const a=model.parameters(before),b=model.parameters(model.applyTo(before,move)),isSwap=typeof move==='string'?move.endsWith('x'):move.kind==='piece-swap';
+      const byA=snapshotBySource(a),byB=snapshotBySource(b),index=F.keys.indexOf(model.moveTarget(move));
+      const startPositions=pieces.map(p=>p.group.position.clone());
+      try{await tween('move',old?180:duration,t=>{
+        if(isSwap){
+          draw(a);
+          pieces.forEach((piece,i)=>{const from=old?startPositions[i]:centers[byA[i].slot],to=centers[byB[i].slot];
+            piece.group.position.copy(from).lerp(to,t);piece.group.position.z=.04+(byA[i].slot===byB[i].slot?0:.05);
+            if(byA[i].slot!==byB[i].slot&&!old){const direction=i===a[index].source?1:-1;piece.group.position.x+=Math.sin(Math.PI*t)*.12*direction;}
+          });
+        }else{
+          const values=a.map(p=>({...p})),from=old?.rotate?old.phase:a[index].phase,to=a[index].phase+phaseOf(move);
+          // The unwrapped gesture may end near another full revolution.
+          const end=old?.rotate?from+(((to-from+2)%4+4)%4-2):to;
+          values[index].phase=from+(end-from)*t;draw(values);
+        }
+      });}finally{animating=false;draw(model.parameters());}
     }
   };
   draw(display);return view;

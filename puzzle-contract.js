@@ -4,32 +4,31 @@
   const key=state=>JSON.stringify(state);
   function inspect(puzzle){
     const spec=puzzle.manifest,model=puzzle.create();
-    if(!['music-puzzle/1','music-puzzle/2'].includes(spec?.schema)||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
+    if(spec?.schema!=='music-puzzle/3'||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
     for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved','actions'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
     Actions.validate(model.actions());
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
-    if(spec.schema==='music-puzzle/2'){
-      if(!['complex-riff/2','fourier-scratch/1'].includes(spec.projection)||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
-      const controls=spec.controls??spec.fragments;
-      if(!Number.isInteger(controls)||controls<1||model.count!==controls||model.choices().length!==controls)throw new Error('Число органов управления не совпадает с манифестом');
-      if(spec.projection==='complex-riff/2'&&controls!==spec.fragments)throw new Error('Независимым рифам нужен один коэффициент на фрагмент');
+    if(!['pose-phase/1','complex-riff/2','spectral-riff/1'].includes(spec.projection)||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+    if(!Number.isInteger(spec.controls)||spec.controls<1||model.choices().length!==spec.controls)throw new Error('Число органов управления не совпадает с манифестом');
+    if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
+    if(spec.projection!=='pose-phase/1'){
+      if(spec.goalPolicy!=='single-reference'||model.count!==spec.controls||spec.controls!==spec.fragments)throw new Error('Независимым рифам нужен один орган управления на фрагмент');
       return{manifest:spec,model};
     }
     for(const field of ['pieceIds','poseIds'])if(!Array.isArray(spec[field])||!spec[field].length||new Set(spec[field]).size!==spec[field].length)throw new Error('Неверный домен '+field);
     if(spec.pieceIds.some(id=>!Number.isInteger(id))||spec.pieceIds.some((id,i)=>id!==i))throw new Error('Деталям нужны последовательные числовые id');
-    if(spec.pieceIds.length!==model.count)throw new Error('Число деталей не совпадает с манифестом');
+    if(spec.pieceIds.length!==model.count||spec.fragments!==model.count)throw new Error('Число деталей не совпадает с манифестом');
     if(spec.poseIds.some(id=>!['number','string'].includes(typeof id)))throw new Error('Положениям нужны строковые или числовые id');
-    if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
     if(typeof model.placements!=='function')throw new Error('Отсутствует метод головоломки: placements');
     project({manifest:spec,model},initial);
     return {manifest:spec,model};
   }
   function project(puzzle,state){
     const {manifest:spec,model}=puzzle;
-    if(spec.schema!=='music-puzzle/1')throw new Error('Положения деталей определены только для сдвиговой проекции');
+    if(spec.projection!=='pose-phase/1')throw new Error('Положения деталей определены только для сдвиговой проекции');
     // This is an explicit terminal-goal policy, not a change of frame on every move.
     const canonical=spec.goalPolicy==='all-solved-to-reference'&&model.solved(state)?model.initialState():state;
     const result=model.placements(canonical),ids=new Set();
@@ -63,9 +62,8 @@
         if(i%12===11)state=model.initialState();
       }
     }
-    const entries=[...states].map(([id,state])=>({id,state,...(puzzle.manifest.schema==='music-puzzle/1'?{placements:project(puzzle,state)}:{}),solved:model.solved(state)}));
+    const entries=[...states].map(([id,state])=>({id,state,...(puzzle.manifest.projection==='pose-phase/1'?{placements:project(puzzle,state)}:{}),solved:model.solved(state)}));
     return {states:entries,edges:[...edges.values()],coverage:exact?'complete':'sampled'};
   }
-  const fragmentCount=spec=>spec.schema==='music-puzzle/1'?spec.pieceIds.length:spec.fragments;
-  return {inspect,project,probes,fragmentCount};
+  return {inspect,project,probes};
 });
