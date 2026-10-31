@@ -1,0 +1,119 @@
+{
+  "schema": "rhythm-tree-browser/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "audioOutput": "native-null-sink",
+  "cases": [
+    {
+      "width": 1280,
+      "height": 900,
+      "input": "mouse",
+      "splitAddsOnset": true,
+      "paintTransfersOnset": true,
+      "mergeCollapsesBranch": true,
+      "undoRestoresSubtree": true,
+      "keyboard": true,
+      "gestureSlop": true,
+      "persistence": true,
+      "denseTargets": true,
+      "maxOnsets": 16,
+      "nativeEvents": 16,
+      "editingPreservesClock": true,
+      "nativePCM": {
+        "rmsPeak": 0.02338567445753705,
+        "events": 9
+      },
+      "layout": {
+        "viewport": 1280,
+        "scrollWidth": 1280,
+        "field": 836
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "input": "native touch taps",
+      "splitAddsOnset": true,
+      "paintTransfersOnset": true,
+      "mergeCollapsesBranch": true,
+      "undoRestoresSubtree": true,
+      "keyboard": true,
+      "gestureSlop": true,
+      "persistence": true,
+      "denseTargets": true,
+      "maxOnsets": 16,
+      "nativeEvents": 16,
+      "editingPreservesClock": true,
+      "nativePCM": {
+        "rmsPeak": 0.02338567445753705,
+        "events": 9
+      },
+      "layout": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "field": 366
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native touch taps",
+      "splitAddsOnset": true,
+      "paintTransfersOnset": true,
+      "mergeCollapsesBranch": true,
+      "undoRestoresSubtree": true,
+      "keyboard": true,
+      "gestureSlop": true,
+      "persistence": true,
+      "denseTargets": true,
+      "maxOnsets": 16,
+      "nativeEvents": 16,
+      "editingPreservesClock": true,
+      "nativePCM": {
+        "rmsPeak": 0.023384360322949486,
+        "events": 9
+      },
+      "layout": {
+        "viewport": 844,
+        "scrollWidth": 844,
+        "field": 421.375
+      }
+    },
+    {
+      "width": 320,
+      "height": 740,
+      "input": "native touch taps",
+      "splitAddsOnset": true,
+      "paintTransfersOnset": true,
+      "mergeCollapsesBranch": true,
+      "undoRestoresSubtree": true,
+      "keyboard": true,
+      "gestureSlop": true,
+      "persistence": true,
+      "denseTargets": true,
+      "maxOnsets": 16,
+      "nativeEvents": 16,
+      "editingPreservesClock": true,
+      "nativePCM": {
+        "rmsPeak": 0.02338567445753705,
+        "events": 9
+      },
+      "layout": {
+        "viewport": 320,
+        "scrollWidth": 320,
+        "field": 296
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "tree.js": "57d21dfb6af2835b4c3ed60d8cf454cbb6d06d55b1c5fb6c79c3e07e190687db",
+    "model.js": "289d7690e159a2c77478ad19a2b65761882f448cdde1f983ad61defeb626a90e",
+    "transport.js": "07cec42efb45135dae796d93e0b35d618735c147b9d494aac1bd4ef5b149a117",
+    "view.js": "33126d61b562053bc103bc11154777d024d5619be0bc1ff04c81b6ac801ee674",
+    "app.js": "2a0d5247509a627260ed118329a9503f4d9cb9c77ba03e4fd71db17114ef4e6b",
+    "index.html": "1e36225551af37c7013fc2d2ed45718d6c28077a5e72e742926b2cd9e2928aa5",
+    "style.css": "6b2e8dbf406c3dbfc09defa01f18f92be696f6428cac954ae17048b0893a0518"
+  }
+}

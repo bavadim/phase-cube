@@ -2,7 +2,7 @@
 /* Independent implementation of Milne et al., NIME 2016, sections 2–3.
  * Angles encode onset times. Shape radii do not encode pitch or loudness.
  */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.XronoModel=factory();})(globalThis,function(){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./tree.js'));else root.XronoModel=factory(root.XronoTree);})(globalThis,function(Tree){
   'use strict';
   const TAU=2*Math.PI,EPS=1e-9,wrap=x=>((x%1)+1)%1;
   const regular=[2,3,4,5,6,7,8,9,10,11,12,13,17,19,23,29];
@@ -27,15 +27,19 @@
   ]);
   const clone=v=>JSON.parse(JSON.stringify(v));
   const layer=(i,shape='regular-4',phase=0)=>({shape,phase,enabled:i<3,instrument:instruments[i%6].id,note:instruments[i%6].note,velocity:.7,gateMs:i===2?110:65,complement:false});
-  function initial(){return{schema:'xronomorph-lab/1',mode:'pb',rpm:30,volume:1,snap:0,selected:0,
+  const initialTree=()=>({...Tree.initial(),layers:Array.from({length:6},(_,i)=>({...layer(i),enabled:true}))});
+  function initial(){return{schema:'xronomorph-lab/2',mode:'pb',rpm:30,volume:1,snap:0,selected:0,
     pb:[layer(0),layer(1,'regular-3',.08),layer(2,'regular-5',.035)],
-    wf:{longs:1,shorts:1,ratio:(1+Math.sqrt(5))/2,phase:0,reverse:Array(6).fill(false),layers:Array.from({length:6},(_,i)=>layer(i))}};}
+    wf:{longs:1,shorts:1,ratio:(1+Math.sqrt(5))/2,phase:0,reverse:Array(6).fill(false),layers:Array.from({length:6},(_,i)=>layer(i))},tree:initialTree()};}
+  function migrate(input){const s=clone(input);if(s?.schema==='xronomorph-lab/1'){s.schema='xronomorph-lab/2';s.tree=initialTree();}return validate(s);}
   function validate(s){
     const finite=(x,a,b)=>Number.isFinite(x)&&x>=a&&x<=b;
     const validLayer=p=>p&&shapes.some(x=>x.id===p.shape)&&finite(p.phase,0,1)&&typeof p.enabled==='boolean'&&instruments.some(x=>x.id===p.instrument)&&Number.isInteger(p.note)&&finite(p.note,24,96)&&finite(p.velocity,0,1)&&finite(p.gateMs,20,800)&&typeof p.complement==='boolean';
-    if(s?.schema!=='xronomorph-lab/1'||!['pb','wf'].includes(s.mode)||!finite(s.rpm,8,90)||!finite(s.volume,0,1)||![0,12,16,24,30].includes(s.snap)||!Array.isArray(s.pb)||s.pb.length<1||s.pb.length>8||!s.pb.every(validLayer))throw new Error('Неверные параметры лаборатории');
+    if(s?.schema!=='xronomorph-lab/2'||!['pb','wf','tree'].includes(s.mode)||!finite(s.rpm,8,90)||!finite(s.volume,0,1)||![0,12,16,24,30].includes(s.snap)||!Array.isArray(s.pb)||s.pb.length<1||s.pb.length>8||!s.pb.every(validLayer))throw new Error('Неверные параметры лаборатории');
     const w=s.wf;
     if(!w||![w.longs,w.shorts].every(n=>Number.isInteger(n)&&n>=1&&n<=8)||!finite(w.ratio,1,8)||!finite(w.phase,0,1)||!Array.isArray(w.reverse)||w.reverse.length!==6||w.reverse.some(x=>typeof x!=='boolean')||!Array.isArray(w.layers)||w.layers.length!==6||!w.layers.every(validLayer))throw new Error('Неверные параметры иерархии');
+    Tree.validate(s.tree);
+    if(!Array.isArray(s.tree.layers)||s.tree.layers.length!==6||!s.tree.layers.every(validLayer))throw new Error('Неверные инструменты дерева ритма');
     if(!Number.isInteger(s.selected)||s.selected<0||s.selected>=(s.mode==='pb'?s.pb.length:6))throw new Error('Неверный выбранный слой');
     return s;
   }
@@ -65,6 +69,10 @@
   }
   function project(s){
     validate(s);
+    if(s.mode==='tree'){
+      const {leaves}=Tree.geometry(s.tree);
+      return s.tree.layers.map((p,id)=>{const points=leaves.filter(n=>n.owner===id).map(n=>n.start);return{...p,id,points,allPoints:points,label:instruments.find(v=>v.id===p.instrument).label};});
+    }
     if(s.mode==='pb')return s.pb.map((p,i)=>{
       const shape=shapes.find(x=>x.id===p.shape),points=shape.points.map(t=>wrap(t+p.phase)).sort((a,b)=>a-b);
       return{...p,id:i,points,allPoints:points,label:shape.label,balanced:true};
@@ -78,11 +86,12 @@
     });
   }
   function rotate(s,index,phase){
+    if(s.mode==='tree')throw Error('В этом режиме редактируются деления и инструменты нот');
     const out=clone(s);if(!Number.isInteger(index)||index<0||index>=(s.mode==='pb'?s.pb.length:6)||!Number.isFinite(phase))throw new Error('Неверный поворот');
     const t=wrap(s.snap?Math.round(phase*s.snap)/s.snap:phase);
     if(s.mode==='pb')out.pb[index].phase=t;else out.wf.phase=t;
     return out;
   }
   function score(s){return project(s).filter(p=>p.enabled).flatMap(p=>p.points.map((t,j)=>({id:p.id+':'+j,part:p.id,start:t,gateSeconds:p.gateMs/1000,instrument:p.instrument,note:p.note,velocity:p.velocity})));}
-  return{TAU,EPS,wrap,shapes,instruments,initial,validate,clone,balance,evenness,word,hierarchy,project,rotate,score};
+  return{TAU,EPS,wrap,shapes,instruments,initial,initialTree,migrate,validate,clone,balance,evenness,word,hierarchy,project,rotate,score};
 });

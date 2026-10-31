@@ -6,17 +6,18 @@
   <meta name="color-scheme" content="light dark">
   <title>XronoMorph · лаборатория ритма</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css?v=xrono2">
+  <link rel="stylesheet" href="style.css?v=xrono3">
 </head>
 <body>
-<main id="xrono-lab" data-build="xronomorph/lab2">
+<main id="xrono-lab" data-build="xronomorph/tree1">
   <header class="topbar">
     <div><a class="back" href="../">← Головоломки</a><h1>XronoMorph</h1></div>
     <div class="transport"><span id="audio-state" role="status">Готов к прослушиванию</span><button type="button" id="play" class="primary" aria-pressed="false">Слушать</button></div>
   </header>
   <nav class="mode-tabs" aria-label="Математическая модель">
-    <button type="button" data-mode="pb" aria-pressed="true">Баланс фигур · PB</button>
-    <button type="button" data-mode="wf" aria-pressed="false">Длинные / короткие · WF</button>
+    <button type="button" data-mode="tree" aria-pressed="false">Деление ритма</button>
+    <button type="button" data-mode="pb" aria-pressed="true">Баланс · PB</button>
+    <button type="button" data-mode="wf" aria-pressed="false">Интервалы · WF</button>
   </nav>
   <div class="global-controls">
     <label>Скорость цикла <span><input id="rpm" type="range" min="8" max="90" step=".1" value="30"><output id="rpm-value" for="rpm">30 об/мин · 2 с</output></span></label>
@@ -33,9 +34,14 @@
       <svg id="diagram" role="img" aria-label="Ритмические слои как цветные многоугольники на общей окружности. Перетаскивание вершины вращает фигуру целиком."></svg>
       <p id="geometry-status" class="geometry-status" aria-live="polite"></p>
       <p id="gesture-help" class="help">Выберите фигуру и потяните любую её точку по окружности.</p>
+      <div id="tree-tools" class="tree-tools" hidden>
+        <button type="button" id="tree-undo" disabled>Отменить</button>
+        <button type="button" id="tree-reset">Исходный ритм</button>
+      </div>
     </div>
     <aside class="editor" aria-label="Ритмические слои">
-      <div class="layer-heading"><h2>Слои</h2><button type="button" id="add-layer">+ Слой</button></div>
+      <div class="layer-heading"><h2 id="layers-title">Слои</h2><button type="button" id="add-layer">+ Слой</button></div>
+      <p id="tree-palette-help" class="help" hidden>Выберите инструмент и нажмите на ноту, чтобы передать ему удар.</p>
       <div id="layers" class="layers"></div>
       <section class="selected-editor" aria-labelledby="selected-title">
         <h2 id="selected-title">Слой 1</h2>
@@ -56,12 +62,13 @@
     </aside>
   </section>
   <p id="error" class="error" role="alert" hidden></p>
-  <footer>Математическая модель: <a href="https://research-management.mq.edu.au/ws/portalfiles/portal/90170882/Publisher_version.pdf" target="_blank" rel="noreferrer">Milne и соавторы, XronoMorph, 2016</a> · собственная браузерная реализация · звук: Strudel.</footer>
+  <footer>Модели PB/WF: <a href="https://research-management.mq.edu.au/ws/portalfiles/portal/90170882/Publisher_version.pdf" target="_blank" rel="noreferrer">Milne и соавторы, XronoMorph, 2016</a> · деление ритма: отдельный эксперимент · звук: Strudel.</footer>
 </main>
 <script src="../vendor/strudel-web-1.3.0.js"></script>
-<script src="model.js?v=xrono2"></script>
-<script src="transport.js?v=xrono2"></script>
-<script src="view.js?v=xrono2"></script>
-<script src="app.js?v=xrono2"></script>
+<script src="tree.js?v=xrono3"></script>
+<script src="model.js?v=xrono3"></script>
+<script src="transport.js?v=xrono3"></script>
+<script src="view.js?v=xrono3"></script>
+<script src="app.js?v=xrono3"></script>
 </body>
 </html>

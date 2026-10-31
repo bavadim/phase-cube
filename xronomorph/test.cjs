@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
 const M=require('./model.js');
+const Tree=require('./tree.js');
 const delta=(a,b)=>Math.abs(M.wrap(a-b+.5)-.5),contains=(row,t)=>row.some(a=>delta(a,t)<1e-8);
 test('PB catalogue reproduces all six exact minimal irregular rotation classes',()=>{
   const exact=JSON.parse(execFileSync('python3',[require('node:path').join(__dirname,'verify-irregular.py')],{encoding:'utf8'}));
@@ -49,4 +50,33 @@ test('state validation rejects invalid domains and gate duration is independent 
   for(const mutate of [s=>s.wf.ratio=NaN,s=>s.wf.longs=0,s=>s.pb[0].note=500,s=>s.pb[0].phase=Infinity,s=>s.pb.push(...Array(9).fill(s.pb[0])),s=>s.selected=20]){
     const bad=M.initial();mutate(bad);assert.throws(()=>M.validate(bad));
   }
+});
+test('tree split adds a real onset, painting transfers it without duplication, merge preserves the left onset',()=>{
+  const s=M.initial();s.mode='tree';const base=M.score(s);assert.equal(base.length,4);
+  s.tree=Tree.apply(s.tree,{kind:'split',key:'0',owner:1});
+  let score=M.score(s);assert.equal(score.length,5);assert(score.some(e=>e.start===.125&&e.part===1));
+  base.forEach(e=>assert(score.some(n=>n.start===e.start&&n.part===e.part)));
+  const beforePaint=score.map(e=>e.start).sort();s.tree=Tree.apply(s.tree,{kind:'paint',key:'0R',owner:3});
+  score=M.score(s);assert.deepEqual(score.map(e=>e.start).sort(),beforePaint);assert.equal(score.filter(e=>e.start===.125).length,1);assert(score.some(e=>e.start===.125&&e.part===3));
+  s.tree=Tree.apply(s.tree,{kind:'paint',key:'0L',owner:2});
+  s.tree=Tree.apply(s.tree,{kind:'split',key:'0R',owner:5});assert.equal(M.score(s).length,6);
+  s.tree=Tree.apply(s.tree,{kind:'merge',key:'0'});score=M.score(s);assert.equal(score.length,4);assert(score.some(e=>e.start===0&&e.part===2));
+  assert.throws(()=>M.rotate(s,0,.25));
+});
+test('fully subdivided tree partitions the cycle exactly, bounds density and rejects stale branch actions',()=>{
+  let tree=Tree.initial();
+  while(Tree.geometry(tree).leaves.some(n=>n.canSplit)){
+    const leaf=Tree.geometry(tree).leaves.find(n=>n.canSplit);tree=Tree.apply(tree,{kind:'split',key:leaf.key,owner:leaf.key.length%6});
+  }
+  const {leaves}=Tree.geometry(tree);assert.equal(leaves.length,16);
+  leaves.forEach((n,i)=>{assert.equal(n.start,i/16);assert.equal(n.length,1/16);});
+  assert.throws(()=>Tree.apply(tree,{kind:'split',key:'0LL',owner:0}));
+  assert.throws(()=>Tree.apply(tree,{kind:'paint',key:'0',owner:1}));
+  const saved=JSON.stringify(tree);const merged=Tree.apply(tree,{kind:'merge',key:'0'});assert.equal(Tree.geometry(merged).leaves.length,13);assert.equal(JSON.stringify(tree),saved);
+  assert.throws(()=>Tree.apply(merged,{kind:'paint',key:'0LR',owner:0}));
+  assert.throws(()=>Tree.apply(tree,{kind:'paint',key:'1LR',owner:20}));
+});
+test('saved PB/WF settings migrate without losing the existing music configuration',()=>{
+  const old=M.initial();old.schema='xronomorph-lab/1';delete old.tree;old.mode='wf';old.rpm=43;old.wf.phase=.19;old.pb[0].shape='irregular-4';
+  const restored=M.migrate(old);assert.equal(restored.schema,'xronomorph-lab/2');assert.deepEqual(restored.wf,old.wf);assert.deepEqual(restored.pb,old.pb);assert.equal(restored.rpm,43);assert.equal(Tree.geometry(restored.tree).leaves.length,4);
 });

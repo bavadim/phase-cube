@@ -77,11 +77,12 @@
   "errors": [],
   "status": "PASS",
   "sourceSha256": {
-    "model.js": "1bbb1e216c2a28263795f4a00dfd5afca73816b43a884f6795ad00f6f8aeb0ea",
+    "tree.js": "57d21dfb6af2835b4c3ed60d8cf454cbb6d06d55b1c5fb6c79c3e07e190687db",
+    "model.js": "289d7690e159a2c77478ad19a2b65761882f448cdde1f983ad61defeb626a90e",
     "transport.js": "07cec42efb45135dae796d93e0b35d618735c147b9d494aac1bd4ef5b149a117",
-    "view.js": "8a831ae04ed070db56aaa70ea8abec231bdb6f4b17fecd6082ea9e0e5445c241",
-    "app.js": "662d40209f6ec095c2e6452aa8cbb7bbce7e7804d7624838aa75b35730758059",
-    "index.html": "ad86f93dd8db5f801fec65cbaee512d0f73b378bd07fe096d43265522745b759",
-    "style.css": "bce867853675e18ed248267aef8053c48262f509ce7eb84d394020970d72057a"
+    "view.js": "33126d61b562053bc103bc11154777d024d5619be0bc1ff04c81b6ac801ee674",
+    "app.js": "2a0d5247509a627260ed118329a9503f4d9cb9c77ba03e4fd71db17114ef4e6b",
+    "index.html": "1e36225551af37c7013fc2d2ed45718d6c28077a5e72e742926b2cd9e2928aa5",
+    "style.css": "6b2e8dbf406c3dbfc09defa01f18f92be696f6428cac954ae17048b0893a0518"
   }
 }

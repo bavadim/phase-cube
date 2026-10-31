@@ -4,3 +4,22 @@
 label{min-width:0}output{flex:0 0 auto}.ratio-control>span>input[type=number]{max-width:118px}
 @media(max-width:760px){#xrono-lab{padding-top:12px}.topbar{position:sticky;top:0;z-index:2;background:var(--bg);padding:8px 0}.transport span{display:none}.workspace{grid-template-columns:1fr;gap:0}.diagram-panel{order:0}.editor{padding-top:4px}.layers{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}.layer-row{grid-template-columns:22px minmax(0,1fr);gap:3px}.layer-row>button{gap:6px;padding:.55rem .5rem}.layer-row .name{font-size:.88rem}.selected-editor{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.selected-editor>h2,.selected-editor>.hierarchy-options{grid-column:1/-1}.note-gate{grid-column:1/-1}.global-controls{gap:12px;grid-template-columns:1fr}.wf-controls{grid-template-columns:70px 70px minmax(0,1fr)}.ratio-control{grid-column:1/-1;grid-row:2}.ratio-presets{justify-content:flex-end}.mode-tabs{margin-top:12px}.mode-tabs>button{flex:1;padding:.65rem .5rem}.geometry-status{margin-top:0}.help{margin-bottom:8px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.tree-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.tree-target{cursor:pointer;-webkit-tap-highlight-color:transparent}.tree-target:focus-visible{outline:none}.tree-target:focus-visible>circle:nth-of-type(2){stroke:var(--ink);stroke-width:3}
+body[data-xrono-mode=tree] .layers{grid-template-columns:1fr 1fr;gap:7px}
+body[data-xrono-mode=tree] .layer-row{grid-template-columns:minmax(0,1fr)}
+body[data-xrono-mode=tree] .layer-row>button{gap:6px;padding:.55rem .65rem}
+body[data-xrono-mode=tree] .layer-row .name{font-size:.9rem}
+body[data-xrono-mode=tree] #tree-palette-help{text-align:left;margin:0 0 12px}
+body[data-xrono-mode=tree] .global-controls>label:last-child{display:none}
+body[data-xrono-mode=tree] .global-controls{grid-template-columns:1fr}
+@media(max-width:760px){
+ body[data-xrono-mode=tree] .editor{order:-1;padding-top:10px}
+ body[data-xrono-mode=tree] .layer-heading{margin-bottom:5px}
+ body[data-xrono-mode=tree] .layers{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ body[data-xrono-mode=tree] .layer-row>button{padding:.5rem .4rem;gap:4px}
+ body[data-xrono-mode=tree] .layer-row .name{font-size:.875rem}
+ body[data-xrono-mode=tree] .swatch{width:8px;height:8px;flex-basis:8px}
+ body[data-xrono-mode=tree] #tree-palette-help{margin-bottom:8px;font-size:.82rem}
+ body[data-xrono-mode=tree] .layer-heading h2{font-size:.9rem}
+}
