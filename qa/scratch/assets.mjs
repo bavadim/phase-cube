@@ -45,7 +45,7 @@ try{
     await page.waitForFunction(()=>window.phaseCubeApp);await page.evaluate(()=>phaseCubeApp.ready);
     assert.equal(await page.evaluate(()=>[...phaseCubeApp.getPresentation().active.resources.items].some(r=>r.isTexture&&r.image?.naturalWidth>0)),true);
     await page.locator('#start').tap();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
-    assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().build),'music-puzzles/picture1');assert.deepEqual(errors,[]);
+    assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().build),'music-puzzles/picture2');assert.deepEqual(errors,[]);
     report.cases.push({offlineHTML:r.engine==='webkit'?'HTTP document, then offline startup/audio; embedded assets':'file://, embedded art, embedded compositions and working audio',fileProtocol:r.engine==='webkit'?'unverified: Linux WebKit internal navigation error':'verified'});await context.close();
   }
   report.status='PASS';

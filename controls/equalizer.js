@@ -36,7 +36,7 @@
   const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration,e.levels,e.pitches]).sort((a,b)=>a[0].localeCompare(b[0]))));
   class Score{
     constructor(svg,voices,{periodBeats=16,periodSeconds=8}={}){
-      Object.assign(this,{svg,voices,periodSeconds});this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
+      Object.assign(this,{svg,voices,periodSeconds});this.laneWidth=Math.min(10,73/Math.max(1,voices.length-1));this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
       this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
       const grid=node('g',{'class':'orbit-grid','aria-hidden':'true'},svg),bars=Math.max(1,Math.round(periodBeats/4));
       for(let t=0;t<bars;t++){
@@ -57,7 +57,7 @@
       node('line',{x1:CENTER,y1:CENTER-INNER+9,x2:CENTER,y2:CENTER-335},sweep);
       node('circle',{cx:CENTER,cy:CENTER-335,r:5.5},sweep);this.sweep=sweep;
     }
-    pitchRadius(row,pitch){const range=row.pitchRange;return row.r+(Number.isFinite(pitch)&&range?.max>range?.min?7*((pitch-range.min)/(range.max-range.min)-.5):0);}
+    pitchRadius(row,pitch){const range=row.pitchRange;return row.r+(Number.isFinite(pitch)&&range?.max>range?.min?Math.min(7,this.laneWidth*.45)*((pitch-range.min)/(range.max-range.min)-.5):0);}
     drawSlots(target){
       this.rows.forEach((row,id)=>{
         const pitches=(target[id]||[]).map(e=>e.pitch).filter(Number.isFinite);row.pitchRange={min:Math.min(...pitches),max:Math.max(...pitches)};
@@ -67,7 +67,7 @@
             const r=this.pitchRadius(row,e.pitches[layer]);
             for(const [start,end]of segments(e.start,e.duration)){
               const inset=Math.min(.002,(end-start)/5);
-              node('path',{d:arc(r,start+inset,end-inset),'class':'target-slot','data-pitch':e.pitches[layer]??'','stroke-width':e.layers>1?3:5.5},row.target);
+              node('path',{d:arc(r,start+inset,end-inset),'class':'target-slot','data-pitch':e.pitches[layer]??'','stroke-width':Math.min(this.laneWidth*.65,e.layers>1?3:5.5)},row.target);
             }
             const a=point(r-2.5,e.start),b=point(r+2.5,e.start);
             node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'target-stop'},row.target);
@@ -90,7 +90,7 @@
         const span=spans[k];path.style.display=span?'':'none';if(!span)return;
         const inset=Math.min(.002,(span[1]-span[0])/5),r=this.pitchRadius(row,e.pitches[i])+(e.layers>1?(i-(e.layers-1)/2)*.5:0);
         const intensity=e.levels[i]??e.levels[0];
-        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?.5+intensity:2+3.5*intensity});
+        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':Math.min(this.laneWidth*.65,e.layers>1?.5+intensity:2+3.5*intensity)});
         path.style.filter='brightness('+brightness(intensity)+')';path.style.opacity=intensity>0?'1':'0';path.dataset.pitch=e.pitches[i]??'';
       }));
       const radii=e.pitches.map(p=>this.pitchRadius(row,p)),r=radii.reduce((a,b)=>a+b,0)/radii.length;

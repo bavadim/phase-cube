@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture2';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -12,7 +12,7 @@
   let shuffle=null,shuffleAbort=null,playToken=0;
   let notice='',lastFrame=performance.now();
   const recorder=new PuzzleDiagnostics.Recorder({build,snapshot:reportSnapshot});
-  let orbit=null,rows=[],repl,soundReady,analysisData,lastDiagnostics=0;
+  let displayWindow=null,orbit=null,rows=[],repl,soundReady,analysisData,lastDiagnostics=0;
   const transport=new PhaseCubeTransport(strudel,{onChange:()=>updateUI(),onError:fail,outputGain:C.outputGain});
   const canMove=()=>!!model&&session.phase==='playing'&&transport.running&&!loading&&!starting&&!busy&&!seeking&&!transport.pending;
   const metadata=()=>({state:model.snapshot(),mode:'current',...mix()});
@@ -44,7 +44,9 @@
     if(!music||!model||!orbit)return;
     const state=heardState();rows=music.rows(state);
     const focus=control?.focusState(),forecast=canMove()?(focus?.point?music.preview(focus.point,state,rows,focus.move):focus?.move?music.predict(focus.move,state,rows):null):null;
-    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast,selectedKey:control?.selection()});
+    const cycle=transport.clock();displayWindow=music.displayWindow(cycle);
+    if(forecast)forecast.rows=music.displayRows(forecast.rows,cycle);
+    orbit.update({rows:music.displayRows(rows,cycle),target:music.displayRows(game.targetRows,cycle),phases:music.phases(state),pending:!!transport.pending,forecast,selectedKey:control?.selection()});
   }
   function updateUI(){
     let won=false;
@@ -148,7 +150,7 @@
     if(isUndo)move=model.inverse(model.history[model.history.length-1].move);
     const token=playToken,before=model.snapshot(),forecast=music.predict(move,before);
     recorder.record('move.begin',{move,isUndo,before});
-    orbit.commit(forecast.rows);clearHint();model.select(model.moveTarget(move));busy=true;
+    orbit.commit(music.displayRows(forecast.rows,transport.clock()));clearHint();model.select(model.moveTarget(move));busy=true;
     try{
       const animation=control?.animate(move,before);
       if(isUndo)model.undo();else model.apply(move);
@@ -211,6 +213,7 @@
     presentation?.frame(now);
     if(song&&model&&orbit){
       const cycle=transport.clock(),phase=((cycle/song.periodBars)%1+1)%1;
+      if(displayWindow!==music.displayWindow(cycle))updateRows();
       player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
       orbit.frame(phase,transport.running,now);
     }

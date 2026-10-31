@@ -24,8 +24,10 @@
     }
     async prepareSession({songId,puzzleId,signal,onProgress}={}){
       aborted(signal);
-      const module=this.registry.get(puzzleId),puzzle=Contract.inspect(module),song=await this.library.load(songId);aborted(signal);
-      const game=Parts.build(this.S,song,{count:puzzle.manifest.fragments,palette:this.palette});
+      const base=this.registry.get(puzzleId),source=await this.library.load(songId);aborted(signal);
+      const configured=base.configure?.(this.S,source,{palette:this.palette}),module=configured?.module||base,puzzle=Contract.inspect(module);
+      const game=configured?.game||Parts.build(this.S,source,{count:puzzle.manifest.fragments,palette:this.palette});
+      const song=game.backing?{...source,backing:game.backing}:source;
       const analysis=game.targetRows.map(row=>Projection.analyzePattern(row,song.timing.periodBeats));
       const subdivisions=song.phaseOptions?.subdivisionsPerBeat||[2,4];
       const home=puzzle.manifest.projection==='pose-phase/1'?Contract.project(puzzle,puzzle.model.initialState()):puzzle.model.initialState();

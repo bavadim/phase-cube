@@ -30,17 +30,17 @@ try{
       await page.mouse.move(destination.x,destination.y,{steps:5});
       samples.push(await page.evaluate(()=>{const f=phaseCubeApp.getEqualizer().forecast;return{state:phaseCubeApp.state(),history:phaseCubeApp.getPuzzle().history.length,continuous:f?.continuous,changed:f?.changed,rows:JSON.stringify(f?.rows),heard:phaseCubeApp.getTransport().active.meta.state};}));
     }
-    for(const sample of samples){assert.equal(sample.state,initial.state);assert.equal(sample.heard,initial.state);assert.equal(sample.history,initial.history);assert(sample.continuous);assert.deepEqual(sample.changed,initial.active);}
+    for(const sample of samples){assert.deepEqual(sample.state,initial.state);assert.deepEqual(sample.heard,initial.state);assert.equal(sample.history,initial.history);assert(sample.continuous);assert.deepEqual(sample.changed,initial.active);}
     assert.notEqual(samples[0].rows,samples[1].rows,'Preview must not snap to a quarter phase');
     await page.mouse.up();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.length),initial.history+1);
-    await page.locator('#undo').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
+    await page.locator('#undo').click();await settled(page);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
     const places=(await targets(page)).filter(p=>p.kind==='piece'),a=places.find(p=>p.key==='A'),c=places.find(p=>p.key==='C');
     await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(c.x,c.y,{steps:16});
     assert.deepEqual(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast.changed),await page.evaluate(()=>{const p=phaseCubeApp.getPuzzle().parameters();return[p[0].source,p[2].source].sort();}));
     await page.mouse.up();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.at(-1).move.kind),'piece-swap');
-    await page.locator('#undo').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
+    await page.locator('#undo').click();await settled(page);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
     await select(page,'B',width<500);await page.locator('#swap-piece').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.at(-1).move),'Bx');
-    await page.locator('#undo').click();await settled(page);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
+    await page.locator('#undo').click();await settled(page);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),initial.state);
     await page.screenshot({path:join(root,`qa/scratch/${r.engine}-${width}.png`)});
     const geometry=await page.evaluate(()=>({canvas:document.querySelectorAll('#puzzle-stage canvas').length,overflow:document.documentElement.scrollWidth>innerWidth,info:phaseCubeApp.getPresentation().info()}));
     assert.equal(geometry.canvas,1);assert(!geometry.overflow);
@@ -48,7 +48,7 @@ try{
       if(songId!=='turkish-circuit'){await page.evaluate(songId=>phaseCubeApp.chooseSong(songId),songId);await page.locator('#start').click();await settled(page);}
       let n=0;
       while(await page.evaluate(()=>!phaseCubeApp.getPuzzle().solved())){
-        await page.locator('#hint').click();await page.locator('.puzzle-action.hinted').click();await settled(page);assert(++n<=8);
+        await page.locator('#hint').click();await page.locator('.puzzle-action.hinted').click();await settled(page);assert(++n<=32);
       }
       assert(await page.locator('#result-dialog').isVisible());assert(await page.locator('#celebration').isVisible());
     }
@@ -67,11 +67,11 @@ try{
       const valueKey=h=>JSON.stringify([Number(h.whole.begin),Number(h.duration),Object.fromEntries(Object.entries(h.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)))]);
       for(const songId of ['turkish-circuit','steel-shift','elise-after-hours']){
         await app.chooseSong(songId);const music=app.getMusic(),song=app.getSong(),game=app.getGame(),m=app.getPuzzle();
-        const original=PhaseCubeLibrary.attacks(song.pattern,0,song.bars).map(valueKey).sort(),assembled=PhaseCubeLibrary.attacks(S.stack(song.backing,music.pattern(0)),0,song.bars).map(valueKey).sort();
+        const original=PhaseCubeLibrary.attacks(song.pattern,0,song.bars).map(valueKey).sort(),assembled=PhaseCubeLibrary.attacks(S.stack(song.backing,music.pattern(m.initialState())),0,song.bars).map(valueKey).sort();
         if(JSON.stringify(original)!==JSON.stringify(assembled))throw Error('Original score mismatch '+songId);
         const active=game.targetRows.map((_,i)=>i);
-        const worst=m.allStates().map(state=>({state,energy:music.rows(state).reduce((sum,row,i)=>sum+(active.includes(i)?row.reduce((v,e)=>v+(e.volume??1)**2,0):0),0)})).sort((a,b)=>b.energy-a.energy)[0].state;
-        for(const [kind,state]of [['goal',0],['high-gain',worst]])jobs.push({songId,kind,state,from:16,bars:game.periodBars,cps:song.bpm/240,pattern:S.stack(song.backing,music.pattern(state)),nativeScoreEvents:original.length});
+        const worst=PuzzleContract.probes(app.getPreparation().puzzle).states.map(({state})=>({state,energy:music.rows(state).reduce((sum,row,i)=>sum+(active.includes(i)?row.reduce((v,e)=>v+(e.volume??1)**2,0):0),0)})).sort((a,b)=>b.energy-a.energy)[0].state;
+        for(const [kind,state]of [['goal',m.initialState()],['high-gain',worst]])jobs.push({songId,kind,state,from:16,bars:game.loopBars||game.periodBars,cps:song.bpm/240,pattern:S.stack(song.backing,music.pattern(state)),nativeScoreEvents:original.length});
       }
       let total=0;for(const job of jobs){job.offset=total;total+=job.bars/job.cps+1;}
       await S.getAudioContext().close();const ac=new OfflineAudioContext(2,Math.ceil(total*48000),48000);S.setAudioContext(ac);S.setSuperdoughAudioController(null);await S.initAudio({maxPolyphony:4096,multiChannelOrbits:false});
@@ -84,7 +84,7 @@ try{
   assert.deepEqual(report.errors,[]);report.status='PASS';
 }catch(error){report.status='FAIL';report.failure=error.stack;throw error;}
 finally{
-  const files=['index.html','app.js','puzzle-contract.js','music-projection.js','music.js','graphics/stage.js','assets/director-puzzle.png','controls/puzzle.js','controls/equalizer.js','puzzles/scratch/model.js','puzzles/scratch/binding.js','puzzles/scratch/module.js','puzzles/scratch/three-view.js'];
+  const files=['index.html','app.js','puzzle-contract.js','music-projection.js','music.js','graphics/stage.js','assets/director-puzzle.png','controls/puzzle.js','controls/equalizer.js','puzzles/scratch/partition.js','session-loader.js','puzzles/scratch/model.js','puzzles/scratch/binding.js','puzzles/scratch/module.js','puzzles/scratch/three-view.js'];
   report.sourceSha256=Object.fromEntries(await Promise.all(files.map(async file=>[file,createHash('sha256').update(await readFile(join(root,file))).digest('hex')])));
   await writeFile(join(root,`qa/scratch/${r.engine}-report.json`),JSON.stringify(report,null,2)+'\n');await r.close();console.log(JSON.stringify({status:report.status,cases:report.cases.length,audio:report.audio,failure:report.failure}));
 }

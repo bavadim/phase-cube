@@ -17,7 +17,7 @@
         "overflow": false,
         "info": {
           "canvasCount": 1,
-          "geometries": 18,
+          "geometries": 28,
           "textures": 1,
           "tweens": 0,
           "puzzle": "scratch",
@@ -41,7 +41,7 @@
         "overflow": false,
         "info": {
           "canvasCount": 1,
-          "geometries": 18,
+          "geometries": 28,
           "textures": 1,
           "tweens": 0,
           "puzzle": "scratch",
@@ -55,18 +55,20 @@
   "errors": [],
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "0d979d5ee971ccb553a568c6d3758548425afca27444e0fa39ef2762d67fed10",
-    "app.js": "f3c45262e17d0ccab9594a47fd905537f1dae9afef59680a268e70ab4fbc441c",
-    "puzzle-contract.js": "9a45638e81d8ab56299c55a003630f305f9b1ea978ba9075b3525517669b2098",
+    "index.html": "6155fa576e78dff5e8c2f321c536c0532ce27791e6537bfd95c9dcc2b36e881d",
+    "app.js": "21509f982dce4010c3c73e97370bdca88aee648885b1c60c5e23924c532228c4",
+    "puzzle-contract.js": "02f46c985fd689b486013dea55aa353010cbda5c1b48bdd87db8c974ee553b80",
     "music-projection.js": "aeb84fc3f6958d2bfce69372e26c4d825dc2fdd42682c80bf04b8f7e5150243b",
-    "music.js": "3ecdadf7b0daaeb3d048755208d1b71ed1e95184ab5e5825eb0bf04c749e5d68",
+    "music.js": "0944c8a79146b6d116c5d62cd676fc7f3b3248a1db244b7b590fe3d60130ad81",
     "graphics/stage.js": "fe19d31d38a5f016500d940b760e8f0cc9604762ba40a2d902613ba9b2e893a8",
     "assets/director-puzzle.png": "7c67a1127a4b75a9ccc6b28148c37762ad3cb4c229c52cb812579305ae9563e5",
     "controls/puzzle.js": "82ef9a76304165dd4ef463eeabb021c2eb208809cd7ac3c5009025d1ba241e42",
-    "controls/equalizer.js": "2e0f9393b39287c867f488d2e5bf8f0dd5b360dfc1d1331b8385ef4ccc04136e",
-    "puzzles/scratch/model.js": "c63d36601acedcfec46a940d798647cef42b7b818e7df3e946f664e57778f194",
-    "puzzles/scratch/binding.js": "58cb26ac6da9e34b70c9f865f835fd3835d8670ed2e5863cda2692c18a5fbbae",
-    "puzzles/scratch/module.js": "79d5d263a99336972f8a37902c4e735c873613a6fa592c555d298a42d247a484",
-    "puzzles/scratch/three-view.js": "bb2a359ee50d5ebf040b3c38b8d4dbdb5772fa8091b0eeb8b387a01e68f31aff"
+    "controls/equalizer.js": "d9c81d28304d1bd6bc74cbdede126cc10f7a4997b40a051b7071dc4de6580555",
+    "puzzles/scratch/partition.js": "f1e0601b9de4b7536d7b0ff0c5db5f4a399b9a7f82b823ca7f13687732b661ce",
+    "session-loader.js": "013fca1e14308c0a1d6d53e53550addd140d2227f8b370dea7deba72f80b3c11",
+    "puzzles/scratch/model.js": "ce647fad9237e2ab1940ec6af71cde024d4a55e1f8ced4b6c6ae9477c69dabb4",
+    "puzzles/scratch/binding.js": "c8556ad58ace9bc7003545eb394454d9df75baa5511f8afdf98fcaf0e0ba17e8",
+    "puzzles/scratch/module.js": "ed00c0ae8d09f6c9995a459636551aacd2dc8985990abdfb9c48527c466c1597",
+    "puzzles/scratch/three-view.js": "657f547607cc05814d925e7e688d1f9ab3b0686634b0e8ce8c490701381dafca"
   }
 }

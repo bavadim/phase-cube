@@ -2743,7 +2743,7 @@ lanes.noise = noiseSound(stack(
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
-    if(!['pose-phase/1','complex-riff/2','spectral-riff/1'].includes(spec.projection)||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+    if(!['pose-phase/1','complex-riff/2','spectral-riff/2'].includes(spec.projection)||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
     if(!Number.isInteger(spec.controls)||spec.controls<1||model.choices().length!==spec.controls)throw new Error('Число органов управления не совпадает с манифестом');
     if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
     if(spec.projection!=='pose-phase/1'){
@@ -3068,158 +3068,144 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Three picture pieces: slot rotations and permutations, C4^3 semidirect S3. */
+/* One movable picture piece per instrument. C4^N semidirect S_N. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.ScratchModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
-  const keys=['A','B','C'],amplitudes=[.48,.30,.18],permutations=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]],stateCount=384;
-  const moves=keys.flatMap(key=>[key,key+"'",key+'x']),mod=(x,n)=>((x%n)+n)%n;
-  const validState=state=>Number.isInteger(state)&&state>=0&&state<stateCount;
-  const timingDepth=.35,gainDepth=.6;
-  function parameters(state){
-    if(!validState(state))throw new Error('Неверное состояние пазла');
-    const p=permutations[Math.floor(state/64)];return keys.map((key,slot)=>({key,slot,source:p[slot],phase:Math.floor(state/4**slot)%4}));
-  }
-  function encode(values){
-    const p=permutations.findIndex(p=>p.every((v,i)=>v===values[i].source));
-    if(p<0)throw new Error('Детали должны оставаться перестановкой');
-    return p*64+values.reduce((sum,v,i)=>sum+mod(v.phase,4)*4**i,0);
-  }
-  const coefficients=state=>parameters(state).map(p=>[amplitudes[p.source]*Math.cos(p.phase*Math.PI/2),amplitudes[p.source]*Math.sin(p.phase*Math.PI/2)]);
-  const phaseEdit=m=>m&&m.kind==='piece-phase'&&keys.includes(m.key)&&validState(m.from)&&Number.isInteger(m.turns)&&m.turns!==0&&Math.abs(m.turns)<=2;
-  const swapEdit=m=>m&&m.kind==='piece-swap'&&keys.includes(m.key)&&keys.includes(m.to)&&m.to!==m.key&&validState(m.from);
-  function moveTarget(move){if(typeof move==='string'&&moves.includes(move))return move[0];if(phaseEdit(move)||swapEdit(move))return move.key;throw new Error('Неверное действие пазла');}
-  function applyTo(state,move){
-    const i=keys.indexOf(moveTarget(move)),values=parameters(state);
-    if(phaseEdit(move)||swapEdit(move)){
-      if(state!==move.from)throw new Error('Устаревшее перетаскивание');
-      if(phaseEdit(move))values[i].phase+=move.turns;
-      else{const j=keys.indexOf(move.to);[values[i],values[j]]=[values[j],values[i]];}
-    }else if(move.endsWith('x')){const j=(i+1)%3;[values[i],values[j]]=[values[j],values[i]];}
-    else values[i].phase+=move.endsWith("'")?-1:1;
-    return encode(values);
-  }
-  function inverse(move){
-    moveTarget(move);
-    if(phaseEdit(move))return{...move,from:applyTo(move.from,move),turns:-move.turns};
-    if(swapEdit(move))return{...move,from:applyTo(move.from,move)};
-    if(move.endsWith('x'))return move;return move.endsWith("'")?move[0]:move+"'";
-  }
-  // Each immutable source riff follows its picture piece between frequency slots.
+  const mod=(x,n)=>((x%n)+n)%n,equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  const keyFor=i=>i<26?String.fromCharCode(65+i):'P'+i;
+  const amplitude=source=>[.48,.30,.18][source%3],timingDepth=.35,gainDepth=.6;
+  const freeze=(order,turns)=>Object.freeze({order:Object.freeze(order),turns:Object.freeze(turns)});
   function field(piece,t){
-    const a=amplitudes[piece.source],k=piece.slot+1,home=piece.source+1;
+    const a=amplitude(piece.source),k=piece.slot+1,home=piece.source+1;
     const angle=2*Math.PI*k*t+piece.phase*Math.PI/2,reference=2*Math.PI*home*t;
-    const re=a*(Math.cos(angle)-Math.cos(reference)),im=a*(Math.sin(angle)-Math.sin(reference));
-    return{time:t+timingDepth*im/(2*Math.PI),gain:1+gainDepth*re,
-      derivative:1+timingDepth*a*(k*Math.cos(angle)-home*Math.cos(reference))};
-  }
-  let graph;
-  function states(){
-    if(graph)return graph;
-    graph=new Map([[0,{state:0,depth:0,hint:null}]]);const queue=[0];
-    for(let i=0;i<queue.length;i++)for(const move of moves){const next=applyTo(queue[i],move);if(!graph.has(next)){graph.set(next,{state:next,depth:graph.get(queue[i]).depth+1,hint:inverse(move)});queue.push(next);}}
-    return graph;
+    // Integrating the oscillations divides by harmonic order. The time map
+    // remains increasing for ANY number of pieces: h' >= 1 - 2*.35*.48.
+    return{time:t+timingDepth*a/(2*Math.PI)*(Math.sin(angle)/k-Math.sin(reference)/home),
+      gain:1+gainDepth*a*(Math.cos(angle)-Math.cos(reference)),
+      derivative:1+timingDepth*a*(Math.cos(angle)-Math.cos(reference))};
   }
   class Model{
-    constructor(){this.count=3;this.reset();}
-    initialState(){return 0;}
+    constructor({count=3,names=[]}={}){if(!Number.isInteger(count)||count<1)throw Error('Неверное число партий');this.count=count;this.keys=Array.from({length:count},(_,i)=>keyFor(i));this.names=names;this.reset();}
+    initialState(){return freeze(this.keys.map((_,i)=>i),this.keys.map(()=>0));}
+    validate(state){if(!state||state.order?.length!==this.count||state.turns?.length!==this.count||new Set(state.order).size!==this.count||state.order.some(i=>!Number.isInteger(i)||i<0||i>=this.count)||state.turns.some(p=>!Number.isInteger(p)||p<0||p>3))throw Error('Неверное состояние пазла');}
     snapshot(){return this.current;}
-    restore(state){parameters(state);this.current=state;}
-    parameters(state=this.current){return parameters(state);}
-    coefficients(state=this.current){return coefficients(state);}
-    legalMoves(){return [...moves];}
-    allStates(){return [...states().keys()];}
-    applyTo(state,move){return applyTo(state,move);}
-    inverse(move){return inverse(move);}
-    validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
-    moveTarget(move){return moveTarget(move);}
-    moveFor(key,inverted=false){if(!keys.includes(key))throw new Error('Неизвестный паз');return key+(inverted?"'":'');}
-    select(key){if(!keys.includes(key))throw new Error('Неизвестный паз');this.selected=key;}
-    choices(){return keys.map((key,i)=>({key,label:'Фрагмент в пазу '+(i+1)}));}
-    selectionLabel(){return 'Фрагмент '+(parameters(this.current)[keys.indexOf(this.selected)].source+1);}
+    restore(state){this.validate(state);this.current=freeze([...state.order],[...state.turns]);this.path=null;this.pathKnown=this.solved(state);this.history=[];this.moves=[];}
+    parameters(state=this.current){this.validate(state);return this.keys.map((key,slot)=>({key,slot,source:state.order[slot],phase:state.turns[slot]}));}
+    coefficients(state=this.current){return this.parameters(state).map(p=>[amplitude(p.source)*Math.cos(p.phase*Math.PI/2),amplitude(p.source)*Math.sin(p.phase*Math.PI/2)]);}
+    legalMoves(){return this.keys.flatMap(key=>[key,key+"'",...(this.count>1?[key+'x']:[])]);}
+    moveTarget(move){const key=typeof move==='string'?move.replace(/['x]$/,''):move?.key;if(!this.keys.includes(key))throw Error('Неверное действие пазла');return key;}
+    applyTo(state,move){
+      this.validate(state);const key=this.moveTarget(move),i=this.keys.indexOf(key),order=[...state.order],turns=[...state.turns];
+      let j=null,step=null;
+      if(typeof move==='object'){
+        if(!equal(state,move.from))throw Error('Устаревшее перетаскивание');
+        if(move.kind==='piece-phase'&&Number.isInteger(move.turns)&&Math.abs(move.turns)<=2&&move.turns!==0)step=move.turns;
+        else if(move.kind==='piece-swap'&&move.to!==key&&this.keys.includes(move.to))j=this.keys.indexOf(move.to);
+        else throw Error('Неверное действие пазла');
+      }else{
+        if(!this.legalMoves().includes(move))throw Error('Неверное действие пазла');
+        if(move.endsWith('x'))j=(i+1)%this.count;else step=move.endsWith("'")?-1:1;
+      }
+      if(j!==null){[order[i],order[j]]=[order[j],order[i]];[turns[i],turns[j]]=[turns[j],turns[i]];}
+      else turns[i]=mod(turns[i]+step,4);
+      return freeze(order,turns);
+    }
+    inverse(move){const key=this.moveTarget(move);if(typeof move==='object')return{...move,from:this.applyTo(move.from,move),...(move.kind==='piece-phase'?{turns:-move.turns}:{})};return move.endsWith('x')?move:move.endsWith("'")?key:move+"'";}
+    validMove(move,state=this.current){try{return !equal(this.applyTo(state,move),state);}catch{return false;}}
+    moveFor(key,inverted=false){if(!this.keys.includes(key))throw Error('Неизвестный паз');return key+(inverted?"'":'');}
+    select(key){if(!this.keys.includes(key))throw Error('Неизвестный паз');this.selected=key;}
+    choices(){return this.keys.map((key,i)=>({key,label:'Паз '+(i+1)}));}
+    selectionLabel(){const source=this.current.order[this.keys.indexOf(this.selected)];return this.names[source]||'Партия '+(source+1);}
     actions(callbacks){
-      const key=this.selected,i=keys.indexOf(key),n=i+1,j=(i+1)%3+1;
+      const key=this.selected,i=this.keys.indexOf(key),hint=this.hint();
+      const swap=typeof hint==='object'&&hint?.kind==='piece-swap'&&hint.key===key?hint:key+'x';
+      const j=typeof swap==='object'?this.keys.indexOf(swap.to):(i+1)%this.count;
       return[
-        {id:'turn-left',label:'Паз '+n+': повернуть против часовой стрелки',icon:{text:'↶'},move:key+"'"},
-        {id:'turn-right',label:'Паз '+n+': повернуть по часовой стрелке',icon:{text:'↷'},move:key},
-        {id:'swap-piece',label:'Поменять детали в пазах '+n+' и '+j,icon:{text:'⇄'},move:key+'x'}
+        {id:'turn-left',label:this.selectionLabel()+': повернуть против часовой стрелки',icon:{text:'↶'},move:key+"'"},
+        {id:'turn-right',label:this.selectionLabel()+': повернуть по часовой стрелке',icon:{text:'↷'},move:key},
+        ...(this.count>1?[{id:'swap-piece',label:'Поменять детали в пазах '+(i+1)+' и '+(j+1),icon:{text:'⇄'},move:swap}]:[])
       ].map(action=>Actions.move(this,callbacks,action));
     }
-    editMove(key,phase,state=this.current){
-      if(!keys.includes(key)||!Number.isFinite(phase))throw new Error('Неверная фаза детали');
-      const i=keys.indexOf(key),turns=mod(Math.round(phase)-parameters(state)[i].phase+2,4)-2;
-      return turns?{kind:'piece-phase',key,from:state,turns}:null;
-    }
+    editMove(key,phase,state=this.current){if(!this.keys.includes(key)||!Number.isFinite(phase))throw Error('Неверная фаза детали');const turns=mod(Math.round(phase)-state.turns[this.keys.indexOf(key)]+2,4)-2;return turns?{kind:'piece-phase',key,from:state,turns}:null;}
     swapMove(key,to,state=this.current){const move={kind:'piece-swap',key,to,from:state};return this.validMove(move,state)?move:null;}
-    reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);}
+    reset(seed=1730){this.current=this.initialState();this.path=null;this.pathKnown=true;this.history=[];this.moves=[];this.selected=this.keys[0];this.shuffler=new Shuffle.Generator(seed);}
     shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
-    apply(move){const next=applyTo(this.current,move);this.history.push({state:this.current,move});this.current=next;this.moves.push(move);this.selected=moveTarget(move);}
-    undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=moveTarget(old.move);return inverse(old.move);}
-    hint(){return states().get(this.current).hint;}
-    distance(state=this.current){return states().get(state).depth;}
-    solved(state=this.current){return state===0;}
-    correct(state=this.current){return parameters(state).filter((p,i)=>p.source===i&&p.phase===0).length;}
+    apply(move){
+      const next=this.applyTo(this.current,move);this.history.push({state:this.current,move,path:this.path,pathKnown:this.pathKnown});
+      const steps=move?.kind==='piece-phase'?Array.from({length:Math.abs(move.turns)},()=>move.key+(move.turns<0?"'":'')):[move];
+      let state=this.current;
+      for(const step of steps){const after=this.applyTo(state,step);if(this.pathKnown)this.path=this.solved(after)?null:this.path&&equal(after,this.path.before)?this.path.previous:{before:state,move:step,previous:this.path};state=after;}
+      this.current=next;if(this.solved())this.pathKnown=true;this.moves.push(move);this.selected=this.moveTarget(move);
+    }
+    undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.path=old.path;this.pathKnown=old.pathKnown;this.moves.pop();this.selected=this.moveTarget(old.move);return this.inverse(old.move);}
+    hint(){
+      if(this.solved())return null;
+      if(this.path)return this.inverse(this.path.move);
+      // Constructive fallback for imported states, without enumerating 4^N N!.
+      for(let i=0;i<this.count;i++)if(this.current.order[i]!==i){const j=this.current.order.indexOf(i);return this.keys[j-1]+'x';}
+      const i=this.current.turns.findIndex(p=>p!==0);return this.keys[i]+(this.current.turns[i]===3?'':"'");
+    }
+    solved(state=this.current){return state.order.every((source,i)=>source===i&&state.turns[i]===0);}
+    correct(state=this.current){return state.order.filter((source,i)=>source===i&&state.turns[i]===0).length;}
   }
-  return{Model,keys,amplitudes,timingDepth,gainDepth,stateCount,parameters,coefficients,applyTo,inverse,field,states,moves};
+  return{Model,amplitude,timingDepth,gainDepth,field};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Each piece owns a riff; its slot and angle control that riff's Fourier field. */
+/* Each instrument follows its picture piece between Fourier frequency slots. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../puzzle-contract.js'));else root.ScratchBinding=factory(root.ScratchModel,root.PuzzleContract);})(globalThis,function(F,Contract){
   'use strict';
-  const VERSION='spectral-riff/1',wrap=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9;
+  const VERSION='spectral-riff/2',wrap=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9;
+  function projectRow(row,piece,cycles){
+    if(piece.slot===piece.source&&Math.abs(piece.phase%4)<1e-9)return row;
+    return row.map(e=>{
+      // Arrangement spans the full song; the deformation repeats each local loop.
+      const a=F.field(piece,e.start*cycles),b=F.field(piece,(e.start+e.duration)*cycles),duration=(b.time-a.time)/cycles,ratio=duration/e.duration;
+      const value={...e.value,postgain:(e.value.postgain??1)*a.gain};
+      if(typeof value.duration==='number')value.duration*=ratio;
+      return{...e,start:wrap(a.time/cycles),duration,volume:a.gain,value};
+    }).sort((a,b)=>a.start-b.start);
+  }
   function projectParameters(binding,parameters,game){
-    const bySource=new Map(parameters.map(p=>[p.source,p]));
-    const parts=game.targetRows.map((row,id)=>{
-      const piece=bySource.get(id);
-      return{kind:VERSION,id,controlKey:piece.key,gain:1,period:1,aligned:piece.slot===piece.source&&Math.abs(piece.phase%4)<1e-9};
-    });
-    const rows=game.targetRows.map((row,id)=>{
-      if(parts[id].aligned)return row;
-      const piece=bySource.get(id);
-      return row.map(e=>{
-        const a=F.field(piece,e.start),b=F.field(piece,e.start+e.duration),duration=b.time-a.time,ratio=duration/e.duration;
-        const value={...e.value,postgain:(e.value.postgain??1)*a.gain};
-        if(typeof value.duration==='number')value.duration*=ratio;
-        return{...e,start:wrap(a.time),duration,volume:a.gain,value};
-      }).sort((a,b)=>a.start-b.start);
-    });
-    return{rows,parts,coefficients:parameters.map(p=>[F.amplitudes[p.source]*Math.cos(p.phase*Math.PI/2),F.amplitudes[p.source]*Math.sin(p.phase*Math.PI/2)])};
+    const bySource=new Map(parameters.map(p=>[p.source,p])),cycles=game.periodBars/(game.loopBars||game.periodBars);
+    const parts=game.targetRows.map((row,id)=>{const piece=bySource.get(id);return{kind:VERSION,id,controlKey:piece.key,gain:1,period:1,aligned:piece.slot===piece.source&&Math.abs(piece.phase%4)<1e-9};});
+    return{parts,rows:game.targetRows.map((row,id)=>projectRow(row,bySource.get(id),cycles)),
+      coefficients:parameters.map(p=>[F.amplitude(p.source)*Math.cos(p.phase*Math.PI/2),F.amplitude(p.source)*Math.sin(p.phase*Math.PI/2)])};
   }
-  const project=(binding,puzzle,state,game)=>projectParameters(binding,F.parameters(state),game);
+  const project=(binding,puzzle,state,game)=>projectParameters(binding,puzzle.model.parameters(state),game);
   function preview(binding,puzzle,state,game,point){
-    if(!F.keys.includes(point.key))throw new Error('Неверный прогноз детали');
-    if(point.kind==='piece-swap'){
-      const move=puzzle.model.swapMove(point.key,point.to,state);if(!move)throw new Error('Неверный обмен деталей');
-      return project(binding,puzzle,puzzle.model.applyTo(state,move),game);
-    }
-    if(point.kind!=='piece-phase'||!Number.isFinite(point.phase))throw new Error('Неверный прогноз фазы');
-    const parameters=F.parameters(state);parameters[F.keys.indexOf(point.key)].phase=point.phase;
-    return projectParameters(binding,parameters,game);
+    const model=puzzle.model;if(!model.keys.includes(point.key))throw Error('Неверный прогноз детали');
+    if(point.kind==='piece-swap'){const move=model.swapMove(point.key,point.to,state);if(!move)throw Error('Неверный обмен деталей');return project(binding,puzzle,model.applyTo(state,move),game);}
+    if(point.kind!=='piece-phase'||!Number.isFinite(point.phase))throw Error('Неверный прогноз фазы');
+    const parameters=model.parameters(state);parameters[model.keys.indexOf(point.key)].phase=point.phase;return projectParameters(binding,parameters,game);
   }
-  // Compare actual events, never invisible event identities: relabelling equal
-  // notes is not an audible change and must not pass the discrimination audit.
-  const signature=rows=>rows.map(row=>row.map(e=>JSON.stringify([round(e.start),round(e.duration),
-    Object.fromEntries(Object.entries(e.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)))])).sort().join('|')).join('||');
-  function validate(binding,spec){return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.stateCount===F.stateCount&&binding.gridSteps===4&&
-    binding.fragments===spec.fragments&&binding.fragments===F.keys.length&&binding.scope==='one-piece-one-riff';}
+  // No visual ids or metadata in the musical discrimination signature.
+  const signature=row=>row.map(e=>JSON.stringify([round(e.start),round(e.duration),Object.fromEntries(Object.entries(e.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,typeof v==='number'?round(v):v]))])).sort().join('|');
+  function validate(binding,spec){return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.gridSteps===4&&binding.fragments===spec.fragments&&binding.scope==='one-piece-one-instrument'&&binding.diagnostics?.pieceStates===spec.fragments*spec.fragments*4;}
   async function prepare({puzzle,game,signal,onProgress=()=>{}}){
-    if(game.count!==F.keys.length)throw new Error('Пазлу нужны три независимых музыкальных фрагмента');
-    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,stateCount:F.stateCount,gridSteps:4,fragments:game.count,scope:'one-piece-one-riff'};
-    const signatures=new Map(),target=signature(game.targetRows);let aliases=0;
-    for(let i=0;i<probe.states.length;i++){
+    const binding={algorithm:VERSION,gridSteps:4,fragments:game.count,scope:'one-piece-one-instrument'};
+    const cycles=game.periodBars/(game.loopBars||game.periodBars);let checked=0;
+    for(let source=0;source<game.count;source++){
+      const signatures=new Set(),target=signature(game.targetRows[source]);
+      for(let slot=0;slot<game.count;slot++)for(let phase=0;phase<4;phase++){
+        const key=signature(projectRow(game.targetRows[source],{source,slot,phase},cycles));
+        if(signatures.has(key)||(!(source===slot&&phase===0)&&key===target))throw Error('Партия «'+game.voices[source].name+'» не различает положения плитки');
+        signatures.add(key);checked++;
+      }
       if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
-      const s=probe.states[i],key=signature(project(binding,puzzle,s.state,game).rows);signatures.set(s.id,key);if(!s.solved&&key===target)aliases++;
-      if(i%32===0){onProgress({candidate:i+1,total:probe.states.length});await new Promise(r=>setTimeout(r,0));}
+      onProgress({candidate:source+1,total:game.count});await new Promise(r=>setTimeout(r,0));
     }
-    const silentMoves=probe.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length,distinct=new Set(signatures.values()).size;
-    if(aliases||silentMoves||distinct!==F.stateCount)throw new Error('Композиция не различает все 384 состояния пазла');
-    return{...binding,diagnostics:{coverage:'complete',stateSpace:F.stateCount,states:probe.states.length,edges:probe.edges.length,
-      distinctPatterns:distinct,unsolvedGoalRhythmAliases:0,silentMoves:0,independentRiffs:true,scope:binding.scope,
-      signatureScope:'per-riff-native-events-without-visual-ids',acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
+    const probes=Contract.probes(puzzle),signatures=new Map(probes.states.map(s=>[s.id,project(binding,puzzle,s.state,game).rows.map(signature).join('||')]));
+    const silentMoves=probes.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length;
+    if(silentMoves)throw Error('Обнаружены неразличимые ходы');
+    let stateSpace=4n**BigInt(game.count);for(let i=2;i<=game.count;i++)stateSpace*=BigInt(i);
+    return{...binding,diagnostics:{coverage:'complete-per-piece; sampled-global',pieceStates:checked,stateSpace:String(stateSpace),states:probes.states.length,edges:probes.edges.length,
+      silentMoves:0,unsolvedGoalRhythmAliases:0,independentRiffs:true,scope:binding.scope,
+      signatureScope:'per-instrument-native-events-without-visual-ids',acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
   }
-  return{VERSION,prepare,validate,project,preview,projectParameters};
+  return{VERSION,prepare,validate,project,preview,projectParameters,projectRow};
 });
 
 </script>
@@ -3291,8 +3277,10 @@ lanes.noise = noiseSound(stack(
     }
     async prepareSession({songId,puzzleId,signal,onProgress}={}){
       aborted(signal);
-      const module=this.registry.get(puzzleId),puzzle=Contract.inspect(module),song=await this.library.load(songId);aborted(signal);
-      const game=Parts.build(this.S,song,{count:puzzle.manifest.fragments,palette:this.palette});
+      const base=this.registry.get(puzzleId),source=await this.library.load(songId);aborted(signal);
+      const configured=base.configure?.(this.S,source,{palette:this.palette}),module=configured?.module||base,puzzle=Contract.inspect(module);
+      const game=configured?.game||Parts.build(this.S,source,{count:puzzle.manifest.fragments,palette:this.palette});
+      const song=game.backing?{...source,backing:game.backing}:source;
       const analysis=game.targetRows.map(row=>Projection.analyzePattern(row,song.timing.periodBeats));
       const subdivisions=song.phaseOptions?.subdivisionsPerBeat||[2,4];
       const home=puzzle.manifest.projection==='pose-phase/1'?Contract.project(puzzle,puzzle.model.initialState()):puzzle.model.initialState();
@@ -3321,7 +3309,7 @@ lanes.noise = noiseSound(stack(
 window.PuzzleMusic=(()=>{
   const eventsOf=(p,bars)=>PhaseCubeLibrary.eventsOf(p,bars),eventKey=rows=>JSON.stringify(rows);
   class Music{
-    constructor(S,prepared){Object.assign(this,{S,prepared,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.binding});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;this.cache=new Map();}
+    constructor(S,prepared){Object.assign(this,{S,prepared,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.binding});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;this.cache=new Map();this.displayCache=new WeakMap();}
     project(state){
       const key=JSON.stringify(state);if(this.cache.has(key))return this.cache.get(key);
       const result=PuzzleProjection.project(this.S,this.prepared,state);this.cache.set(key,result);
@@ -3338,6 +3326,14 @@ window.PuzzleMusic=(()=>{
     preview(point,state,currentRows=this.rows(state),move=null){
       const result=PuzzleProjection.preview(this.prepared,state,point);
       return{point,move,continuous:true,phases:result.parts,rows:result.rows,changed:result.rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
+    }
+    displayWindow(cycle=0){return this.game.loopBars?Math.floor(((cycle%this.game.periodBars)+this.game.periodBars)%this.game.periodBars/this.game.loopBars):0;}
+    displayRows(rows,cycle=0){
+      if(!this.game.loopBars)return rows;
+      const window=this.displayWindow(cycle),windows=this.game.periodBars/this.game.loopBars;
+      let cached=this.displayCache.get(rows);if(!cached){cached=new Map();this.displayCache.set(rows,cached);}
+      if(!cached.has(window))cached.set(window,rows.map(row=>row.filter(e=>e.start*windows>=window-1e-9&&e.start*windows<window+1-1e-9).map(e=>({...e,start:e.start*windows-window,duration:e.duration*windows}))));
+      return cached.get(window);
     }
     pattern(state){return this.S.stack(...this.shifted(state));}
     code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+(this.puzzle.manifest.projection!=='pose-phase/1'?JSON.stringify({projection:this.binding.algorithm,state,coefficients:this.project(state).coefficients}):this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n'));}
@@ -3624,7 +3620,7 @@ window.PuzzleAsync={
   const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration,e.levels,e.pitches]).sort((a,b)=>a[0].localeCompare(b[0]))));
   class Score{
     constructor(svg,voices,{periodBeats=16,periodSeconds=8}={}){
-      Object.assign(this,{svg,voices,periodSeconds});this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
+      Object.assign(this,{svg,voices,periodSeconds});this.laneWidth=Math.min(10,73/Math.max(1,voices.length-1));this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
       this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
       const grid=node('g',{'class':'orbit-grid','aria-hidden':'true'},svg),bars=Math.max(1,Math.round(periodBeats/4));
       for(let t=0;t<bars;t++){
@@ -3645,7 +3641,7 @@ window.PuzzleAsync={
       node('line',{x1:CENTER,y1:CENTER-INNER+9,x2:CENTER,y2:CENTER-335},sweep);
       node('circle',{cx:CENTER,cy:CENTER-335,r:5.5},sweep);this.sweep=sweep;
     }
-    pitchRadius(row,pitch){const range=row.pitchRange;return row.r+(Number.isFinite(pitch)&&range?.max>range?.min?7*((pitch-range.min)/(range.max-range.min)-.5):0);}
+    pitchRadius(row,pitch){const range=row.pitchRange;return row.r+(Number.isFinite(pitch)&&range?.max>range?.min?Math.min(7,this.laneWidth*.45)*((pitch-range.min)/(range.max-range.min)-.5):0);}
     drawSlots(target){
       this.rows.forEach((row,id)=>{
         const pitches=(target[id]||[]).map(e=>e.pitch).filter(Number.isFinite);row.pitchRange={min:Math.min(...pitches),max:Math.max(...pitches)};
@@ -3655,7 +3651,7 @@ window.PuzzleAsync={
             const r=this.pitchRadius(row,e.pitches[layer]);
             for(const [start,end]of segments(e.start,e.duration)){
               const inset=Math.min(.002,(end-start)/5);
-              node('path',{d:arc(r,start+inset,end-inset),'class':'target-slot','data-pitch':e.pitches[layer]??'','stroke-width':e.layers>1?3:5.5},row.target);
+              node('path',{d:arc(r,start+inset,end-inset),'class':'target-slot','data-pitch':e.pitches[layer]??'','stroke-width':Math.min(this.laneWidth*.65,e.layers>1?3:5.5)},row.target);
             }
             const a=point(r-2.5,e.start),b=point(r+2.5,e.start);
             node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'target-stop'},row.target);
@@ -3678,7 +3674,7 @@ window.PuzzleAsync={
         const span=spans[k];path.style.display=span?'':'none';if(!span)return;
         const inset=Math.min(.002,(span[1]-span[0])/5),r=this.pitchRadius(row,e.pitches[i])+(e.layers>1?(i-(e.layers-1)/2)*.5:0);
         const intensity=e.levels[i]??e.levels[0];
-        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?.5+intensity:2+3.5*intensity});
+        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':Math.min(this.laneWidth*.65,e.layers>1?.5+intensity:2+3.5*intensity)});
         path.style.filter='brightness('+brightness(intensity)+')';path.style.opacity=intensity>0?'1':'0';path.dataset.pitch=e.pitches[i]??'';
       }));
       const radii=e.pitches.map(p=>this.pitchRadius(row,p)),r=radii.reduce((a,b)=>a+b,0)/radii.length;
@@ -4647,39 +4643,88 @@ FourierPuzzle.mount=context=>PuzzleControl.mount({...context,module:FourierPuzzl
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.ScratchPuzzle=factory(root.ScratchModel);})(globalThis,function(F){
-  return{id:'scratch',title:'Портрет директора',progressLabel:'фрагментов\nна месте',create:()=>new F.Model(),
-    manifest:Object.freeze({schema:'music-puzzle/3',id:'scratch',version:2,projection:'spectral-riff/1',controls:3,fragments:3,stateCount:F.stateCount,goalPolicy:'single-reference',
-      operations:{phase:{order:4},swap:{order:2}},group:'C4^3 semidirect S3'})};
+/* Picture/music partitioning belongs to this puzzle, not the score loader. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../../composition-loader.js'));else root.ScratchPartition=factory(root.PhaseCubeLibrary);})(globalThis,function(L){
+  'use strict';
+  const names={kick:'Бочка',hat:'Хэт',snare:'Рабочий барабан',clap:'Хлопок',openhat:'Открытый хэт',metal:'Перкуссия',noise:'Шумовой эффект',hook:'Главная тема',lead:'Лид',stab:'Аккорды',bass:'Бас',sub:'Саб-бас',riff:'Риф',pluck:'Плак',answer:'Ответ темы',acid:'Эйсид'};
+  function layout(count){
+    const columns=Math.ceil(Math.sqrt(count)),rows=Math.ceil(count/columns),total=columns*rows;
+    // Evenly distribute the decorative fixed cells; every musical tile moves.
+    const fixedCount=total-count,fixed=new Set(Array.from({length:fixedCount},(_,i)=>Math.floor((i+.5)*total/fixedCount)));
+    return Object.freeze({columns,rows,movingCells:Array.from({length:total},(_,i)=>i).filter(i=>!fixed.has(i)),fixedCells:[...fixed]});
+  }
+  const stemKey=value=>JSON.stringify([value._phaseCubePart??value.s,value.s]);
+  function build(S,song,{palette}){
+    const stems=new Map();
+    for(const h of L.attacks(song.pattern,0,song.bars)){
+      const key=stemKey(h.value);if(!stems.has(key))stems.set(key,{key,part:h.value._phaseCubePart??h.value.s,sound:h.value.s,haps:[]});stems.get(key).haps.push(h);
+    }
+    const sources=[...stems.values()],count=sources.length,voices=[],basePatterns=[],parts=[];
+    for(const [id,stem]of sources.entries()){
+      let name=names[stem.part]||song.playerParts.find(p=>p.key===stem.part)?.name||String(stem.part);
+      if(sources.filter(s=>s.part===stem.part).length>1)name=stem.sound==='sine'?'Саб-бас':name+' · '+stem.sound;
+      // Cache native haps once: repeatedly querying the entire arranged score for
+      // every instrument is prohibitively slow on phones. Preserve native whole
+      // spans/values, including clip and duration semantics, without reparsing.
+      const maxDuration=Math.max(...stem.haps.map(h=>Number(h.whole.end)-Number(h.whole.begin)));
+      const pattern=new S.Pattern(state=>{
+        const result=[],from=Number(state.span.begin),to=Number(state.span.end);
+        for(let cycle=Math.floor((from-maxDuration)/song.bars);cycle<=Math.floor(to/song.bars);cycle++)for(const h of stem.haps){
+          const offset=S.Fraction(cycle*song.bars),whole=new S.TimeSpan(h.whole.begin.add(offset),h.whole.end.add(offset)),part=whole.intersection(state.span);
+          if(part)result.push(new S.Hap(whole,part,h.value));
+        }
+        return result;
+      });
+      const attacks=stem.haps.length;
+      voices.push({id:stem.key,pieceId:id,name,part:stem.part,sound:stem.sound,color:palette[id%palette.length],attacks});
+      parts.push({key:stem.key,name,pieces:1,attacks});basePatterns.push(pattern);
+    }
+    if(!count)throw Error('В композиции нет инструментальных партий');
+    const targetRows=basePatterns.map((p,id)=>L.eventsOf(p,song.bars).map((e,i)=>({...e,id:id+':'+i,pitch:e.value.note==null?null:S.noteToMidi(e.value.note)})));
+    return Object.freeze({count,periodBars:song.bars,loopBars:song.periodBars,voices,basePatterns,parts,targetRows,layout:layout(count),backing:S.silence});
+  }
+  return{build,layout};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* One intact picture, three real cutouts. Edge drag rotates; center drag swaps. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('./partition.js'));else root.ScratchPuzzle=factory(root.ScratchModel,root.ScratchPartition);})(globalThis,function(F,Partition){
+  const puzzle={id:'scratch',title:'Портрет директора',progressLabel:'партий\nна месте',
+    configure(S,song,options){const game=Partition.build(S,song,options);return{module:{...this,create:()=>new F.Model({count:game.count,names:game.voices.map(v=>v.name)}),manifest:{...this.manifest,controls:game.count,fragments:game.count,group:'C4^'+game.count+' semidirect S_'+game.count}},game};},
+    create:()=>new F.Model(),
+    manifest:Object.freeze({schema:'music-puzzle/3',id:'scratch',version:3,projection:'spectral-riff/2',controls:3,fragments:3,goalPolicy:'single-reference',
+      operations:{phase:{order:4},swap:{order:2}},group:'C4^N semidirect S_N'})};
+  return puzzle;
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* One picture, one movable cutout per instrument. Edge drag rotates; center drag swaps. */
 window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPreview}){
   const T=THREE,F=ScratchModel,root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-2.2,2.2,2.2,-2.2,.1,30);camera.position.z=8;camera.lookAt(0,0,0);
-  const cells=[1,3,8],size=3,cell=size/3;
-  const position=index=>new T.Vector3((index%3-1)*cell,(1-Math.floor(index/3))*cell,0);
+  const {columns,rows,movingCells:cells,fixedCells}=game.layout,size=3,cell=size/columns,boardHeight=rows*cell;
+  const position=index=>new T.Vector3((index%columns-(columns-1)/2)*cell,((rows-1)/2-Math.floor(index/columns))*cell,0);
   const centers=cells.map(position),image=new Image(),texture=resources.own(new T.Texture(image));texture.colorSpace=T.SRGBColorSpace;
   let resolveReady,rejectReady;
   const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
   let textureReady=false,disposed=false,animating=false,dragging=null,committed=null,feedback={selected:null,move:null},display=model.parameters();
   image.onload=()=>{if(!disposed){textureReady=true;texture.needsUpdate=true;invalidate();resolveReady(true);}};
   image.onerror=()=>{if(!disposed)rejectReady(new Error('Не загрузилась картинка пазла. Повторите загрузку.'));};
-  image.src=globalThis.PhaseCubeEmbeddedAssets?.['assets/director-puzzle.png']||'assets/director-puzzle.png?v=picture1';
+  image.src=globalThis.PhaseCubeEmbeddedAssets?.['assets/director-puzzle.png']||'assets/director-puzzle.png?v=picture2';
   function material(color,extra={}){return resources.own(new T.MeshBasicMaterial({color,side:T.DoubleSide,...extra}));}
   function rect(w,h,color,z){const mesh=new T.Mesh(resources.own(new T.PlaneGeometry(w,h)),material(color));mesh.position.z=z;root.add(mesh);return mesh;}
   // The frame and exposed sockets belong to this single object, not a control panel.
-  rect(3.18,3.18,0x253c36,-.06);rect(3.10,3.10,0xd4b17a,-.05);rect(3.04,3.04,0x293c32,-.04);
+  rect(size+.18,boardHeight+.18,0x253c36,-.06);rect(size+.10,boardHeight+.10,0xd4b17a,-.05);rect(size+.04,boardHeight+.04,0x293c32,-.04);
   const artMaterial=material(0xffffff,{map:texture});
   function tile(index){
-    const geometry=resources.own(new T.PlaneGeometry(cell,cell)),uv=geometry.attributes.uv,col=index%3,row=Math.floor(index/3);
-    for(let i=0;i<uv.count;i++)uv.setXY(i,(col+uv.getX(i))/3,(2-row+uv.getY(i))/3);
+    const geometry=resources.own(new T.PlaneGeometry(cell,cell)),uv=geometry.attributes.uv,col=index%columns,row=Math.floor(index/columns);
+    for(let i=0;i<uv.count;i++)uv.setXY(i,(col+uv.getX(i))/columns,(rows-1-row+uv.getY(i))/rows);
     uv.needsUpdate=true;return new T.Mesh(geometry,artMaterial);
   }
-  for(let index=0;index<9;index++)if(!cells.includes(index)){const mesh=tile(index);mesh.position.copy(position(index));root.add(mesh);}
+  for(const index of fixedCells){const mesh=tile(index);mesh.position.copy(position(index));root.add(mesh);}
   const socketGeometry=resources.own(new T.PlaneGeometry(cell,cell)),socketMaterial=material(0x3c5147);
   centers.forEach(center=>{const mesh=new T.Mesh(socketGeometry,socketMaterial);mesh.position.copy(center);mesh.position.z=-.02;root.add(mesh);});
   const outlineGeometry=resources.own(new T.EdgesGeometry(resources.own(new T.PlaneGeometry(cell-.006,cell-.006))));
@@ -4687,15 +4732,15 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
     const group=new T.Group(),mesh=tile(index);mesh.userData.source=source;group.add(mesh);root.add(group);
     const shadow=new T.Mesh(resources.own(new T.PlaneGeometry(cell+.025,cell+.025)),material(0x152a23,{transparent:true,opacity:.28}));shadow.position.set(.018,-.025,-.012);group.add(shadow);
     const edge=new T.LineSegments(outlineGeometry,resources.own(new T.LineBasicMaterial({color:game.voices[source].color,transparent:true,opacity:.8})));edge.position.z=.018;group.add(edge);
-    const gripGeometry=resources.own(new T.RingGeometry(.022,.038,20)),gripMaterial=material(game.voices[source].color);
-    const grips=[[-.40,-.40],[.40,-.40],[.40,.40],[-.40,.40]].map(([x,y])=>{const g=new T.Mesh(gripGeometry,gripMaterial);g.position.set(x,y,.022);group.add(g);return g;});
+    const gripGeometry=resources.own(new T.RingGeometry(.022*cell,.038*cell,20)),gripMaterial=material(game.voices[source].color);
+    const grips=[[-.40,-.40],[.40,-.40],[.40,.40],[-.40,.40]].map(([x,y])=>{const g=new T.Mesh(gripGeometry,gripMaterial);g.position.set(x*cell,y*cell,.022);group.add(g);return g;});
     return{source,group,mesh,edge,shadow,grips};
   });
   const targetOutline=new T.LineSegments(outlineGeometry,resources.own(new T.LineBasicMaterial({color:0xe7bc67})));targetOutline.visible=false;targetOutline.position.z=.025;root.add(targetOutline);
   function style(){
     for(const p of display){const piece=pieces[p.source],active=p.key===feedback.selected||dragging?.source===p.source;
-      piece.edge.visible=active||p.source!==p.slot||Math.abs(p.phase%4)>1e-8;
-      piece.edge.material.opacity=active?1:.45;piece.grips.forEach(g=>{g.visible=active;});
+      piece.edge.visible=true;
+      piece.edge.material.opacity=active?1:p.source!==p.slot||Math.abs(p.phase%4)>1e-8?.50:.22;piece.grips.forEach(g=>{g.visible=active;});
       piece.shadow.visible=!!dragging&&dragging.source===p.source;
     }
   }
@@ -4713,13 +4758,13 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
     pickTargets:()=>pieces.map(p=>p.mesh),
     hit(intersection){
       const source=intersection.object.userData.source,p=display.find(p=>p.source===source),piece=pieces[source];
-      const local=piece.group.worldToLocal(intersection.point.clone()),rotate=Math.max(Math.abs(local.x),Math.abs(local.y))>.28;
+      const local=piece.group.worldToLocal(intersection.point.clone()),rotate=Math.max(Math.abs(local.x),Math.abs(local.y))>.28*cell;
       return{key:p.key,pieceId:source,kind:rotate?'rotation-handle':'piece',draggable:true,selectOnly:feedback.selected!==p.key,actionCenter:piece.group.getWorldPosition(new T.Vector3()),rotate};
     },
     locations(){root.updateMatrixWorld(true);return display.flatMap(p=>{
       const g=pieces[p.source].group;
       return[[0,0,'piece'],[.41,.20,'rotation-handle']].map(([x,y,kind])=>({key:p.key,pieceId:p.source,kind,draggable:true,
-        point:g.localToWorld(new T.Vector3(x,y,.03)),region:[[-.49,-.49],[.49,-.49],[.49,.49],[-.49,.49]].map(([x,y])=>g.localToWorld(new T.Vector3(x,y,.03)))}));
+        point:g.localToWorld(new T.Vector3(x*cell,y*cell,.03)),region:[[-.49,-.49],[.49,-.49],[.49,.49],[-.49,.49]].map(([x,y])=>g.localToWorld(new T.Vector3(x*cell,y*cell,.03)))}));
     });},
     feedback(value){feedback=value;style();},
     beginDrag(hit,world){
@@ -4732,14 +4777,14 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
     dragTo(world){
       if(!dragging||!world)return;const d=dragging,local=root.worldToLocal(world.clone());
       if(d.rotate){
-        const center=centers[d.slot],x=local.x-center.x,y=local.y-center.y;if(Math.hypot(x,y)<.08)return;
+        const center=centers[d.slot],x=local.x-center.x,y=local.y-center.y;if(Math.hypot(x,y)<.08*cell)return;
         const angle=Math.atan2(y,x),delta=Math.atan2(Math.sin(angle-d.angle),Math.cos(angle-d.angle));d.angle=angle;d.phase-=delta/(Math.PI/2);
         const values=model.parameters(d.before);values[d.slot].phase=d.phase;draw(values);pieces[d.source].group.position.z=.10;
         d.move=model.editMove(d.key,d.phase,d.before);onEditPreview(d.move,{kind:'piece-phase',key:d.key,phase:d.phase});
       }else{
         const destination=centers[d.slot].clone().add(local.clone().sub(d.start));pieces[d.source].group.position.copy(destination);pieces[d.source].group.position.z=.10;
-        const index=centers.findIndex(c=>Math.abs(c.x-destination.x)<.48&&Math.abs(c.y-destination.y)<.48);
-        const to=index>=0&&index!==d.slot?F.keys[index]:null;
+        const index=centers.findIndex(c=>Math.abs(c.x-destination.x)<.48*cell&&Math.abs(c.y-destination.y)<.48*cell);
+        const to=index>=0&&index!==d.slot?model.keys[index]:null;
         targetOutline.visible=!!to;if(to)targetOutline.position.set(centers[index].x,centers[index].y,.03);
         if(to!==d.to){d.to=to;d.move=to?model.swapMove(d.key,to,d.before):null;onEditPreview(d.move,to?{kind:'piece-swap',key:d.key,to}:null);}
       }
@@ -4755,7 +4800,7 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
       animating=true;
       const old=committed?.move===JSON.stringify(move)?committed:null;committed=null;
       const a=model.parameters(before),b=model.parameters(model.applyTo(before,move)),isSwap=typeof move==='string'?move.endsWith('x'):move.kind==='piece-swap';
-      const byA=snapshotBySource(a),byB=snapshotBySource(b),index=F.keys.indexOf(model.moveTarget(move));
+      const byA=snapshotBySource(a),byB=snapshotBySource(b),index=model.keys.indexOf(model.moveTarget(move));
       const startPositions=pieces.map(p=>p.group.position.clone());
       try{await tween('move',old?180:duration,t=>{
         if(isSwap){
@@ -4822,7 +4867,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/picture2';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -4832,7 +4877,7 @@ window.PhaseCubeCelebration=(()=>{
   let shuffle=null,shuffleAbort=null,playToken=0;
   let notice='',lastFrame=performance.now();
   const recorder=new PuzzleDiagnostics.Recorder({build,snapshot:reportSnapshot});
-  let orbit=null,rows=[],repl,soundReady,analysisData,lastDiagnostics=0;
+  let displayWindow=null,orbit=null,rows=[],repl,soundReady,analysisData,lastDiagnostics=0;
   const transport=new PhaseCubeTransport(strudel,{onChange:()=>updateUI(),onError:fail,outputGain:C.outputGain});
   const canMove=()=>!!model&&session.phase==='playing'&&transport.running&&!loading&&!starting&&!busy&&!seeking&&!transport.pending;
   const metadata=()=>({state:model.snapshot(),mode:'current',...mix()});
@@ -4864,7 +4909,9 @@ window.PhaseCubeCelebration=(()=>{
     if(!music||!model||!orbit)return;
     const state=heardState();rows=music.rows(state);
     const focus=control?.focusState(),forecast=canMove()?(focus?.point?music.preview(focus.point,state,rows,focus.move):focus?.move?music.predict(focus.move,state,rows):null):null;
-    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast,selectedKey:control?.selection()});
+    const cycle=transport.clock();displayWindow=music.displayWindow(cycle);
+    if(forecast)forecast.rows=music.displayRows(forecast.rows,cycle);
+    orbit.update({rows:music.displayRows(rows,cycle),target:music.displayRows(game.targetRows,cycle),phases:music.phases(state),pending:!!transport.pending,forecast,selectedKey:control?.selection()});
   }
   function updateUI(){
     let won=false;
@@ -4968,7 +5015,7 @@ window.PhaseCubeCelebration=(()=>{
     if(isUndo)move=model.inverse(model.history[model.history.length-1].move);
     const token=playToken,before=model.snapshot(),forecast=music.predict(move,before);
     recorder.record('move.begin',{move,isUndo,before});
-    orbit.commit(forecast.rows);clearHint();model.select(model.moveTarget(move));busy=true;
+    orbit.commit(music.displayRows(forecast.rows,transport.clock()));clearHint();model.select(model.moveTarget(move));busy=true;
     try{
       const animation=control?.animate(move,before);
       if(isUndo)model.undo();else model.apply(move);
@@ -5031,6 +5078,7 @@ window.PhaseCubeCelebration=(()=>{
     presentation?.frame(now);
     if(song&&model&&orbit){
       const cycle=transport.clock(),phase=((cycle/song.periodBars)%1+1)%1;
+      if(displayWindow!==music.displayWindow(cycle))updateRows();
       player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
       orbit.frame(phase,transport.running,now);
     }

@@ -1,76 +1,61 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const F=require('./puzzles/scratch/model.js'),Binding=require('./puzzles/scratch/binding.js'),Contract=require('./puzzle-contract.js'),Projection=require('./music-projection.js');
+const F=require('./puzzles/scratch/model.js'),Binding=require('./puzzles/scratch/binding.js'),Partition=require('./puzzles/scratch/partition.js'),Contract=require('./puzzle-contract.js'),Projection=require('./music-projection.js');
 const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-loader.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
-test('picture puzzle: complete graph, periods, noncommutation, shortest hints and bounded per-riff fields',()=>{
-  const m=new F.Model();assert.equal(F.states().size,384);
-  assert.notEqual(m.applyTo(m.applyTo(0,'A'),'Ax'),m.applyTo(m.applyTo(0,'Ax'),'A'));
-  const minDerivative=1-F.timingDepth*.48*4;
-  assert(minDerivative>0,'The per-riff time map stays increasing');
-  for(const state of m.allStates()){
-    for(const move of m.legalMoves(state)){
-      const next=m.applyTo(state,move);assert.equal(m.applyTo(next,m.inverse(move)),state);
-      let cycle=state;for(let i=0;i<(move.endsWith('x')?2:4);i++)cycle=m.applyTo(cycle,move);assert.equal(cycle,state);
-    }
-    for(const p of F.parameters(state))for(const phase of [p.phase,p.phase+.37,p.phase+4])for(const at of [0,.07,.25,.49,.83,1]){
-      const piece={...p,phase},f=F.field(piece,at);assert(f.gain>=.424-1e-8&&f.gain<=1.576+1e-8);assert(f.derivative>=minDerivative-1e-8);close(F.field(piece,at+1).time,f.time+1);
-    }
-    m.restore(state);let n=0;const distance=m.distance();
-    while(!m.solved()){const before=m.distance(),hint=m.hint();m.apply(hint);assert.equal(m.distance(),before-1);assert(++n<=8);}
-    assert.equal(n,distance);
+const nativeKey=h=>JSON.stringify([Math.round(Number(h.whole.begin)*1e8),Math.round(Number(h.duration)*1e8),Object.fromEntries(Object.entries(h.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)))]);
+test('dynamic image puzzle: reversible periods, hints, arbitrary swaps, snapshots and size-independent field bounds',()=>{
+ for(const count of [1,3,13,14,19,30]){
+  const m=new F.Model({count}),goal=m.snapshot();assert(m.solved());
+  for(let i=0;i<30;i++)m.shuffle();const scrambled=m.snapshot();m.apply(m.legalMoves()[0]);m.undo();assert.deepEqual(m.snapshot(),scrambled);
+  let n=0;while(!m.solved()){m.apply(m.hint());assert(++n<=30);}
+  for(const move of m.legalMoves()){
+    const next=m.applyTo(goal,move);assert.deepEqual(m.applyTo(next,m.inverse(move)),goal);
+    let cycle=goal;for(let i=0;i<(move.endsWith('x')?2:4);i++)cycle=m.applyTo(cycle,move);assert.deepEqual(cycle,goal);
   }
-});
-test('scratch drag: one guarded undoable move; full turns are aliases and stale gestures fail',()=>{
-  const m=new F.Model();assert.equal(m.editMove('A',4),null);assert.equal(m.editMove('A',-4),null);
-  const move=m.editMove('A',1.2);assert(m.validMove(move));m.apply(move);assert.equal(m.history.length,1);assert(!m.validMove(move));
-  const after=m.snapshot(),inverse=m.undo();assert.equal(m.snapshot(),0);assert.equal(m.applyTo(after,inverse),0);
-  assert.throws(()=>m.applyTo(after,move),/Устаревшее/);
-  const swap=m.swapMove('A','C');assert(m.validMove(swap));m.apply(swap);const swapState=m.snapshot();m.undo();assert.equal(m.snapshot(),0);assert.equal(m.applyTo(swapState,m.inverse(swap)),0);
-  assert.equal(Contract.inspect(registry.get('scratch')).model.count,3);assert.equal(registry.get('scratch').manifest.fragments,3);
-  assert.throws(()=>Contract.inspect({...registry.get('scratch'),manifest:{...registry.get('scratch').manifest,controls:6}}),/управления/);
-});
-test('scratch on every score: 384 distinguishable states, original target, exact native gates, unchanged accompaniment, generic previews and cache',async()=>{
-  const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},loader=new Loader(S,{palette,registry,library,storage});
-  const report={schema:'fourier-scratching-contracts/1',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
-  for(const songId of L.files){
-    const p=await loader.prepareSession({songId,puzzleId:'scratch'}),m=p.model,music=new Music(S,p),game=p.fragments;
-    assert(Projection.validate(p.binding,p.module.manifest));assert.equal(p.diagnostics.coverage,'complete');assert.equal(p.diagnostics.distinctPatterns,384);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);
-    assert.equal(norm(music.rows(0)),norm(game.targetRows));assert(music.shifted(0).every((pattern,id)=>pattern===game.basePatterns[id]));
-    for(const state of m.allStates()){
-      const rows=music.rows(state);
-      rows.forEach((row,id)=>{
-        assert.equal(row.length,game.targetRows[id].length);
-        const piece=F.parameters(state).find(p=>p.source===id);
-        if(piece.slot===id&&piece.phase===0){assert.equal(row,game.targetRows[id]);assert.equal(music.shifted(state)[id],game.basePatterns[id]);return;}
-        for(const event of row){const source=game.targetRows[id].find(e=>e.id===event.id);
-          assert(event.start>=0&&event.start<1&&event.duration>0);assert.equal(event.pitch,source.pitch);assert.equal(event.value.note,source.value.note);assert.equal(event.value.s,source.value.s);
-          close(event.value.postgain??1,(source.value.postgain??1)*(event.volume??1));
-          if(typeof source.value.duration==='number')close(event.value.duration/source.value.duration,event.duration/source.duration);
-        }
-      });
-      for(const key of F.keys){
-        const id=F.parameters(state).find(p=>p.key===key).source;
-        assert.deepEqual(music.predict(key,state,rows).changed,[id],'Rotating a piece only modifies its own riff');
-        const swap=music.predict(key+'x',state,rows),other=F.parameters(state)[(F.keys.indexOf(key)+1)%3].source;
-        assert.deepEqual(swap.changed,[id,other].sort(),'Swapping affects exactly the two transported riffs');
-      }
-    }
-    for(const state of [1,19,127,255,383])music.shifted(state).forEach((pattern,id)=>{
-      const native=L.eventsOf(pattern,game.periodBars).sort((a,b)=>a.start-b.start||a.duration-b.duration),symbolic=music.rows(state)[id].slice().sort((a,b)=>a.start-b.start||a.duration-b.duration);
-      assert.equal(native.length,symbolic.length);
-      native.forEach((event,i)=>{close(event.start,symbolic[i].start);close(event.duration,symbolic[i].duration);assert.deepEqual(event.value,symbolic[i].value);});
-    });
-    const a=music.preview({kind:'piece-phase',key:'A',phase:.12},0),b=music.preview({kind:'piece-phase',key:'A',phase:.19},0);
-    assert(a.continuous&&b.continuous);assert.notEqual(norm(a.rows),norm(b.rows));assert.deepEqual(a.changed,[0]);assert.equal(m.snapshot(),0);assert.equal(m.history.length,0);
-    const swapPreview=music.preview({kind:'piece-swap',key:'A',to:'C'},0);assert.deepEqual(swapPreview.changed,[0,2]);
-    const periodic=music.preview({kind:'piece-phase',key:'A',phase:4},0);assert.deepEqual(periodic.changed,[]);
-    assert(!Binding.validate({...p.binding,algorithm:'fourier-scratch/1'},p.module.manifest));
-    const again=await new Loader(S,{palette,registry,library,storage}).prepareSession({songId,puzzleId:'scratch'});assert.equal(again.diagnostics.cache,'hit');
-    report.pairs.push({songId,...p.diagnostics});
+  if(count>1){const move=m.swapMove(m.keys[0],m.keys.at(-1));m.apply(move);assert.deepEqual(m.applyTo(m.snapshot(),m.inverse(move)),goal);assert.deepEqual(m.actions().at(-1).move,m.hint());m.apply(m.hint());assert(m.solved());}
+  const halfTurn=m.editMove(m.keys[0],2);m.apply(halfTurn);m.apply(m.hint());m.apply(m.hint());assert(m.solved());
+  m.restore(scrambled);n=0;while(!m.solved()){m.apply(m.hint());assert(++n<4*count*count);}
+  for(let source=0;source<count;source++)for(let slot=0;slot<count;slot++)for(const phase of [0,.37,1,2,3,4])for(const t of [.013,.25,.49,.83]){
+    const piece={source,slot,phase},f=F.field(piece,t);assert(f.gain>=.424-1e-8&&f.gain<=1.576+1e-8);assert(f.derivative>=.664-1e-8);close(F.field(piece,t+1).time,f.time+1);
   }
-  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
-  await assert.rejects(()=>cancelled.prepareSession({songId:L.files[0],puzzleId:'scratch',signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
-  fs.mkdirSync(path.join(__dirname,'qa/scratch'),{recursive:true});fs.writeFileSync(path.join(__dirname,'qa/scratch/contracts-report.json'),JSON.stringify(report,null,2)+'\n');
+ }
+ const m=new F.Model(),goal=m.snapshot();assert.equal(m.editMove('A',4),null);const move=m.editMove('A',1.2);m.apply(move);assert(!m.validMove(move));assert.throws(()=>m.applyTo(m.snapshot(),move),/Устаревшее/);m.undo();assert.deepEqual(m.snapshot(),goal);
+ assert.notDeepEqual(m.applyTo(m.applyTo(goal,'A'),'Ax'),m.applyTo(m.applyTo(goal,'Ax'),'A'));
+ for(const n of [1,3,13,14,17,30]){const l=Partition.layout(n);assert.equal(l.movingCells.length,n);assert.equal(l.movingCells.length+l.fixedCells.length,l.rows*l.columns);assert.equal(new Set([...l.movingCells,...l.fixedCells]).size,l.rows*l.columns);}
+});
+test('every instrument moves: full native arrangement, no background duplication, per-piece audit, local previews and cache',async()=>{
+ const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},loader=new Loader(S,{palette,registry,library,storage});
+ const report={schema:'scratch-instrument-contracts/2',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
+ for(const [songId,count]of [['turkish-circuit',13],['steel-shift',14],['elise-after-hours',14]]){
+  const p=await loader.prepareSession({songId,puzzleId:'scratch'}),m=p.model,music=new Music(S,p),game=p.fragments,goal=m.initialState();
+  assert(Projection.validate(p.binding,p.module.manifest));assert.equal(m.count,count);assert.equal(game.count,count);assert.equal(p.diagnostics.pieceStates,4*count*count);assert.equal(p.diagnostics.silentMoves,0);
+  assert.equal(game.layout.columns,4);assert.equal(game.layout.rows,4);assert.equal(game.layout.fixedCells.length,16-count);
+  const original=await library.load(songId);assert.notEqual(p.composition,original);assert.equal(L.attacks(p.composition.backing,0,original.bars).length,0);assert(L.attacks(original.backing,0,original.bars).length>0);
+  assert.equal(game.targetRows.flat().length,original.stats.attacks);
+  const assembled=L.attacks(S.stack(p.composition.backing,music.pattern(goal)),0,original.bars).map(nativeKey).sort();
+  assert.deepEqual(assembled,L.attacks(original.pattern,0,original.bars).map(nativeKey).sort(),'Preserve every authored event, gate, instrument and dynamic');
+  assert.equal(norm(music.rows(goal)),norm(game.targetRows));assert(music.shifted(goal).every((pattern,id)=>pattern===game.basePatterns[id]));
+  const probes=Contract.probes(p.puzzle,{stateLimit:24,edgeLimit:64});
+  for(const {state}of probes.states){
+   const rows=music.rows(state);
+   rows.forEach((row,id)=>{assert.equal(row.length,game.targetRows[id].length);const source=new Map(game.targetRows[id].map(e=>[e.id,e]));for(const e of row){const original=source.get(e.id);assert(e.duration>0&&e.start>=0&&e.start<1);assert.equal(e.pitch,original.pitch);assert.equal(e.value.s,original.value.s);assert.equal(e.value.note,original.value.note);close(e.value.postgain??1,(original.value.postgain??1)*(e.volume??1));}});
+  }
+  for(const key of m.keys){const id=m.keys.indexOf(key);assert.deepEqual(music.predict(key,goal).changed,[id]);const preview=music.preview({kind:'piece-phase',key,phase:.12},goal);assert(preview.continuous);assert.deepEqual(preview.changed,[id]);}
+  const state=m.applyTo(m.applyTo(goal,'A'),'Ax');
+  music.shifted(state).forEach((pattern,id)=>{const native=L.eventsOf(pattern,game.periodBars).sort((a,b)=>a.start-b.start||a.duration-b.duration),rows=music.rows(state)[id].slice().sort((a,b)=>a.start-b.start||a.duration-b.duration);assert.equal(native.length,rows.length);native.forEach((e,i)=>{close(e.start,rows[i].start);close(e.duration,rows[i].duration);assert.deepEqual(e.value,rows[i].value);});});
+  assert.notEqual(norm(music.preview({kind:'piece-phase',key:'A',phase:.12},goal).rows),norm(music.preview({kind:'piece-phase',key:'A',phase:.19},goal).rows));
+  assert.deepEqual(music.preview({kind:'piece-phase',key:'A',phase:4},goal).changed,[]);
+  assert.deepEqual(music.preview({kind:'piece-swap',key:'A',to:m.keys.at(-1)},goal).changed,[0,count-1]);
+  for(const bar of [0,4,16,original.bars-4,original.bars]){
+    const rows=music.displayRows(game.targetRows,bar);assert.equal(rows,music.displayRows(game.targetRows,bar));assert(rows.flat().every(e=>e.start>=-1e-8&&e.start<1));
+    const window=bar%original.bars,expected=game.targetRows.flat().filter(e=>e.start*original.bars>=window-1e-8&&e.start*original.bars<window+4-1e-8).length;assert.equal(rows.flat().length,expected);
+  }
+  assert(!Binding.validate({...p.binding,algorithm:'spectral-riff/1'},p.module.manifest));
+  const cached=await new Loader(S,{palette,registry,library,storage}).prepareSession({songId,puzzleId:'scratch'});assert.equal(cached.diagnostics.cache,'hit');
+  report.pairs.push({songId,count,events:assembled.length,layout:game.layout,...p.diagnostics});
+ }
+ const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});await assert.rejects(()=>cancelled.prepareSession({songId:L.files[0],puzzleId:'scratch',signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
+ fs.writeFileSync(path.join(__dirname,'qa/scratch/contracts-report.json'),JSON.stringify(report,null,2)+'\n');
 });
