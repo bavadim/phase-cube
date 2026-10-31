@@ -2,10 +2,12 @@
 window.PuzzleTurnControls=class{
   constructor(host,{model,onMove,onPreview}){
     this.model=model;this.host=host;this.hinted=null;
+    host.setAttribute('aria-label',model.operationLabel?'Операции выбранной связи':'Поворот выбранного блока');
     const hint=document.getElementById('hint');hint.remove();
     host.innerHTML='<button id="turn-left" class="turn-button" aria-label="Поворот против часовой стрелки">↶</button><span class="hint-slot"></span><button id="turn-right" class="turn-button" aria-label="Поворот по часовой стрелке">↷</button>';
     host.querySelector('.hint-slot').append(hint);
     this.buttons=[host.querySelector('#turn-left'),host.querySelector('#turn-right')];
+    if(model.operationLabel){this.caption=document.createElement('div');this.caption.className='puzzle-operation';this.caption.setAttribute('role','status');host.prepend(this.caption);}
     this.buttons.forEach((b,i)=>{
       const move=()=>model.moveFor(model.selected,i===0);
       b.onclick=()=>onMove(move());
@@ -14,6 +16,7 @@ window.PuzzleTurnControls=class{
     });
   }
   update(disabled){
+    if(this.caption){const label=this.model.operationLabel();if(this.caption.textContent!==label)this.caption.textContent=label;}
     this.buttons.forEach((b,i)=>{b.disabled=disabled;b.classList.toggle('hinted',this.hinted===this.model.moveFor(this.model.selected,i===0));
       b.setAttribute('aria-label',this.model.actionLabel?.(this.model.selected,i===0)||this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
   }

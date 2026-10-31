@@ -4,9 +4,9 @@
   'use strict';
   class Generator{
     constructor(seed=1730){this.seed=seed>>>0;this.last=null;this.seen=new Set();}
-    next(model){
+    next(model,{moves=model.legalMoves(model.snapshot())}={}){
       const state=model.snapshot();this.seen.add(JSON.stringify(state));
-      let candidates=model.legalMoves(state).map(move=>({move,state:model.applyTo(state,move)})).filter(e=>!model.solved(e.state));
+      let candidates=moves.map(move=>({move,state:model.applyTo(state,move)})).filter(e=>!model.solved(e.state));
       if(!candidates.length)throw new Error('Нет хода для перемешивания головоломки');
       // Finite models know their exact distance; keep the short introduction
       // moving away from the goal. Beyond their diameter, prefer new states.

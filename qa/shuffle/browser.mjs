@@ -4,7 +4,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {openBrowser,root} from '../modules/browser.mjs';
-import {settled,select,turnOnField} from '../modules/field-input.mjs';
+import {settled,select,turnPuzzle} from '../modules/field-input.mjs';
 const runtime=await openBrowser(),report={schema:'puzzle-shuffle/1',engine:runtime.engine,physicalDevice:false,cases:[],errors:[]};
 const touch=runtime.engine==='webkit',width=touch?390:1280,height=touch?844:800;
 const press=(page,id)=>touch?page.locator(id).tap():page.locator(id).click();
@@ -56,7 +56,7 @@ try{
   const key=await p.evaluate(()=>{
    const d=phaseCubeApp.diagnostics();return d.puzzleId==='rubik'?phaseCubeApp.getPresentation().locations()[0].key:'A';
   });
-  await select(p,key,touch);await turnOnField(p,key,false,touch);await press(p,'#undo');await settled(p);
+  await select(p,key,touch);await turnPuzzle(p,key,false,touch);await press(p,'#undo');await settled(p);
   assert.deepEqual(await p.evaluate(()=>phaseCubeApp.state()),before);
   let steps=0;
   while(await p.evaluate(()=>phaseCubeApp.diagnostics().sessionPhase!=='won')){

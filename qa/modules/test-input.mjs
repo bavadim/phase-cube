@@ -4,7 +4,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {openBrowser,root} from './browser.mjs';
-import {settled,targets,selectionPoint,actionPoint,select,turnOnField} from './field-input.mjs';
+import {settled,targets,selectionPoint,actionPoint,select,turnPuzzle} from './field-input.mjs';
 const runtime=await openBrowser(),report={schema:'puzzle-input/2',cases:[],errors:[],physicalDevice:false};
 const geometry=page=>page.evaluate(()=>JSON.stringify(phaseCubeApp.getPresentation().locations()));
 const state=page=>page.evaluate(()=>({state:phaseCubeApp.state(),moves:phaseCubeApp.getPuzzle().history.length,selected:phaseCubeApp.diagnostics().selectedFace}));
@@ -33,22 +33,22 @@ try{
    const initial=await state(page);
    // Even the default selected face/block must be armed by the first click.
    await select(page,initial.selected,touch);
-   await turnOnField(page,initial.selected,false,touch);await turnOnField(page,initial.selected,true,touch);entry.turns+=2;
+   await turnPuzzle(page,initial.selected,false,touch);await turnPuzzle(page,initial.selected,true,touch);entry.turns+=2;
    assert.deepEqual((await state(page)).state,initial.state,'Opposite clicks restore the original position');
    const keys=id==='rubik'?(await targets(page)).map(t=>t.key):['B','A'];
    for(const key of keys.filter(k=>k!==initial.selected)){
     await select(page,key,touch);
     const before=(await state(page)).state;
-    await turnOnField(page,key,true,touch);await turnOnField(page,key,false,touch);entry.turns+=2;
+    await turnPuzzle(page,key,true,touch);await turnPuzzle(page,key,false,touch);entry.turns+=2;
     assert.deepEqual((await state(page)).state,before);
    }
    if(id==='rubik'){
     const before=await state(page),projection=await geometry(page),p=await selectionPoint(page,before.selected);
     if(touch){
      await gesture(page,ctx,p,0,true,'touchCancel');assert.deepEqual(await state(page),before,'Cancellation must not turn/select');
-     await turnOnField(page,before.selected,false,true,p=>gesture(page,ctx,p,8,true));
+     await turnPuzzle(page,before.selected,false,true,p=>gesture(page,ctx,p,8,true));
      assert.equal(await geometry(page),projection,'Small finger drift must not rotate the camera');
-     await turnOnField(page,before.selected,true,true);entry.turns+=2;entry.fingerDrift=true;entry.cancel=true;
+     await turnPuzzle(page,before.selected,true,true);entry.turns+=2;entry.fingerDrift=true;entry.cancel=true;
     }
     const preDrag=await state(page);
     await gesture(page,ctx,p,45,touch);
@@ -56,12 +56,12 @@ try{
     assert.deepEqual(await state(page),preDrag,'Drag must not turn pieces or select a face');entry.drag=true;
     // Validate direction using the new projected halves after camera rotation.
     const selected=(await state(page)).selected,other=(await targets(page)).find(t=>t.key!==selected).key;
-    await select(page,other,touch);await turnOnField(page,other,false,touch);await turnOnField(page,other,true,touch);entry.turns+=2;
+    await select(page,other,touch);await turnPuzzle(page,other,false,touch);await turnPuzzle(page,other,true,touch);entry.turns+=2;
    }else{
     // The shared middle column belongs to the selected block, without toggling it.
     for(const key of ['B','A']){
      if((await state(page)).selected!==key)await select(page,key,touch);
-     const middle=key==='B';await turnOnField(page,key,middle,touch);await turnOnField(page,key,!middle,touch);entry.turns+=2;
+     const middle=key==='B';await turnPuzzle(page,key,middle,touch);await turnPuzzle(page,key,!middle,touch);entry.turns+=2;
      assert.equal((await state(page)).selected,key,'Shared tiles preserve selected block');
     }
     entry.sharedColumn=true;

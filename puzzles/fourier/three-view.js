@@ -1,57 +1,96 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Fourier contour and unitary coefficient rotors; all input stays in PuzzleControl. */
+/* Four complex coefficients as selectable points; operations live in the dock. */
 window.FourierView={create({scene,resources,model,tween}){
   const T=THREE,F=FourierModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.z=6;camera.lookAt(0,0,0);
-  const padGeometry=resources.own(new T.CircleGeometry(1.12,80));
-  const pad=new T.Mesh(padGeometry,resources.material(0xe1e8d6));pad.position.set(0,.45,-.08);root.add(pad);
-  const energy=Math.sqrt(F.reference.flat().reduce((s,x)=>s+x*x,0)*2),count=160;
-  function curve(color,dashed=false){
-    const geometry=resources.own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
-    const material=resources.own(dashed?new T.LineDashedMaterial({color,dashSize:.045,gapSize:.035}):new T.LineBasicMaterial({color}));
-    const line=new T.LineLoop(geometry,material);root.add(line);return line;
+  const scale=2.15,colors=[0x32746b,0xba703e,0x646ca1,0xa64f70],steps=40;
+  const paper=new T.Mesh(resources.own(new T.CircleGeometry(1.5,80)),resources.own(new T.MeshBasicMaterial({color:0xedeee2})));paper.position.z=-.08;root.add(paper);
+  function line(count,color,{dashed=false,opacity=1}={}){
+    const g=resources.own(new T.BufferGeometry());g.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
+    const m=resources.own(dashed?new T.LineDashedMaterial({color,dashSize:.045,gapSize:.035,transparent:true,opacity}):new T.LineBasicMaterial({color,transparent:true,opacity}));
+    const mesh=new T.Line(g,m);root.add(mesh);return mesh;
   }
-  const target=curve(0x80958a,true),current=curve(theme.accent);
-  function contour(line,coefficients){
-    const attr=line.geometry.attributes.position;
-    for(let j=0;j<count;j++){
-      const t=j/count,a=t*Math.PI*2,value=FourierBinding.field(coefficients,t),r=.78+.20*value/energy;
-      attr.setXYZ(j,Math.sin(a)*r,.45+Math.cos(a)*r,.04);
-    }
-    attr.needsUpdate=true;line.geometry.computeBoundingSphere();line.computeLineDistances();
+  function plot(mesh,points,z=0){
+    points.forEach((p,i)=>mesh.geometry.attributes.position.setXYZ(i,p[0],p[1],z));
+    mesh.geometry.attributes.position.needsUpdate=true;mesh.geometry.computeBoundingSphere();mesh.computeLineDistances();
   }
-  contour(target,F.reference);
-  const disk=resources.own(new T.CylinderGeometry(.42,.42,.09,40));disk.rotateX(Math.PI/2);
-  const hitGeometry=resources.own(new T.BoxGeometry(1.05,1.05,.15)),hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
-  const sealHit=new T.Mesh(padGeometry,hitMaterial);sealHit.position.copy(pad.position);root.add(sealHit);
-  const controls=model.choices().map((choice,i)=>{
-    const group=new T.Group();group.position.set((i===2?0:i===0?-1.02:1.02),-.95,0);root.add(group);
-    const material=resources.material(theme.paper),body=new T.Mesh(disk,material);group.add(body);
-    const ring=resources.stroke(Array.from({length:48},(_,j)=>{const a=j*Math.PI/24;return[Math.cos(a)*.40,Math.sin(a)*.40,.06];}),{radius:.017,closed:true});group.add(ring);
-    const label=new T.Mesh(resources.own(new T.PlaneGeometry(.46,.46)),resources.own(new T.MeshBasicMaterial({map:resources.label('#fcfaf2',i===2?'↔':i===0?'C₁':'C₂')})));label.position.z=.055;group.add(label);
-    const needle=resources.stroke([[0,0,.085],[.35,0,.085]],{radius:.022});needle.visible=i!==2;group.add(needle);
-    const dot=new T.Mesh(resources.own(new T.SphereGeometry(.034,8,6)),resources.own(new T.MeshBasicMaterial({color:theme.hover})));dot.visible=i!==2;group.add(dot);
-    if(i!==2){const c=F.reference[i];dot.position.set(c[0]*.42,c[1]*.42,.095);}
-    const hit=new T.Mesh(hitGeometry,hitMaterial);hit.userData.key=choice.key;group.add(hit);return{key:choice.key,group,hit,ring,material,needle,index:i};
+  const circle=line(81,0xc4cfbb,{opacity:.8});plot(circle,Array.from({length:81},(_,i)=>[1.33*Math.cos(i*Math.PI/40),1.33*Math.sin(i*Math.PI/40)]),-.03);
+  const xAxis=line(2,0xc4cfbb),yAxis=line(2,0xc4cfbb);plot(xAxis,[[-1.45,0],[1.45,0]],-.025);plot(yAxis,[[0,-1.45],[0,1.45]],-.025);
+  const connection=line(2,theme.accent),guides=[0,1].map(()=>line(2,theme.accent,{dashed:true,opacity:.35}));
+  const trails=[0,1].map(()=>line(steps+1,theme.accent,{dashed:true,opacity:.7}));
+  const headGeometry=resources.own(new T.ConeGeometry(.045,.11,8));
+  const heads=[0,1].map(()=>{const mesh=new T.Mesh(headGeometry,resources.own(new T.MeshBasicMaterial()));root.add(mesh);return mesh;});
+  const ringGeometry=resources.own(new T.RingGeometry(.17,.185,48)),dotGeometry=resources.own(new T.CircleGeometry(.14,40));
+  const haloGeometry=resources.own(new T.RingGeometry(.205,.225,48)),hitGeometry=resources.own(new T.CircleGeometry(1,40));
+  const hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
+  function numeral(number,color){
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.font='700 78px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,64,66);
+    const map=resources.own(new T.CanvasTexture(canvas));map.colorSpace=T.SRGBColorSpace;
+    return new T.Mesh(resources.own(new T.PlaneGeometry(.28,.28)),resources.own(new T.MeshBasicMaterial({map,color,transparent:true,depthWrite:false})));
+  }
+  const points=model.choices().map((choice,i)=>{
+    const group=new T.Group(),goal=new T.Group();root.add(goal,group);
+    const material=resources.own(new T.MeshBasicMaterial({color:colors[i]}));
+    const marker=new T.Group();marker.add(new T.Mesh(dotGeometry,material));
+    const label=numeral(i+1,0xffffff);label.position.z=.02;marker.add(label);group.add(marker);
+    const halo=new T.Mesh(haloGeometry,resources.own(new T.MeshBasicMaterial({color:theme.accent,transparent:true})));halo.position.z=.01;group.add(halo);
+    goal.position.set(F.reference[i][0]*scale,F.reference[i][1]*scale,.06);
+    goal.add(new T.Mesh(ringGeometry,material));const targetLabel=numeral(i+1,colors[i]),r=Math.hypot(...F.reference[i]);
+    targetLabel.position.set(.27*F.reference[i][0]/r,.27*F.reference[i][1]/r,.005);goal.add(targetLabel);
+    const hit=new T.Mesh(hitGeometry,hitMaterial);hit.position.z=.08;group.add(hit);
+    return{key:choice.key,index:i,group,marker,goal,targetLabel,halo,hit};
   });
-  const arrows=[false,true].map(inverse=>{const a=resources.turnArrow(inverse);a.scale.setScalar(.5);a.position.z=.11;return a;});
-  let feedback={selected:model.selected,move:null},hover=null,animating=false,disposed=false;
+  let feedback={selected:model.selected,move:null},hover=null,animating=false,disposed=false,animationFrom=null,animationMove=null,display=model.coefficients(),previewKey=null;
   function refresh(){
-    for(const c of controls){c.ring.visible=c.key===feedback.selected||c.key===hover;c.ring.material.color.setHex(c.key===feedback.selected?theme.accent:theme.hover);}
-    arrows.forEach((arrow,i)=>{arrow.visible=!!feedback.move&&feedback.move.endsWith("'")===!!i;if(feedback.move)controls.find(c=>c.key===model.moveTarget(feedback.move)).group.add(arrow);});
+    const selected=F.keys.indexOf(feedback.selected),pair=model.pair(feedback.selected);
+    for(const p of points){
+      p.halo.visible=p.index===selected||p.index===pair[1]||p.key===hover;
+      p.halo.material.opacity=p.index===selected?1:p.key===hover ? .75 : .4;
+      const z=display[p.index];p.targetLabel.visible=z.some((v,j)=>Math.abs(v-F.reference[p.index][j])>1e-7);
+    }
+    const [a,b]=pair;plot(connection,[display[a].map(v=>v*scale),display[b].map(v=>v*scale)],.04);
+    pair.forEach((id,i)=>{guides[i].material.color.setHex(colors[id]);plot(guides[i],[display[id].map(v=>v*scale),F.reference[id].map(v=>v*scale)],.035);});
+    const move=animating?animationMove:feedback.move,from=animating?animationFrom:model.snapshot();
+    const nextKey=move?from+':'+move:null;
+    trails.forEach((mesh,i)=>{
+      mesh.visible=heads[i].visible=!!move;
+      if(move&&nextKey!==previewKey){
+        const id=model.pair(model.moveTarget(move))[i],path=Array.from({length:steps+1},(_,k)=>F.interpolate(from,move,k/steps)[id].map(v=>v*scale));
+        mesh.material.color.setHex(colors[id]);plot(mesh,path,.045);
+        const end=new T.Vector3(...path.at(-1),.05),previous=new T.Vector3(...path.at(-2),.05),direction=end.clone().sub(previous).normalize();
+        heads[i].material.color.setHex(colors[id]);heads[i].position.copy(end.addScaledVector(direction,-.055));heads[i].quaternion.setFromUnitVectors(new T.Vector3(0,1,0),direction);
+      }
+    });
+    previewKey=nextKey;
   }
   function draw(coefficients){
-    contour(current,coefficients);
-    controls.slice(0,2).forEach((c,i)=>{const z=coefficients[i];c.needle.rotation.z=Math.atan2(z[1],z[0]);c.needle.scale.x=Math.hypot(...z)/Math.sqrt(energy*energy/2);});refresh();
+    display=coefficients;points.forEach(p=>p.group.position.set(coefficients[p.index][0]*scale,coefficients[p.index][1]*scale,.10));refresh();
   }
   function sync(){if(!animating&&!disposed)draw(model.coefficients());}
-  const view={camera,sync,resize(aspect){camera.left=-1.9*aspect;camera.right=1.9*aspect;},dispose(){disposed=true;},
-    pickTargets:()=>[...controls.map(c=>c.hit),sealHit],
-    hit(intersection){const key=intersection.object.userData.key||model.selected,c=controls.find(c=>c.key===key);return{key,actionCenter:(intersection.object===sealHit?sealHit:c.group).getWorldPosition(new T.Vector3())};},
-    locations(){root.updateMatrixWorld(true);return[...controls.map(c=>({key:c.key,kind:'control',point:c.group.getWorldPosition(new T.Vector3()),region:[[-.525,-.525],[.525,-.525],[.525,.525],[-.525,.525]].map(([x,y])=>c.group.localToWorld(new T.Vector3(x,y,.075)))})),
-      {key:model.selected,kind:'seal',point:sealHit.getWorldPosition(new T.Vector3()),region:[[-.78,-.78],[.78,-.78],[.78,.78],[-.78,.78]].map(([x,y])=>sealHit.localToWorld(new T.Vector3(x,y,0)))}];},
+  const view={
+    camera,sync,dispose(){disposed=true;},
+    resize(aspect,width,height){
+      camera.left=-1.9*aspect;camera.right=1.9*aspect;
+      const unit=Math.max(1,14*3.8/(height*.14)),hit=Math.max(.25,23*3.8/height);
+      points.forEach(p=>{p.marker.scale.setScalar(unit);p.halo.scale.setScalar(unit);p.goal.scale.setScalar(unit);p.hit.scale.setScalar(hit);});
+    },
+    pickTargets:()=>points.map(p=>p.hit),
+    hit(intersection){
+      // Generous hit disks can overlap on phones; select the nearest visible
+      // centre rather than the first mesh in the raycaster's equal-depth list.
+      const at=root.worldToLocal(intersection.point.clone());
+      const p=points.reduce((best,p)=>p.group.position.distanceToSquared(at)<best.group.position.distanceToSquared(at)?p:best);
+      return{key:p.key,pieceId:p.index,selectOnly:true};
+    },
+    locations(){root.updateMatrixWorld(true);return points.map(p=>({key:p.key,kind:'point',selectOnly:true,pieceId:p.index,
+      point:p.group.getWorldPosition(new T.Vector3()),region:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>p.hit.localToWorld(new T.Vector3(x,y,0)))}));},
     feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
-    async animate(move,before,{duration=420}={}){animating=true;try{await tween('move',duration,t=>draw(F.interpolate(before,move,t)));}finally{animating=false;sync();}}
+    async animate(move,before,{duration=360}={}){
+      animating=true;animationFrom=before;animationMove=move;
+      try{await tween('move',duration,t=>draw(F.interpolate(before,move,t)));}
+      finally{animating=false;animationFrom=null;animationMove=null;sync();}
+    }
   };
   sync();return view;
 }};

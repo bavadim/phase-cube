@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/input1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/points1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -179,7 +179,9 @@
     const ctx=strudel.getAudioContext();
     ctx.addEventListener('statechange',()=>{
       recorder.record('audio.state',{state:ctx.state,wanted:transport.want,starting});
-      if(ctx.state!=='running'&&transport.want&&!starting)pauseSession('Звук был прерван. Нажмите «Продолжить».');
+      // seek/start can briefly want playback while resume() is still pending.
+      // Only a context that had actually started is an unexpected interruption.
+      if(ctx.state!=='running'&&transport.want&&transport.running)pauseSession('Звук был прерван. Нажмите «Продолжить».');
     });
     repl=await PuzzleAsync.wait(strudel.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
       prebake:()=>PhaseCubeBank.register(strudel),defaultOutput:(...args)=>transport.output(...args),onUpdateState:state=>{if(state.error)fail(state.error);}}),'Музыкальный движок не загрузился. Повторите загрузку.',15000);

@@ -5,12 +5,14 @@ const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`),energy=c=>c.flat().reduce((s,x)=>s+x*x,0);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
 
-test('Fourier group: 192 closed states, all inverses, periods 4/4/8, noncommutativity and shortest hints',()=>{
+test('Fourier points: 192 exact states, four local pair moves, periods 4 and shortest hints',()=>{
  const m=new F.Model(),goal=m.initialState(),E=energy(F.reference);
  assert.equal(m.allStates().length,192);assert.equal(new Set(m.allStates().map(s=>JSON.stringify(F.coefficients(s)))).size,192);
  for(const state of m.allStates()){
   close(energy(m.coefficients(state)),E);
   for(const move of m.legalMoves()){
+   const pair=m.pair(m.moveTarget(move)),before=m.coefficients(state),after=m.coefficients(m.applyTo(state,move));
+   for(let i=0;i<4;i++)assert.equal(JSON.stringify(before[i])!==JSON.stringify(after[i]),pair.includes(i),'Exactly the selected pair changes');
    assert.equal(m.applyTo(m.applyTo(state,move),m.inverse(move)),state);
    let next=state;for(let i=0;i<F.orders[move[0]];i++)next=m.applyTo(next,move);assert.equal(next,state);
    assert.notEqual(m.applyTo(state,move),state);
@@ -19,10 +21,18 @@ test('Fourier group: 192 closed states, all inverses, periods 4/4/8, noncommutat
   }
   m.restore(state);let steps=0;
   while(!m.solved()){const distance=m.distance(),hint=m.hint();m.apply(hint);assert.equal(m.distance(),distance-1);assert(++steps<12);}
-  assert.equal(m.correct(),2);
+  assert.equal(m.correct(),4);
  }
- assert.equal(m.applyTo(m.applyTo(goal,'A'),'B'),m.applyTo(m.applyTo(goal,'B'),'A'));
- assert.notEqual(m.applyTo(m.applyTo(goal,'A'),'M'),m.applyTo(m.applyTo(goal,'M'),'A'));
+ assert.equal(m.applyTo(m.applyTo(goal,'A'),'C'),m.applyTo(m.applyTo(goal,'C'),'A'),'Disjoint pairs commute');
+ assert.notEqual(m.applyTo(m.applyTo(goal,'A'),'B'),m.applyTo(m.applyTo(goal,'B'),'A'),'Neighbouring pairs interact');
+ for(let seed=0;seed<96;seed++){
+  m.reset(seed);const shown=[];for(let i=0;i<3;i++)shown.push(m.shuffle());
+  assert.equal(new Set(shown.map(move=>m.moveTarget(move))).size,3);
+  assert.equal(new Set(shown.flatMap(move=>m.pair(m.moveTarget(move)))).size,4,'Every point participates in the introduction');
+  assert.equal(m.correct(),0,'All four goals need work after the introduction');
+  const solution=[];while(!m.solved()){const move=m.hint();solution.push(move);m.apply(move);}
+  assert.equal(new Set(solution.map(move=>m.moveTarget(move))).size,3,'A shortest solution also needs three different links');
+ }
  assert.equal(Contract.probes(Contract.inspect(registry.get('fourier'))).coverage,'complete');
 });
 
@@ -31,7 +41,7 @@ test('all existing scores: Fourier states preserve notes/gates and native Strude
  const report={schema:'fourier-contracts/1',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
  for(const songId of L.files){
   const p=await loader.prepareSession({puzzleId:'fourier',songId}),music=new Music(S,p),m=p.model;
-  assert.equal(m.count,2);assert.equal(p.fragments.count,6);assert(Projection.validate(p.phaseMap,p.module.manifest));
+  assert.equal(m.count,4);assert.equal(p.fragments.count,6);assert(Projection.validate(p.phaseMap,p.module.manifest));
   assert.equal(norm(music.rows(0)),norm(p.fragments.targetRows));assert(music.phases(0).every(d=>d.aligned&&d.ticks===undefined));
   assert.equal(norm(music.shifted(0).map(pat=>L.eventsOf(pat,p.fragments.periodBars))),norm(p.fragments.targetRows));
   for(const state of m.allStates()){
@@ -44,7 +54,7 @@ test('all existing scores: Fourier states preserve notes/gates and native Strude
   }
   const again=await new Loader(S,{palette,registry,library,storage}).prepareSession({puzzleId:'fourier',songId});assert.equal(again.diagnostics.cache,'hit');
   assert.equal(p.diagnostics.distinctRhythms,192);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert(p.diagnostics.derivativeBound<1);
-  report.pairs.push({songId,fragments:6,progressUnits:2,bindingFingerprint:p.phaseMap.fingerprint,...p.diagnostics});
+  report.pairs.push({songId,fragments:6,progressUnits:4,bindingFingerprint:p.phaseMap.fingerprint,...p.diagnostics});
  }
  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
  await assert.rejects(()=>cancelled.prepareSession({puzzleId:'fourier',songId:L.files[0],signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);

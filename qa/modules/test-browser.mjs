@@ -4,7 +4,7 @@ import {readFile,writeFile,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {openBrowser,root} from './browser.mjs';
-import {turnOnField,select} from './field-input.mjs';
+import {turnPuzzle,select} from './field-input.mjs';
 const runtime=await openBrowser(),report={schema:'music-puzzle-modules/1',combinations:[],layouts:[],errors:[],physicalDevice:false};
 const settled=page=>page.waitForFunction(()=>{const d=phaseCubeApp.diagnostics();return!d.busy&&!d.starting&&!d.seeking&&!d.pending&&!d.loading;});
 async function layout(page){return page.evaluate(()=>{
@@ -75,7 +75,7 @@ try{
    await page.locator('#hint').click();const hint=await page.evaluate(()=>phaseCubeApp.diagnostics().hint);assert(hint);
    assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),hint[0]);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),hintedFrom,'Hint must not make a move');
    await page.waitForFunction(()=>phaseCubeApp.getPresentation().info().tweens===0);
-   await turnOnField(page,hint[0],hint.endsWith("'"),true);assert(++steps<=8);
+   await turnPuzzle(page,hint[0],hint.endsWith("'"),true);assert(++steps<=8);
   }
   await page.waitForFunction(()=>document.querySelector('#result-dialog').open);assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().playing),true);
   const firework=await checkCelebration(page,puzzleId+'-'+songId+'-fireworks.png');

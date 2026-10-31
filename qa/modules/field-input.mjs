@@ -12,6 +12,10 @@ export async function selectionPoint(page,key){
 }
 export async function actionPoint(page,key,inverted){
  const all=await targets(page);
+ if(all[0].kind==='point'){
+  const r=await page.locator(inverted?'#turn-left':'#turn-right').boundingBox();
+  return{x:r.x+r.width/2,y:r.y+r.height/2};
+ }
  if(all[0].kind==='tile'){
   // Far left/right of each block, including its shared middle column.
   return all.find(t=>t.slot===(key==='A'?(inverted?3:1):(inverted?4:2)));
@@ -35,7 +39,7 @@ export async function select(page,key,touch){
  assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),key);
  assert.deepEqual(await page.evaluate(()=>({state:phaseCubeApp.state(),moves:phaseCubeApp.getPuzzle().history.length})),before,'Selection must not make a move');
 }
-export async function turnOnField(page,key,inverted,touch,gesture){
+export async function turnPuzzle(page,key,inverted,touch,gesture){
  const move=key+(inverted?"'":''),p=await actionPoint(page,key,inverted);
  const before=await page.evaluate(move=>({expected:phaseCubeApp.getPuzzle().applyTo(phaseCubeApp.state(),move),moves:phaseCubeApp.getPuzzle().history.length}),move);
  if(gesture)await gesture(p);else await tap(page,p,touch);

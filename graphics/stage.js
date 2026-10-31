@@ -41,7 +41,7 @@ window.PuzzleStage = class {
     const width=Math.max(1,this.element.clientWidth),height=Math.max(1,this.element.clientHeight);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.setSize(width,height,false);
     const view=this.active?.view;
-    if(view){view.resize?.(width/height);view.camera.updateProjectionMatrix();}
+    if(view){view.resize?.(width/height,width,height);view.camera.updateProjectionMatrix();}
     this.dirty=true;
   }
   pick(x,y){
