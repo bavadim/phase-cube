@@ -22,6 +22,7 @@
     validMove(move){return /^([URFDLB])('|2)?$/.test(move);}
     select(value){if(!M.FACES.includes(value))throw new Error('Неверная грань');this.selected=value;}
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
+    moveTarget(move){return move[0];}
     choices(){return M.FACES.map((key,i)=>({key,label:['Сверху','Справа','Спереди','Снизу','Слева','Сзади'][i]}));}
     reset(seed,depth){this.cube.identity();this.path=M.scramble(seed,depth);this.cube.move(this.path.join(' '));this.history=[];this.moves=[];this.selected='F';}
     apply(move){this.history.push({state:this.snapshot(),path:[...this.path],move});this.cube.move(move);this.path=M.appendPath(this.path,move);this.moves.push(move);this.selected=move[0];}

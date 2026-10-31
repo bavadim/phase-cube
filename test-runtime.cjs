@@ -5,6 +5,7 @@ vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'v
 const S=context.strudel;S.miniAllStrings();
 const Phases=require('./phase-map.js'),{Loader}=require('./composition-loader.js');
 context.PuzzlePhases=Phases;vm.runInContext(fs.readFileSync(path.join(__dirname,'music.js'),'utf8'),context);
+context.PuzzleProjection=require('./music-projection.js');
 context.PhaseCubeLibrary=require('./composition-loader.js');
 const palette=require('./config.js').palette,registry=require('./puzzles/registry.js'),library=new Loader(S,{baseURL:pathToFileURL(__dirname+'/')});
 module.exports={S,Phases,palette,registry,library,Music:context.window.PuzzleMusic.Music};

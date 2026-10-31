@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.PuzzleTurnControls=class{
-  constructor(host,{model,onMove,onSelect,onPreview}){
+  constructor(host,{model,onMove,onPreview}){
     this.model=model;this.host=host;this.hinted=null;
     const hint=document.getElementById('hint');hint.remove();
     host.innerHTML='<button id="turn-left" class="turn-button" aria-label="Поворот против часовой стрелки">↶</button><span class="hint-slot"></span><button id="turn-right" class="turn-button" aria-label="Поворот по часовой стрелке">↷</button>';
@@ -15,8 +15,8 @@ window.PuzzleTurnControls=class{
   }
   update(disabled){
     this.buttons.forEach((b,i)=>{b.disabled=disabled;b.classList.toggle('hinted',this.hinted===this.model.moveFor(this.model.selected,i===0));
-      b.setAttribute('aria-label',this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
+      b.setAttribute('aria-label',this.model.actionLabel?.(this.model.selected,i===0)||this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
   }
-  hint(move){this.hinted=move;if(move)this.model.select(move[0]);}
+  hint(move){this.hinted=move;if(move)this.model.select(this.model.moveTarget(move));}
   focus(){this.buttons[1].focus({preventScroll:true});}
 };

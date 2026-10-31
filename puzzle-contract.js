@@ -4,21 +4,28 @@
   const key=state=>JSON.stringify(state);
   function inspect(puzzle){
     const spec=puzzle.manifest,model=puzzle.create();
-    if(spec?.schema!=='music-puzzle/1'||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
+    if(!['music-puzzle/1','music-puzzle/2'].includes(spec?.schema)||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
+    for(const name of ['initialState','legalMoves','applyTo','inverse','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    const initial=model.initialState();
+    if(!model.solved(initial))throw new Error('Исходная цель не собрана');
+    if(spec.schema==='music-puzzle/2'){
+      if(spec.projection!=='fourier-time/1'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+      if(!Number.isInteger(model.count)||model.count<1)throw new Error('Неверный домен прогресса');
+      return{manifest:spec,model};
+    }
     for(const field of ['pieceIds','poseIds'])if(!Array.isArray(spec[field])||!spec[field].length||new Set(spec[field]).size!==spec[field].length)throw new Error('Неверный домен '+field);
     if(spec.pieceIds.some(id=>!Number.isInteger(id))||spec.pieceIds.some((id,i)=>id!==i))throw new Error('Деталям нужны последовательные числовые id');
     if(spec.pieceIds.length!==model.count)throw new Error('Число деталей не совпадает с манифестом');
     if(spec.poseIds.some(id=>!['number','string'].includes(typeof id)))throw new Error('Положениям нужны строковые или числовые id');
     if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
-    for(const name of ['initialState','legalMoves','applyTo','inverse','placements','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
-    const initial=model.initialState();
-    if(!model.solved(initial))throw new Error('Исходная цель не собрана');
+    if(typeof model.placements!=='function')throw new Error('Отсутствует метод головоломки: placements');
     project({manifest:spec,model},initial);
     return {manifest:spec,model};
   }
   function project(puzzle,state){
     const {manifest:spec,model}=puzzle;
+    if(spec.schema!=='music-puzzle/1')throw new Error('Положения деталей определены только для сдвиговой проекции');
     // This is an explicit terminal-goal policy, not a change of frame on every move.
     const canonical=spec.goalPolicy==='all-solved-to-reference'&&model.solved(state)?model.initialState():state;
     const result=model.placements(canonical),ids=new Set();
@@ -51,8 +58,9 @@
         if(i%12===11)state=model.initialState();
       }
     }
-    const entries=[...states].map(([id,state])=>({id,state,placements:project(puzzle,state),solved:model.solved(state)}));
+    const entries=[...states].map(([id,state])=>({id,state,...(puzzle.manifest.schema==='music-puzzle/1'?{placements:project(puzzle,state)}:{}),solved:model.solved(state)}));
     return {states:entries,edges:[...edges.values()],coverage:exact?'complete':'sampled'};
   }
-  return {inspect,project,probes};
+  const fragmentCount=spec=>spec.schema==='music-puzzle/1'?spec.pieceIds.length:spec.fragments;
+  return {inspect,project,probes,fragmentCount};
 });

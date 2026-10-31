@@ -5,7 +5,7 @@
   else root.PuzzleEqualizer = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=204, STEP=17;
+  const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=250, TARGET_OFFSET=3.5;
   const mod=n=>((n%1)+1)%1;
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
@@ -25,7 +25,7 @@
   class Score {
     constructor(svg,voices,{gridSteps=16,periodBeats=16}={}){
       this.svg=svg;this.voices=voices;this.rows=[];this.frameHits=[];
-      const spacing=119/Math.max(1,voices.length-1);
+      const spacing=(323-INNER)/Math.max(1,voices.length-1);
       const grid=node('g',{'class':'orbit-grid','aria-hidden':'true'},svg);
       for(let t=0;t<gridSteps;t++){
         const major=Math.abs(t*periodBeats/gridSteps/4-Math.round(t*periodBeats/gridSteps/4))<1e-8;
@@ -38,7 +38,7 @@
         const r=INNER+id*spacing,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
         const title=node('title',{},g);title.textContent=`${id+1}. ${v.name}`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
-        node('circle',{cx:CENTER,cy:CENTER,r:r+5.5,'class':'orbit-target-rail'},g);
+        node('circle',{cx:CENTER,cy:CENTER,r:r+TARGET_OFFSET,'class':'orbit-target-rail'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g),preview=node('g',{'class':'orbit-preview','aria-hidden':'true'},g);
         this.rows.push({g,r,target,current,preview});
       });
@@ -54,18 +54,18 @@
       for(const group of keys.values()){
         const e=group[0],layers=ghost?1:Math.min(4,group.length);
         for(let i=0;i<layers;i++){
-          const radius=r+(ghost?5.5:-3)+(layers>1?(i-(layers-1)/2)*2.5:0);
+          const radius=r+(ghost?TARGET_OFFSET:-3)+(layers>1?(i-(layers-1)/2)*1.4:0);
           for(const [start,end]of segments(e.start,e.duration)){
             // Leave a tiny joint between adjacent events; wrapped continuations
             // have no artificial attack mark at zero.
             const inset=Math.min(.002,(end-start)/5);
             const d=arc(radius,start+inset,end-inset);
-            node('path',{d,'class':ghost?'target-event':'current-event','stroke-width':ghost?3.8:layers>1?1.8:5.5},parent);
-            if(ghost)node('path',{d,'class':'target-event-core','stroke-width':1.8},parent);
+            node('path',{d,'class':ghost?'target-event':'current-event','stroke-width':ghost?3:layers>1?1.3:4.5},parent);
+            if(ghost)node('path',{d,'class':'target-event-core','stroke-width':1.3},parent);
           }
         }
         if(!ghost){const a=point(r-8,mod(e.start)),b=point(r+1,mod(e.start));node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'event-onset'},parent);}
-        else {const p=point(r+5.5,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:2.4,'class':'target-onset'},parent);}
+        else {const p=point(r+TARGET_OFFSET,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:1.8,'class':'target-onset'},parent);}
       }
     }
     drawPreview(parent,events,r){
@@ -80,12 +80,9 @@
         const p=point(r+1,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:2.5,'class':'preview-onset'},parent);
       }
     }
-    update({rows,target,phases,selected,muted,solo,mode,showTarget=true,pending=false,forecast=null,affected=[]}){
-      this.svg.classList.toggle('hide-target',!showTarget);
-      this.svg.classList.toggle('audition-target',mode==='target');
+    update({rows,target,phases,pending=false,forecast=null,affected=[]}){
       this.svg.classList.toggle('has-move-preview',!!forecast);
       this.svg.dataset.previewMove=forecast?.move||'';
-      this.svg.dataset.selected=selected;
       this.rows.forEach((row,id)=>{
         this.drawEvents(row.target,target[id]||[],row.r,true);
         this.drawEvents(row.current,rows[id]||[],row.r,false);
@@ -93,12 +90,11 @@
         this.drawPreview(row.preview,changed?forecast.rows[id]:[],row.r);
         row.g.classList.toggle('will-change',changed);
         row.g.classList.toggle('just-changed',affected.includes(id));
-        if(forecast)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
-        row.g.classList.toggle('selected',id===selected);
-        row.g.classList.toggle('is-muted',muted.includes(id)||(solo>=0&&solo!==id));
-        row.g.classList.toggle('aligned',phases[id].ticks===0);
-        row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${phases[id].ticks===0?'Совпадает с целью.':'Не совпадает с целью.'}`);
-        row.g.dataset.phase=phases[id].ticks;
+        const aligned=phases[id].aligned;
+        if(forecast?.phases[id].ticks!==undefined)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
+        row.g.classList.toggle('aligned',aligned);
+        row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${aligned?'Совпадает с целью.':'Не совпадает с целью.'}`);
+        if(phases[id].ticks!==undefined)row.g.dataset.phase=phases[id].ticks;else delete row.g.dataset.phase;
       });
       this.svg.classList.toggle('is-pending',pending);
     }

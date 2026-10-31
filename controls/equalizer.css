@@ -5,7 +5,7 @@
 .quarter-line { stroke: #b9c8ad; stroke-width: 1.8; }
 .ruler-tick { stroke: #8da181; stroke-width: 1.3; }
 .orbit-track { transition: opacity .16s; }
-.orbit-bed { fill: none; stroke: #e7ecde; stroke-width: 16; }
+.orbit-bed { fill: none; stroke: #e7ecde; stroke-width: 9; }
 .orbit-track:nth-child(odd) .orbit-bed { stroke: #edf0e5; }
 .orbit-target-rail { fill: none; stroke: #a9b99e; stroke-width: 1; stroke-dasharray: 2 5; }
 .current-event, .target-event { fill: none; stroke: var(--track-color); stroke-linecap: round; }
@@ -14,7 +14,6 @@
 .target-onset { fill: var(--panel); stroke: var(--track-color); stroke-width: 1.8; }
 .event-onset { stroke: var(--track-color); stroke-width: 2.8; }
 .orbit-current { opacity: 1; }
-.orbit-track.selected .orbit-bed { stroke: #d5e0c9; }
 .orbit-track.playing-note .current-event { filter: drop-shadow(0 0 3px var(--track-color)); }
 .orbit-sweep { pointer-events: none; }
 .orbit-sweep line { stroke: var(--ink); stroke-width: 2; opacity: .4; }

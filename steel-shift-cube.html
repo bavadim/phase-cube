@@ -10,89 +10,96 @@
   <style>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 :root {
-  --ink: #253b36; --muted: #627266; --paper: #f4f1e6; --panel: #fcfaf2;
-  --line: #d8ddcf; --green: #225a43; --orange: #bd713f; --font: Inter, Arial, sans-serif;
-  color: var(--ink); background: var(--paper); font: 16px/1.4 var(--font);
+  --ink:#253b36; --muted:#627266; --paper:#f4f1e6; --panel:#fcfaf2;
+  --line:#d8ddcf; --green:#225a43; --orange:#bd713f;
+  --space:clamp(10px,1.8vmin,28px); --command-size:clamp(58px,8vmin,88px);
+  font:clamp(16px,calc(11px + .75vmin),22px)/1.4 Inter,Arial,sans-serif;
+  color:var(--ink); background:var(--paper); color-scheme:light;
 }
-* { box-sizing: border-box; }
-body { margin: 0; }
-button, input, select { font: inherit; }
-button, a, input, select { touch-action: manipulation; }
-button, a { -webkit-tap-highlight-color: transparent; }
-button { cursor: pointer; color: inherit; }
-button:disabled { opacity: .38; cursor: default; }
-button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, .cube-stage:focus-visible {
-  outline: 3px solid var(--orange); outline-offset: 4px;
-}
-[hidden] { display: none !important; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+* { box-sizing:border-box; }
+html,body { width:100%; height:100%; margin:0; }
+button,input,select { font:inherit; }
+button,a,input,select { touch-action:manipulation; }
+button,a { -webkit-tap-highlight-color:transparent; }
+button { color:inherit; cursor:pointer; }
+button:disabled { opacity:.38; cursor:default; }
+:where(button,a,select,input,.puzzle-stage):focus-visible { outline:3px solid var(--orange); outline-offset:4px; }
+[hidden] { display:none!important; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+.sr-only:focus-within { width:auto; height:auto; clip-path:none; z-index:8; background:var(--panel); white-space:normal; }
 .app {
-  height: 100svh; height: 100dvh; min-height: 380px;
-  display: grid; grid-template-rows: minmax(0, 1fr) auto;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  width:100%; height:100svh; height:100dvh; min-height:280px;
+  display:flex; flex-direction:column; justify-content:space-between; gap:var(--space);
+  padding:max(var(--space),env(safe-area-inset-top)) max(var(--space),env(safe-area-inset-right)) max(var(--space),env(safe-area-inset-bottom)) max(var(--space),env(safe-area-inset-left));
 }
-.playfield { min-width: 0; min-height: 0; container-type: size; display: flex; justify-content: center; align-items: flex-start; padding: 12px 12px 0; }
-.orbital-workspace { position: relative; width: min(100cqw, 100cqh, 720px); aspect-ratio: 1; flex: none; isolation: isolate; }
-.orbit-sequencer { width: 100%; height: 100%; position: relative; }
-.orbit-sequencer::before { content: ''; position: absolute; inset: 25%; border-radius: 50%; background: radial-gradient(circle, #e2e9d9, #eff1e5 68%, transparent 69%); z-index: -1; }
-.completion, .orbit-legend { position: absolute; top: 0; z-index: 3; pointer-events: none; }
-.completion { left: 0; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 15px; line-height: 1.15; }
-#correct-count { font-size: 36px; color: var(--green); font-weight: 750; letter-spacing: -1.5px; }
-#correct-count > span { font-size: 24px; color: #7f8d77; font-weight: 400; letter-spacing: 0; }
-.orbit-legend { right: 0; display: flex; flex-direction: column; gap: 9px; color: var(--ink); font-size: 16px; }
-.orbit-legend > span { display: flex; align-items: center; gap: 8px; }
-.legend-note, .legend-ghost { width: 20px; height: 8px; border-radius: 3px; }
-.legend-note { background: var(--green); }
-.legend-ghost { border: 2px solid var(--green); background: var(--panel); }
-dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 30px 26px 26px; overflow: auto; border: 1px solid #c5d0b8; border-radius: 26px; background: var(--panel); color: var(--ink); text-align: center; box-shadow: 0 16px 70px #253b3624; }
-dialog::backdrop { background: #f4f1e6b8; backdrop-filter: blur(7px); }
-.record-mark { width: 88px; height: 88px; display: grid; place-items: center; margin: 0 auto 22px; border: 1px solid #c9d4bc; border-radius: 50%; background: repeating-radial-gradient(circle, #edf1e4 0 8px, #dce5d0 9px 10px); }
-.record-mark > span { width: 46px; height: 46px; display: grid; place-items: center; background: var(--green); border-radius: 50%; color: #e1eaad; font-size: 30px; }
-dialog h1, dialog h2 { margin: 0; font-size: 30px; line-height: 1.13; letter-spacing: -.8px; }
-.song-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 13px; margin: 16px 0 24px; color: var(--muted); font-size: 16px; }
-.session-feedback { margin: -4px 0 16px; font-size: 16px; }
-.session-feedback:empty { display: none; }
-.song-choice { display: grid; gap: 7px; margin: 0 0 18px; text-align: left; color: var(--muted); font-size: 14px; }
-.song-choice select { min-width: 0; width: 100%; min-height: 48px; border: 1px solid #b9c8ad; border-radius: 12px; padding: 10px 12px; background: var(--panel); color: var(--ink); font-size: 16px; }
-.song-details { color: var(--muted); font-size: 14px; margin: -12px 0 20px; }
-.primary-button, .outline-button { display: flex; width: 100%; min-height: 58px; align-items: center; justify-content: center; padding: 14px 16px; border: 1px solid var(--green); border-radius: 14px; font-size: 18px; font-weight: 650; text-decoration: none; }
-.primary-button { color: white; background: var(--green); }
-.primary-button:hover:not(:disabled) { background: #326c50; }
-.outline-button { margin-top: 12px; color: var(--green); background: transparent; }
-.outline-button:hover { background: #e9efdf; }
-.result-mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; color: var(--green); background: #e2ecd4; }
-.result-mark svg { width: 40px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.result-caption { margin: 0 0 8px; color: var(--green); font-size: 16px; }
-/* A child of the modal result dialog: fireworks share its top layer above the backdrop. */
-.celebration { position: fixed; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
-.firework { position: absolute; width: 1px; height: 1px; }
-.firework-spark { position: absolute; width: 3px; height: 7px; border-radius: 2px; background: var(--spark-color); opacity: 0; animation: spark 850ms var(--delay) ease-out both; }
-@keyframes spark { 0% { opacity: 0; transform: translate(0, 0) rotate(var(--angle)) scale(.4); } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--angle)) scale(1); } }
-@media (min-width: 761px) { .playfield { align-items: center; } .controls-dock { padding-bottom: 18px; } }
-@media (max-width: 350px) {
-  .playfield { padding: 8px 10px 0; } .controls-dock { padding: 0 12px 6px; }
-  .cube-command { grid-template-columns: 60px minmax(0, 1fr) 60px; gap: 8px; }
-  .turn-button, .touch-face-control select { height: 58px; }
-  .completion { font-size: 14px; } #correct-count { font-size: 32px; }
-  .orbit-legend { font-size: 15px; gap: 7px; }
-  dialog { padding: 24px 20px 20px; } dialog h1, dialog h2 { font-size: 28px; }
+.game-status { flex:none; width:min(100%,44rem); margin-inline:auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.playfield { flex:1 1 0; width:100%; min-width:0; min-height:0; container-type:size; display:flex; align-items:center; justify-content:center; }
+.orbital-workspace { position:relative; width:min(100cqw,100cqh); aspect-ratio:1; flex:none; isolation:isolate; }
+.orbit-sequencer { position:relative; width:100%; height:100%; }
+.orbit-sequencer::before { content:''; position:absolute; inset:17%; border-radius:50%; background:radial-gradient(circle,#e2e9d9,#eff1e5 68%,transparent 70%); z-index:-1; }
+.puzzle-stage { position:absolute; left:50%; top:50%; width:66%; height:66%; transform:translate(-50%,-50%); }
+.puzzle-stage canvas { display:block; width:100%; height:100%; touch-action:none; }
+.puzzle-stage[data-context="lost"]::after { content:'Восстанавливаем изображение…'; position:absolute; inset:0; display:grid; place-items:center; background:var(--panel); text-align:center; }
+.completion,.orbit-legend { pointer-events:none; }
+.completion { display:flex; align-items:center; gap:.7rem; color:var(--muted); font-size:.95rem; line-height:1.15; }
+#correct-count { font-size:clamp(30px,4.1vmin,62px); color:var(--green); font-weight:750; letter-spacing:-.05em; }
+#correct-count>span { font-size:.66em; color:#7f8d77; font-weight:400; letter-spacing:0; }
+.orbit-legend { display:flex; flex-direction:column; gap:.35rem; font-size:1rem; }
+.orbit-legend>span { display:flex; align-items:center; gap:.45rem; }
+.legend-note,.legend-ghost { width:1.2rem; height:.46rem; border-radius:3px; }
+.legend-note { background:var(--green); }
+.legend-ghost { border:2px solid var(--green); background:var(--panel); }
+dialog {
+  width:min(30rem,calc(100% - 2 * var(--space))); max-height:calc(100dvh - 2 * var(--space));
+  padding:clamp(20px,3vmin,42px); overflow:auto; border:1px solid #c5d0b8; border-radius:clamp(20px,3vmin,32px);
+  background:var(--panel); color:var(--ink); text-align:center; box-shadow:0 16px 70px #253b3624;
 }
-@media (max-height: 500px) and (min-aspect-ratio: 4/3) {
-  .app { min-height: 280px; grid-template-columns: minmax(0, 1fr) minmax(280px, 36%); grid-template-rows: minmax(0, 1fr); }
-  .playfield { padding: 10px; align-items: center; } .controls-dock { align-self: end; padding: 12px 16px; }
-  .cube-command { grid-template-columns: 60px minmax(0, 1fr) 60px; gap: 8px; }
-  .turn-button, .touch-face-control select { height: 58px; } .touch-face-control select { font-size: 16px; }
-  dialog { width: min(460px, calc(100% - 40px)); padding: 18px 24px; }
-  .record-mark { display: none; } .result-mark { width: 44px; height: 44px; margin-bottom: 10px; } .result-mark svg { width: 30px; }
-  dialog h1, dialog h2 { font-size: 28px; } .song-meta { margin: 10px 0 16px; }
-  .primary-button, .outline-button { min-height: 52px; padding: 10px; }
+dialog::backdrop { background:#f4f1e6b8; backdrop-filter:blur(7px); }
+dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:1.13; letter-spacing:-.035em; text-wrap:balance; }
+.record-mark { width:4.5rem; height:4.5rem; display:grid; place-items:center; margin:0 auto 1.15rem; border:1px solid #c9d4bc; border-radius:50%; background:repeating-radial-gradient(circle,#edf1e4 0 8px,#dce5d0 9px 10px); }
+.record-mark>span { width:2.5rem; height:2.5rem; display:grid; place-items:center; border-radius:50%; color:#e1eaad; background:var(--green); font-size:1.75rem; }
+.setup-choices { display:grid; gap:.9rem; margin-bottom:1.2rem; }
+.song-choice { display:grid; gap:.4rem; text-align:left; color:var(--muted); font-size:.9rem; }
+.song-choice select { min-width:0; width:100%; min-height:48px; padding:.65rem .7rem; border:1px solid #b9c8ad; border-radius:12px; color:var(--ink); background:var(--panel); font-size:max(16px,1rem); }
+.song-meta { margin:1rem 0 1.4rem; color:var(--muted); font-size:1rem; text-wrap:balance; }
+.session-feedback { margin:0 0 1rem; font-size:1rem; }
+.session-feedback:empty { display:none; }
+.primary-button,.outline-button { display:flex; width:100%; min-height:clamp(56px,7.5vmin,76px); align-items:center; justify-content:center; padding:.75rem; border:1px solid var(--green); border-radius:14px; font-size:1.1rem; font-weight:650; text-decoration:none; }
+.primary-button { color:white; background:var(--green); }
+.primary-button:hover:not(:disabled) { background:#326c50; }
+.outline-button { margin-top:.7rem; color:var(--green); background:transparent; }
+.outline-button:hover { background:#e9efdf; }
+.result-caption { margin:0 0 .55rem; color:var(--green); font-size:1rem; }
+/* Inside the modal top layer; fixed to the viewport and transparent to input. */
+.celebration { position:fixed; inset:0; z-index:7; pointer-events:none; overflow:hidden; }
+.firework { position:absolute; width:1px; height:1px; }
+.firework-spark { position:absolute; width:3px; height:7px; border-radius:2px; background:var(--spark-color); opacity:0; animation:spark 850ms var(--delay) ease-out both; }
+@keyframes spark { 0% { opacity:0; transform:translate(0,0) rotate(var(--angle)) scale(.4); } 15%,75% { opacity:1; } 100% { opacity:0; transform:translate(var(--dx),var(--dy)) rotate(var(--angle)) scale(1); } }
+/* Side panels preserve the full height for the field on wide/short windows. */
+@media (min-width:900px) and (min-aspect-ratio:3/2), (max-height:520px) and (min-aspect-ratio:4/3) {
+  .app { flex-direction:row; align-items:center; }
+  .game-status { flex:0 0 clamp(72px,10vw,160px); width:auto; margin:0; flex-direction:column; align-items:flex-start; gap:1.5rem; }
+  .completion { flex-direction:column; align-items:flex-start; gap:.35rem; }
+  .playfield { height:100%; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-
-.puzzle-stage { position:absolute; left:50%; top:50%; width:52%; height:52%; transform:translate(-50%,-50%); }
-.setup-choices { display:grid; grid-template-columns:1fr; gap:0; }
-@media(max-height:700px) { .session-overlay .record-mark { display:none; } }
-@media(max-height:500px) and (min-aspect-ratio:4/3) { .setup-choices { grid-template-columns:1fr 1fr; gap:12px; } .song-choice { margin-bottom:12px; } }
+@media (max-height:740px) { .session-overlay .record-mark { display:none; } }
+@media (max-height:520px) and (min-aspect-ratio:4/3) {
+  :root { --space:10px; --command-size:56px; }
+  dialog { width:min(720px,calc(100% - 24px)); padding:16px; }
+  .setup-choices { grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  dialog h1,dialog h2 { font-size:26px; }
+  .song-choice { gap:4px; }
+  .song-meta { margin:8px 0 12px; }
+  .primary-button,.outline-button { min-height:48px; padding:8px; }
+  .result-dialog[open] { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:10px 18px; }
+  .result-dialog .result-caption { grid-column:1; grid-row:1; margin:0; }
+  .result-dialog h2 { grid-column:1; grid-row:2; }
+  .result-dialog .song-meta { grid-column:1; grid-row:3; margin:0; }
+  #download-mp3 { grid-column:2; grid-row:1; }
+  #play-again { grid-column:2; grid-row:2; margin:0; }
+  #choose-song { grid-column:2; grid-row:3; margin:0; }
+}
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
 
 </style>
   <style>
@@ -103,7 +110,7 @@ dialog h1, dialog h2 { margin: 0; font-size: 30px; line-height: 1.13; letter-spa
 .quarter-line { stroke: #b9c8ad; stroke-width: 1.8; }
 .ruler-tick { stroke: #8da181; stroke-width: 1.3; }
 .orbit-track { transition: opacity .16s; }
-.orbit-bed { fill: none; stroke: #e7ecde; stroke-width: 16; }
+.orbit-bed { fill: none; stroke: #e7ecde; stroke-width: 9; }
 .orbit-track:nth-child(odd) .orbit-bed { stroke: #edf0e5; }
 .orbit-target-rail { fill: none; stroke: #a9b99e; stroke-width: 1; stroke-dasharray: 2 5; }
 .current-event, .target-event { fill: none; stroke: var(--track-color); stroke-linecap: round; }
@@ -112,7 +119,6 @@ dialog h1, dialog h2 { margin: 0; font-size: 30px; line-height: 1.13; letter-spa
 .target-onset { fill: var(--panel); stroke: var(--track-color); stroke-width: 1.8; }
 .event-onset { stroke: var(--track-color); stroke-width: 2.8; }
 .orbit-current { opacity: 1; }
-.orbit-track.selected .orbit-bed { stroke: #d5e0c9; }
 .orbit-track.playing-note .current-event { filter: drop-shadow(0 0 3px var(--track-color)); }
 .orbit-sweep { pointer-events: none; }
 .orbit-sweep line { stroke: var(--ink); stroke-width: 2; opacity: .4; }
@@ -129,88 +135,58 @@ dialog h1, dialog h2 { margin: 0; font-size: 30px; line-height: 1.13; letter-spa
 </style>
   <style>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-.controls-dock { width: min(100%, 680px); justify-self: center; padding: 4px 18px 12px; background: var(--paper); }
-.song-seek { display: flex; align-items: center; height: 44px; margin-bottom: 6px; }
-.song-seek input { width: 100%; height: 44px; margin: 0; accent-color: var(--orange); cursor: pointer; touch-action: pan-y; }
-.cube-command { display: grid; grid-template-columns: 68px minmax(0, 1fr) 68px; gap: 12px; }
-.turn-button { height: 64px; display: grid; place-items: center; padding: 15px; border: 1px solid var(--green); border-radius: 17px; color: var(--panel); background: var(--green); }
-.turn-button svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.turn-button:hover:not(:disabled) { background: #326c50; }
-.turn-button:active:not(:disabled) { transform: translateY(1px); }
-.touch-face-control { min-width: 0; }
-.touch-face-control select { width: 100%; height: 64px; padding: 8px 10px; border: 1px solid #bac9ae; border-left: 7px solid var(--face-color, #739e87); border-radius: 14px; color: var(--ink); background: var(--panel); font-size: 18px; font-weight: 600; cursor: pointer; }
-.secondary-actions { display: flex; justify-content: space-between; gap: 16px; margin-top: 6px; }
-.secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 7px 8px; border: 0; border-radius: 8px; color: var(--green); background: transparent; font-size: 16px; }
-.secondary-button:hover:not(:disabled) { background: #e7ecdc; }
-.secondary-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-#pause-icon { width: 22px; font-size: 23px; font-weight: 700; line-height: 1; }
-
-.secondary-actions { display: flex; justify-content: space-between; gap: 12px; }
-.hint-host { display: none; }
+.controls-dock { flex:none; width:min(100%,44rem); min-width:0; margin-inline:auto; display:grid; gap:.35rem; }
+.song-seek { display:flex; align-items:center; min-height:44px; }
+.song-seek input { width:100%; height:44px; margin:0; accent-color:var(--orange); cursor:pointer; touch-action:pan-y; }
+.puzzle-command { display:grid; grid-template-columns:var(--command-size) minmax(0,1fr) var(--command-size); gap:clamp(8px,1.5vmin,18px); }
+.turn-button { width:var(--command-size); height:var(--command-size); display:grid; place-items:center; padding:0; border:1px solid var(--green); border-radius:clamp(14px,2vmin,24px); color:var(--panel); background:var(--green); font-size:clamp(30px,4vmin,48px); line-height:1; }
+.turn-button:hover:not(:disabled) { background:#326c50; }
+.turn-button:active:not(:disabled) { transform:translateY(1px); }
+.turn-button.hinted { background:#b97732; border-color:#9a5e25; box-shadow:0 0 0 3px #d4a65c55; }
+.hint-host { display:none; }
 .hint-slot { display:flex; align-items:stretch; min-width:0; }
-.hint-slot #hint { width:100%; min-height:64px; border:1px solid #bac9ae; border-radius:14px; background:var(--panel); font-size:18px; }
-.secondary-button { min-width: 44px; }
-.turn-button { font-size: 32px; font-weight: 400; line-height: 1; }
-.turn-button.hinted { background: #b97732; border-color: #9a5e25; box-shadow: 0 0 0 3px #d4a65c55; }
-@media(max-width:350px) {
-  .controls-dock { padding:0 12px 6px; }
-  .cube-command { grid-template-columns:60px minmax(0,1fr) 60px; gap:8px; }
-  .turn-button,.hint-slot #hint { min-height:58px; height:58px; }
+.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #bac9ae; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1.1rem; }
+.secondary-actions { display:flex; justify-content:space-between; gap:.6rem; }
+.secondary-button { display:inline-flex; min-width:44px; min-height:44px; align-items:center; justify-content:center; gap:.5rem; padding:.45rem; border:0; border-radius:8px; color:var(--green); background:transparent; font-size:1rem; }
+.secondary-button:hover:not(:disabled) { background:#e7ecdc; }
+.secondary-button>span[aria-hidden] { font-size:1.4rem; line-height:1; }
+#pause-icon { width:1.3rem; font-weight:700; }
+@media (min-width:900px) and (min-aspect-ratio:3/2), (max-height:520px) and (min-aspect-ratio:4/3) {
+  .controls-dock { flex:0 0 clamp(216px,24vw,400px); width:auto; margin:0; }
 }
-@media(max-height:500px) and (min-aspect-ratio:4/3) {
-  .controls-dock { padding:12px 16px; }
-  .cube-command { grid-template-columns:60px minmax(0,1fr) 60px; gap:8px; }
-  .turn-button,.hint-slot #hint { min-height:58px; height:58px; }
-  .hint-slot #hint { font-size:16px; padding:7px 4px; }
-  .secondary-button { padding:7px 4px; gap:6px; }
+@media (max-height:520px) and (min-aspect-ratio:4/3) {
+  .controls-dock { gap:.25rem; }
+  .puzzle-command { gap:8px; }
+  .hint-slot #hint { font-size:1rem; }
+  .secondary-button { gap:5px; padding:5px; }
 }
-
-</style>
-  <style>
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
-.cube-stage { position: absolute; left: 50%; top: 50%; width: 52%; height: 52%; transform: translate(-50%, -50%); cursor: grab; touch-action: none; border-radius: 25%; overflow: hidden; }
-#cube-view { position: absolute; inset: 0; }
-#cube-view canvas { display: block; width: 100%; height: 100%; }
-#cube-input { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; overflow: visible; pointer-events: none; }
-.cube-hit { fill: transparent; stroke: none; pointer-events: all; cursor: pointer; }
-.cube-feedback { pointer-events: none; color: #28533b; }
-.cube-face-outline { fill: #f7c97812; stroke: #aa6531; stroke-width: 2.3; stroke-linejoin: round; }
-.cube-half-highlight { fill: #f8ca7b70; stroke: #fff9e4; stroke-width: 1; }
-.cube-turn-underlay { fill: none; stroke: #fffdf0; stroke-width: 5.3; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
-.cube-turn-arrow { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-#cube-input.is-busy { visibility: hidden; }
-#view-error { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; font-size: 16px; background: var(--panel); }
-
-</style>
-  <style>
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
-.twiddle-stage { width: 66%; height: 56%; display: grid; place-items: center; }
-.twiddle-stage > svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.twiddle-base { fill: #d7dfcc; stroke: #9fae95; stroke-width: 1.4; }
-.twiddle-edge { fill: #a8b99d; stroke: #83967b; stroke-width: 1; }
-.twiddle-side { fill: #bdcbb0; stroke: #83967b; stroke-width: 1; }
-.twiddle-piece { cursor: pointer; }
-.tile-top { fill: var(--piece-color); stroke: #314e3e; stroke-width: 1.4; stroke-linejoin: round; }
-.tile-edge { fill: color-mix(in srgb, var(--piece-color) 65%, #203a2c); stroke: #314e3e; stroke-width: 1; }
-.tile-side { fill: color-mix(in srgb, var(--piece-color) 80%, #203a2c); stroke: #314e3e; stroke-width: 1; }
-.tile-number { fill: #182d25; font: 650 27px Inter, Arial, sans-serif; pointer-events: none; }
-.twiddle-selection { fill: none; stroke: #a75c26; stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
+/* Compact side dock gives short phones almost the entire screen height for the field. */
+@media (max-width:700px) and (max-height:520px) and (min-aspect-ratio:4/3) {
+  .controls-dock { flex-basis:clamp(140px,28vw,164px); }
+  .puzzle-command { grid-template-columns:1fr 1fr; }
+  .turn-button { width:100%; }
+  .hint-slot { grid-column:1 / -1; grid-row:2; }
+  .hint-slot #hint { min-height:48px; }
+  .action-label { display:none; }
+}
 
 </style>
 </head>
 <body data-phase="ready">
 <main class="app" aria-label="Музыкальная головоломка">
+  <header class="game-status" aria-label="Прогресс и обозначения">
+    <div class="completion" aria-label="Прогресс сборки"><span id="correct-count">0</span><span>деталей<br>на месте</span></div>
+    <div class="orbit-legend" aria-label="Обозначения рисунка"><span><i class="legend-note" aria-hidden="true"></i>сейчас</span><span><i class="legend-ghost" aria-hidden="true"></i>цель</span></div>
+  </header>
   <section class="playfield" aria-label="Головоломка и музыкальный рисунок">
     <div class="orbital-workspace" id="orbital-workspace">
-      <aside class="completion" aria-label="Прогресс сборки"><span id="correct-count">0</span><span>деталей<br>на месте</span></aside>
-      <aside class="orbit-legend" aria-label="Обозначения рисунка"><span><i class="legend-note" aria-hidden="true"></i>сейчас</span><span><i class="legend-ghost" aria-hidden="true"></i>цель</span></aside>
       <div class="orbit-sequencer" id="orbit-sequencer">
         <svg id="orbit-score" viewBox="0 0 760 760" role="img" aria-label="Текущий рисунок и контуры цели"></svg>
         <div class="puzzle-stage" id="puzzle-stage" tabindex="0"></div>
       </div>
     </div>
   </section>
-  <section class="controls-dock" id="player-controls" aria-label="Управление"></section>
+  <footer class="controls-dock" id="player-controls" aria-label="Управление"></footer>
 </main>
 <div id="dialogs"></div>
 <output id="audio-diagnostics" hidden aria-hidden="true"></output>
@@ -2657,21 +2633,28 @@ lanes.noise = noiseSound(stack(
   const key=state=>JSON.stringify(state);
   function inspect(puzzle){
     const spec=puzzle.manifest,model=puzzle.create();
-    if(spec?.schema!=='music-puzzle/1'||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
+    if(!['music-puzzle/1','music-puzzle/2'].includes(spec?.schema)||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
+    for(const name of ['initialState','legalMoves','applyTo','inverse','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    const initial=model.initialState();
+    if(!model.solved(initial))throw new Error('Исходная цель не собрана');
+    if(spec.schema==='music-puzzle/2'){
+      if(spec.projection!=='fourier-time/1'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+      if(!Number.isInteger(model.count)||model.count<1)throw new Error('Неверный домен прогресса');
+      return{manifest:spec,model};
+    }
     for(const field of ['pieceIds','poseIds'])if(!Array.isArray(spec[field])||!spec[field].length||new Set(spec[field]).size!==spec[field].length)throw new Error('Неверный домен '+field);
     if(spec.pieceIds.some(id=>!Number.isInteger(id))||spec.pieceIds.some((id,i)=>id!==i))throw new Error('Деталям нужны последовательные числовые id');
     if(spec.pieceIds.length!==model.count)throw new Error('Число деталей не совпадает с манифестом');
     if(spec.poseIds.some(id=>!['number','string'].includes(typeof id)))throw new Error('Положениям нужны строковые или числовые id');
     if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
-    for(const name of ['initialState','legalMoves','applyTo','inverse','placements','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
-    const initial=model.initialState();
-    if(!model.solved(initial))throw new Error('Исходная цель не собрана');
+    if(typeof model.placements!=='function')throw new Error('Отсутствует метод головоломки: placements');
     project({manifest:spec,model},initial);
     return {manifest:spec,model};
   }
   function project(puzzle,state){
     const {manifest:spec,model}=puzzle;
+    if(spec.schema!=='music-puzzle/1')throw new Error('Положения деталей определены только для сдвиговой проекции');
     // This is an explicit terminal-goal policy, not a change of frame on every move.
     const canonical=spec.goalPolicy==='all-solved-to-reference'&&model.solved(state)?model.initialState():state;
     const result=model.placements(canonical),ids=new Set();
@@ -2704,10 +2687,11 @@ lanes.noise = noiseSound(stack(
         if(i%12===11)state=model.initialState();
       }
     }
-    const entries=[...states].map(([id,state])=>({id,state,placements:project(puzzle,state),solved:model.solved(state)}));
+    const entries=[...states].map(([id,state])=>({id,state,...(puzzle.manifest.schema==='music-puzzle/1'?{placements:project(puzzle,state)}:{}),solved:model.solved(state)}));
     return {states:entries,edges:[...edges.values()],coverage:exact?'complete':'sampled'};
   }
-  return {inspect,project,probes};
+  const fragmentCount=spec=>spec.schema==='music-puzzle/1'?spec.pieceIds.length:spec.fragments;
+  return {inspect,project,probes,fragmentCount};
 });
 
 </script>
@@ -2811,7 +2795,142 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./phase-map.js'));else root.PuzzleSessionLoader=factory(root.PhaseCubeLibrary,root.PuzzleParts,root.PuzzleContract,root.PuzzlePhases);})(globalThis,function(L,Parts,Contract,Phases){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.FourierModel=factory();})(globalThis,function(){
+  'use strict';
+  const reference=[[.61,.17],[.29,.43]],q=Math.SQRT1_2;
+  const identity=[[1,0],[0,0],[0,0],[1,0]];
+  const generators={A:[[0,1],[0,0],[0,0],[1,0]],B:[[1,0],[0,0],[0,0],[0,1]],M:[[q,0],[-q,0],[q,0],[q,0]]};
+  const add=(a,b)=>[a[0]+b[0],a[1]+b[1]],mul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
+  const product=(a,b)=>Array.from({length:4},(_,j)=>add(mul(a[Math.floor(j/2)*2],b[j%2]),mul(a[Math.floor(j/2)*2+1],b[j%2+2])));
+  const key=m=>m.flat().map(x=>Math.round(x*1e9)).join(',');
+  const inverse=move=>move.endsWith("'")?move[0]:move+"'",moves=['A',"A'",'B',"B'",'M',"M'"];
+  const adjoint=m=>[m[0],m[2],m[1],m[3]].map(([r,i])=>[r,-i]);
+  const matrices=[identity],index=new Map([[key(identity),0]]),depth=[0],hints=[null];
+  // Enumerate this specific finite matrix group once. Playable states are integer
+  // IDs, so inverse/period checks never depend on accumulated floating point error.
+  for(let i=0;i<matrices.length;i++)for(const move of moves){
+    const g=generators[move[0]],matrix=product(move.endsWith("'")?adjoint(g):g,matrices[i]),k=key(matrix);
+    if(!index.has(k)){
+      if(matrices.length>=512)throw new Error('Фурье: группа вышла за заявленный конечный домен');
+      index.set(k,matrices.length);matrices.push(matrix);depth.push(depth[i]+1);hints.push(inverse(move));
+    }
+  }
+  if(matrices.length!==192)throw new Error('Изменилась группа Фурье-печати');
+  const transitions=matrices.map(matrix=>Object.fromEntries(moves.map(move=>{
+    const g=generators[move[0]],next=index.get(key(product(move.endsWith("'")?adjoint(g):g,matrix)));
+    if(next===undefined)throw new Error('Группа Фурье не замкнута');return[move,next];
+  })));
+  const valid=state=>Number.isInteger(state)&&state>=0&&state<matrices.length;
+  const coefficients=state=>{if(!valid(state))throw new Error('Неверное состояние Фурье');const m=matrices[state];return[add(mul(m[0],reference[0]),mul(m[1],reference[1])),add(mul(m[2],reference[0]),mul(m[3],reference[1]))];};
+  function interpolate(state,move,t){
+    const c=coefficients(state),sign=move.endsWith("'")?-1:1;
+    if(move[0]==='M'){const a=sign*t*Math.PI/4,s=Math.sin(a),r=Math.cos(a);return[c[0].map((v,j)=>r*v-s*c[1][j]),c[0].map((v,j)=>s*v+r*c[1][j])];}
+    const a=sign*t*Math.PI/2,k=move[0]==='A'?0:1;c[k]=mul(c[k],[Math.cos(a),Math.sin(a)]);return c;
+  }
+  class Model{
+    constructor(){this.current=0;this.count=2;this.selected='A';this.history=[];this.moves=[];}
+    snapshot(){return this.current;}
+    initialState(){return 0;}
+    allStates(){return matrices.map((_,i)=>i);}
+    legalMoves(){return [...moves];}
+    applyTo(state,move){if(!valid(state)||!moves.includes(move))throw new Error('Неверный ход Фурье');return transitions[state][move];}
+    inverse(move){if(!moves.includes(move))throw new Error('Неверный ход Фурье');return inverse(move);}
+    validMove(move){return moves.includes(move);}
+    restore(state){if(!valid(state))throw new Error('Неверное состояние Фурье');this.current=state;}
+    moveTarget(move){return move[0];}
+    select(key){if(!generators[key])throw new Error('Неверный регулятор Фурье');this.selected=key;}
+    moveFor(key,inverted=false){return key+(inverted?"'":'');}
+    choices(){return[{key:'A',label:'Первая волна'},{key:'B',label:'Вторая волна'},{key:'M',label:'Перелив волн'}];}
+    actionLabel(key,inverted){return key==='M'?'Перелить волны на '+(inverted?'−45°':'+45°'):'Повернуть '+(key==='A'?'первую':'вторую')+' волну на '+(inverted?'−90°':'+90°');}
+    reset(seed=1730,level=3){const pool=depth.map((d,i)=>({d,i})).filter(e=>e.d===Math.min(Math.max(1,level),Math.max(...depth)));this.current=pool[(seed>>>0)%pool.length].i;this.history=[];this.moves=[];this.selected='A';}
+    apply(move){const next=this.applyTo(this.current,move);this.history.push({state:this.current,move});this.current=next;this.moves.push(move);this.selected=this.moveTarget(move);}
+    undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=this.moveTarget(old.move);return this.inverse(old.move);}
+    hint(){return hints[this.current];}
+    distance(){return depth[this.current];}
+    solved(state=this.current){return state===0;}
+    correct(state=this.current){return coefficients(state).filter((z,i)=>z.every((v,j)=>Math.abs(v-reference[i][j])<1e-8)).length;}
+    coefficients(state=this.current){return coefficients(state);}
+  }
+  return{Model,coefficients,interpolate,reference:reference.map(z=>[...z]),matrices:()=>matrices.map(m=>m.map(z=>[...z])),orders:{A:4,B:4,M:8}};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* A bounded Fourier displacement of event onsets. This is not a PCM FFT or pitch shifter. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../puzzle-contract.js'));else root.FourierBinding=factory(root.FourierModel,root.PuzzleContract);})(globalThis,function(F,Contract){
+  'use strict';
+  const VERSION='fourier-time/1',strength=.025,mod=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9;
+  const field=(c,t)=>c.reduce((sum,z,k)=>sum+z[0]*Math.cos(2*Math.PI*(k+1)*t)-z[1]*Math.sin(2*Math.PI*(k+1)*t),0);
+  function project(binding,puzzle,state,game){
+    const coefficients=F.coefficients(state),delta=coefficients.map((z,i)=>z.map((v,j)=>v-F.reference[i][j]));
+    const rows=state===0?game.targetRows:game.targetRows.map((row,id)=>row.map(e=>({...e,start:round(mod(e.start+binding.strength*field(delta,e.start+id/(game.count*7))))})).sort((a,b)=>a.start-b.start));
+    const aligned=rows.map((row,id)=>signature([row],[game.voices[id]])===signature([game.targetRows[id]],[game.voices[id]]));
+    return{rows,parts:rows.map((_,id)=>({kind:VERSION,id,aligned:aligned[id]})),coefficients};
+  }
+  function signature(rows,voices){return rows.flatMap((row,id)=>row.map(e=>JSON.stringify([voices[id].part,round(e.start),round(e.duration),e.value.velocity??1]))).sort().join('|');}
+  function validate(binding,spec){return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.strength===strength&&binding.gridSteps===64&&binding.stateCount===192;}
+  async function prepare({puzzle,game,signal,onProgress=()=>{}}){
+    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,strength,gridSteps:64,stateCount:192},signatures=new Map();
+    const target=signature(game.targetRows,game.voices);let aliases=0;
+    for(let i=0;i<probe.states.length;i++){
+      if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
+      const s=probe.states[i],sKey=signature(project(binding,puzzle,s.state,game).rows,game.voices);signatures.set(s.id,sKey);
+      if(!s.solved&&sKey===target)aliases++;
+      if(i%24===0){onProgress({candidate:i+1,total:probe.states.length});await new Promise(r=>setTimeout(r,0));}
+    }
+    const silentMoves=probe.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length;
+    if(aliases||silentMoves)throw new Error('Фурье-печать не различима на этой композиции: '+aliases+' ложных целей, '+silentMoves+' неслышимых по событиям ходов');
+    // |d displacement / dt| <= strength * 2*pi*sqrt(1^2+2^2)*2*||reference|| < 1.
+    const derivativeBound=strength*2*Math.PI*Math.sqrt(5)*2*Math.sqrt(F.reference.flat().reduce((s,x)=>s+x*x,0));
+    return{...binding,diagnostics:{coverage:probe.coverage,states:probe.states.length,edges:probe.edges.length,distinctRhythms:new Set(signatures.values()).size,
+      unsolvedGoalRhythmAliases:aliases,silentMoves,discrimination:new Set(signatures.values()).size===probe.states.length?'distinct-in-probes':'weak',
+      derivativeBound,orderPreserving:derivativeBound<1,acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
+  }
+  return{VERSION,field,project,prepare,validate};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Common result contract; each puzzle family keeps its own musical action. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./phase-map.js'),require('./puzzles/fourier/binding.js'));else root.PuzzleProjection=factory(root.PhaseCubeLibrary,root.PuzzlePhases,root.FourierBinding);})(globalThis,function(L,Phases,Fourier){
+  'use strict';
+  const spectral=spec=>spec.schema==='music-puzzle/2'&&spec.projection===Fourier.VERSION;
+  const version=spec=>spectral(spec)?Fourier.VERSION:Phases.VERSION;
+  const validate=(binding,spec)=>spectral(spec)?Fourier.validate(binding,spec):Phases.validateTable(binding,spec);
+  const prepare=args=>spectral(args.puzzle.manifest)?Fourier.prepare(args):Phases.fitPhaseMap(args);
+  function nativeEvents(S,events,bars){
+    const fraction=x=>S.Fraction([Math.round(x*1e9),1e9]);
+    const source=events.map(e=>({at:fraction(e.start*bars),duration:fraction(typeof e.value.duration!=='number'&&typeof e.value.clip==='number'?e.duration*bars/e.value.clip:e.duration*bars),value:e.value}));
+    const maxDuration=Math.max(...source.map(e=>Number(e.duration)));
+    return new S.Pattern(state=>{
+      const begin=Number(state.span.begin),end=Number(state.span.end),haps=[];
+      for(let cycle=Math.floor((begin-maxDuration)/bars);cycle<=Math.floor(end/bars);cycle++)for(const event of source){
+        const at=event.at.add(fraction(cycle*bars)),whole=new S.TimeSpan(at,at.add(event.duration)),part=whole.intersection(state.span);
+        if(part)haps.push(new S.Hap(whole,part,event.value));
+      }
+      return haps;
+    });
+  }
+  function project(S,prepared,state){
+    const {phaseMap:binding,puzzle,fragments:game}=prepared;
+    if(spectral(puzzle.manifest)){
+      const result=Fourier.project(binding,puzzle,state,game);
+      const patterns=puzzle.model.solved(state)?game.basePatterns:result.rows.map(row=>nativeEvents(S,row,game.periodBars));
+      return{schema:'music-projection/1',...result,patterns};
+    }
+    const parts=Phases.projectMusic(binding,puzzle,state).map(p=>({...p,kind:'pose-shift/1',aligned:p.ticks===0}));
+    const patterns=game.basePatterns.map((p,id)=>p.late(S.Fraction([parts[id].ticks*game.periodBars,binding.gridSteps])));
+    return{schema:'music-projection/1',parts,patterns,rows:patterns.map(p=>L.eventsOf(p,game.periodBars))};
+  }
+  return{version,validate,prepare,project,nativeEvents,analyzePattern:Phases.analyzePattern};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./music-projection.js'));else root.PuzzleSessionLoader=factory(root.PhaseCubeLibrary,root.PuzzleParts,root.PuzzleContract,root.PuzzleProjection);})(globalThis,function(L,Parts,Contract,Projection){
   'use strict';
   const CACHE='music-puzzle-phase-cache/1';
   const aborted=signal=>{if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');};
@@ -2827,7 +2946,7 @@ lanes.noise = noiseSound(stack(
     }
     read(key,spec){
       if(!key)return null;
-      try{const entry=JSON.parse(this.storage?.getItem(CACHE)||'[]').find(e=>e.key===key);if(entry&&Phases.validateTable(entry.binding,spec))return entry.binding;}catch{}
+      try{const entry=JSON.parse(this.storage?.getItem(CACHE)||'[]').find(e=>e.key===key);if(entry&&Projection.validate(entry.binding,spec))return entry.binding;}catch{}
       return null;
     }
     write(key,binding){
@@ -2837,20 +2956,21 @@ lanes.noise = noiseSound(stack(
     async prepareSession({songId,puzzleId,signal,onProgress}={}){
       aborted(signal);
       const module=this.registry.get(puzzleId),puzzle=Contract.inspect(module),song=await this.library.load(songId);aborted(signal);
-      const game=Parts.build(this.S,song,{count:puzzle.manifest.pieceIds.length,palette:this.palette});
-      const analysis=game.targetRows.map(row=>Phases.analyzePattern(row,song.timing.periodBeats));
+      const game=Parts.build(this.S,song,{count:Contract.fragmentCount(puzzle.manifest),palette:this.palette});
+      const analysis=game.targetRows.map(row=>Projection.analyzePattern(row,song.timing.periodBeats));
       const subdivisions=song.phaseOptions?.subdivisionsPerBeat||[2,4];
-      const input={algorithm:Phases.VERSION,spec:puzzle.manifest,home:Contract.project(puzzle,puzzle.model.initialState()),parts:game.voices.map(v=>v.part),analysis,subdivisions};
+      const home=puzzle.manifest.schema==='music-puzzle/1'?Contract.project(puzzle,puzzle.model.initialState()):puzzle.model.initialState();
+      const input={algorithm:Projection.version(puzzle.manifest),spec:puzzle.manifest,home,parts:game.voices.map(v=>v.part),analysis,subdivisions};
       const hash=await fingerprint(input),key=hash||JSON.stringify(input);aborted(signal);
       let binding=this.bindings.get(key)||this.read(hash,puzzle.manifest),cache=binding?'hit':'miss';
       if(binding&&binding.periodBeats!==song.timing.periodBeats){binding=null;cache='miss';}
       if(!binding){
-        const prepared=await Promise.all([Phases.fitPhaseMap({puzzle,game,analysis,subdivisions,signal,onProgress}),this.preload(this.S,song.pattern,song.bars)]);
+        const prepared=await Promise.all([Projection.prepare({puzzle,game,analysis,subdivisions,signal,onProgress}),this.preload(this.S,song.pattern,song.bars)]);
         binding={...prepared[0],periodBeats:song.timing.periodBeats,fingerprint:hash};aborted(signal);
         this.write(hash,binding);
       }else await this.preload(this.S,song.pattern,song.bars);
       aborted(signal);
-      binding=Object.freeze({...binding,poseTicks:Object.freeze([...binding.poseTicks]),diagnostics:Object.freeze({...binding.diagnostics})});this.bindings.set(key,binding);
+      binding=Object.freeze({...binding,...(binding.poseTicks?{poseTicks:Object.freeze([...binding.poseTicks])}:{}),diagnostics:Object.freeze({...binding.diagnostics})});this.bindings.set(key,binding);
       return {composition:song,module,model:puzzle.model,puzzle,fragments:game,phaseMap:binding,analysis,
         stats:{composition:song.stats,binding:{pieces:game.count,gridSteps:binding.gridSteps,periodBeats:binding.periodBeats}},diagnostics:{...binding.diagnostics,cache}};
     }
@@ -2861,23 +2981,41 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Native Strudel phase transforms, independent of puzzle geometry or piece count. */
+/* Shared native Strudel playback; musical projections are separate strategies. */
 window.PuzzleMusic=(()=>{
   const eventsOf=(p,bars)=>PhaseCubeLibrary.eventsOf(p,bars),eventKey=rows=>JSON.stringify(rows);
   class Music{
-    constructor(S,prepared){Object.assign(this,{S,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.phaseMap});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;}
-    phases(state){return PuzzlePhases.projectMusic(this.binding,this.puzzle,state);}
-    shifted(state){const phases=this.phases(state);return this.basePatterns.map((p,id)=>p.late(this.S.Fraction([phases[id].ticks*this.localBars,this.binding.gridSteps])));}
-    rows(state){return this.shifted(state).map(p=>eventsOf(p,this.localBars));}
+    constructor(S,prepared){Object.assign(this,{S,prepared,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.phaseMap});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;this.cache=new Map();}
+    project(state){
+      const key=JSON.stringify(state);if(this.cache.has(key))return this.cache.get(key);
+      const result=PuzzleProjection.project(this.S,this.prepared,state);this.cache.set(key,result);
+      if(this.cache.size>16)this.cache.delete(this.cache.keys().next().value);return result;
+    }
+    // Legacy name retained for callers: Fourier descriptors intentionally have no ticks/offset.
+    phases(state){return this.project(state).parts;}
+    shifted(state){return this.project(state).patterns;}
+    rows(state){return this.project(state).rows;}
     predict(move,state,currentRows=this.rows(state)){
       const next=this.model.applyTo(state,move),phases=this.phases(next),rows=this.rows(next);
-      return {move,phases,rows,changed:rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
+      return{move,phases,rows,changed:rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
     }
     pattern(state){return this.S.stack(...this.shifted(state));}
-    code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n');}
+    code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+(this.puzzle.manifest.schema==='music-puzzle/2'?JSON.stringify({projection:this.binding.algorithm,state,coefficients:this.project(state).coefficients}):this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n'));}
   }
-  return {Music,eventsOf,eventKey};
+  return{Music,eventsOf,eventKey};
 })();
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Bound asynchronous browser APIs that may otherwise leave the start dialog locked. */
+window.PuzzleAsync={
+  async wait(promise,message,ms=15000){
+    let timer;
+    try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>{const e=new Error(message);e.name='TimeoutError';reject(e);},ms);})]);}
+    finally{clearTimeout(timer);}
+  }
+};
 
 </script>
 <script>
@@ -2888,9 +3026,9 @@ window.PuzzleMusic=(()=>{
 (() => {
   'use strict';
   class PhaseCubeTransport {
-    constructor(S, {onChange=()=>{}, onError=console.error,outputGain=1}={}) {
+    constructor(S, {onChange=()=>{}, onError=console.error,outputGain=1,audioTimeout=8000}={}) {
       this.S=S;this.onChange=onChange;this.onError=onError;
-      this.outputGain=outputGain;
+      this.outputGain=outputGain;this.audioTimeout=audioTimeout;
       this.want=false;this.running=false;this.token=0;this.revision=0;
       this.entries=[];this.retired=[];this.active=null;this.pending=null;
       this.lifecycle=Promise.resolve();this.stopPromise=Promise.resolve();
@@ -2997,12 +3135,20 @@ window.PuzzleMusic=(()=>{
     }
     async start(pattern, bpm, volume, meta, ready) {
       this.want=true;this.volume=volume;const token=++this.token;
+      // Call resume in the trusted tap/click stack, before the lifecycle queue or
+      // sample/worklet awaits can consume Safari's transient user activation.
+      const ctx=this.S.getAudioContext();
+      let activation;
+      try{activation=PuzzleAsync.wait(ctx.state==='running'?Promise.resolve():ctx.resume(),'Не удалось включить звук. Нажмите «Повторить».',this.audioTimeout);}
+      catch(e){this.want=false;throw e;}
+      activation.catch(()=>{});
       this.onChange();
       this.lifecycle=this.lifecycle.catch(()=>{}).then(async()=>{
         await this.stopPromise;await ready;
         if(!this.want||token!==this.token)return;
-        const ctx=this.S.getAudioContext();
-        await ctx.resume();await this.S.initAudio();
+        await activation;
+        if(ctx.state!=='running')throw new Error('Браузер приостановил звук. Нажмите «Повторить».');
+        await PuzzleAsync.wait(this.S.initAudio(),'Звуковой движок не ответил. Нажмите «Повторить».',this.audioTimeout);
         if(!this.want||token!==this.token)return;
         this.repl.stop();this.S.resetGlobalEffects();this.connectMaster();this.setVolume(this.volume);
         const initial=typeof pattern==='function'?pattern():{pattern,meta};
@@ -3026,6 +3172,9 @@ window.PuzzleMusic=(()=>{
       return this.lifecycle;
     }
     stop() {
+      // Preparing/selecting the first song is silent. In WebKit an interrupted
+      // never-started context can leave suspend() pending until a user gesture.
+      if(!this.want&&!this.running&&!this.entries.length&&!this.pending)return this.stopPromise;
       this.cursor=this.clock();
       this.want=false;this.running=false;++this.token;
       this.repl?.stop();
@@ -3038,7 +3187,11 @@ window.PuzzleMusic=(()=>{
       const token=this.token;
       // A short drain gives the analyser an actual silent PCM window before suspend.
       this.stopPromise=new Promise(r=>setTimeout(r,65)).then(async()=>{
-        if(!this.want&&token===this.token)await this.S.getAudioContext().suspend();
+        const ctx=this.S.getAudioContext();
+        if(!this.want&&token===this.token&&ctx.state==='running'){
+          try{await PuzzleAsync.wait(ctx.suspend(),'Аудиоконтекст не ответил на паузу',this.audioTimeout);}
+          catch(e){this.record('suspend-timeout',{message:e.message});}
+        }
       });
       return this.stopPromise;
     }
@@ -3100,7 +3253,7 @@ window.PuzzleMusic=(()=>{
   else root.PuzzleEqualizer = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=204, STEP=17;
+  const NS='http://www.w3.org/2000/svg', CENTER=380, INNER=250, TARGET_OFFSET=3.5;
   const mod=n=>((n%1)+1)%1;
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
@@ -3120,7 +3273,7 @@ window.PuzzleMusic=(()=>{
   class Score {
     constructor(svg,voices,{gridSteps=16,periodBeats=16}={}){
       this.svg=svg;this.voices=voices;this.rows=[];this.frameHits=[];
-      const spacing=119/Math.max(1,voices.length-1);
+      const spacing=(323-INNER)/Math.max(1,voices.length-1);
       const grid=node('g',{'class':'orbit-grid','aria-hidden':'true'},svg);
       for(let t=0;t<gridSteps;t++){
         const major=Math.abs(t*periodBeats/gridSteps/4-Math.round(t*periodBeats/gridSteps/4))<1e-8;
@@ -3133,7 +3286,7 @@ window.PuzzleMusic=(()=>{
         const r=INNER+id*spacing,g=node('g',{'class':'orbit-track', 'data-id':id,style:`--track-color:${v.color}`},svg);
         const title=node('title',{},g);title.textContent=`${id+1}. ${v.name}`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
-        node('circle',{cx:CENTER,cy:CENTER,r:r+5.5,'class':'orbit-target-rail'},g);
+        node('circle',{cx:CENTER,cy:CENTER,r:r+TARGET_OFFSET,'class':'orbit-target-rail'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g),preview=node('g',{'class':'orbit-preview','aria-hidden':'true'},g);
         this.rows.push({g,r,target,current,preview});
       });
@@ -3149,18 +3302,18 @@ window.PuzzleMusic=(()=>{
       for(const group of keys.values()){
         const e=group[0],layers=ghost?1:Math.min(4,group.length);
         for(let i=0;i<layers;i++){
-          const radius=r+(ghost?5.5:-3)+(layers>1?(i-(layers-1)/2)*2.5:0);
+          const radius=r+(ghost?TARGET_OFFSET:-3)+(layers>1?(i-(layers-1)/2)*1.4:0);
           for(const [start,end]of segments(e.start,e.duration)){
             // Leave a tiny joint between adjacent events; wrapped continuations
             // have no artificial attack mark at zero.
             const inset=Math.min(.002,(end-start)/5);
             const d=arc(radius,start+inset,end-inset);
-            node('path',{d,'class':ghost?'target-event':'current-event','stroke-width':ghost?3.8:layers>1?1.8:5.5},parent);
-            if(ghost)node('path',{d,'class':'target-event-core','stroke-width':1.8},parent);
+            node('path',{d,'class':ghost?'target-event':'current-event','stroke-width':ghost?3:layers>1?1.3:4.5},parent);
+            if(ghost)node('path',{d,'class':'target-event-core','stroke-width':1.3},parent);
           }
         }
         if(!ghost){const a=point(r-8,mod(e.start)),b=point(r+1,mod(e.start));node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'event-onset'},parent);}
-        else {const p=point(r+5.5,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:2.4,'class':'target-onset'},parent);}
+        else {const p=point(r+TARGET_OFFSET,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:1.8,'class':'target-onset'},parent);}
       }
     }
     drawPreview(parent,events,r){
@@ -3175,12 +3328,9 @@ window.PuzzleMusic=(()=>{
         const p=point(r+1,mod(e.start));node('circle',{cx:p[0],cy:p[1],r:2.5,'class':'preview-onset'},parent);
       }
     }
-    update({rows,target,phases,selected,muted,solo,mode,showTarget=true,pending=false,forecast=null,affected=[]}){
-      this.svg.classList.toggle('hide-target',!showTarget);
-      this.svg.classList.toggle('audition-target',mode==='target');
+    update({rows,target,phases,pending=false,forecast=null,affected=[]}){
       this.svg.classList.toggle('has-move-preview',!!forecast);
       this.svg.dataset.previewMove=forecast?.move||'';
-      this.svg.dataset.selected=selected;
       this.rows.forEach((row,id)=>{
         this.drawEvents(row.target,target[id]||[],row.r,true);
         this.drawEvents(row.current,rows[id]||[],row.r,false);
@@ -3188,12 +3338,11 @@ window.PuzzleMusic=(()=>{
         this.drawPreview(row.preview,changed?forecast.rows[id]:[],row.r);
         row.g.classList.toggle('will-change',changed);
         row.g.classList.toggle('just-changed',affected.includes(id));
-        if(forecast)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
-        row.g.classList.toggle('selected',id===selected);
-        row.g.classList.toggle('is-muted',muted.includes(id)||(solo>=0&&solo!==id));
-        row.g.classList.toggle('aligned',phases[id].ticks===0);
-        row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${phases[id].ticks===0?'Совпадает с целью.':'Не совпадает с целью.'}`);
-        row.g.dataset.phase=phases[id].ticks;
+        const aligned=phases[id].aligned;
+        if(forecast?.phases[id].ticks!==undefined)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
+        row.g.classList.toggle('aligned',aligned);
+        row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${aligned?'Совпадает с целью.':'Не совпадает с целью.'}`);
+        if(phases[id].ticks!==undefined)row.g.dataset.phase=phases[id].ticks;else delete row.g.dataset.phase;
       });
       this.svg.classList.toggle('is-pending',pending);
     }
@@ -3210,8 +3359,217 @@ window.PuzzleMusic=(()=>{
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Only Three.js GPU objects live here. Music/session resources have their own owners. */
+window.PuzzleGraphics = (() => {
+  const theme = Object.freeze({ink:0x263e33, accent:0xb46f32, hover:0x73976a, paper:0xfcfaf2, light:0xfff9e9});
+  class Resources {
+    constructor(){ this.items=new Set(); this.labels=new Map(); }
+    own(value){ this.items.add(value); return value; }
+    label(color,number){
+      const key=color+':'+number;
+      if(this.labels.has(key))return this.labels.get(key);
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(2,2,252,252,20);ctx.fill();
+      ctx.strokeStyle='#263e33';ctx.lineWidth=6;ctx.stroke();
+      ctx.fillStyle='#20382d';ctx.font='650 114px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,128,132);
+      const texture=this.own(new THREE.CanvasTexture(canvas));texture.colorSpace=THREE.SRGBColorSpace;
+      texture.anisotropy=4;this.labels.set(key,texture);return texture;
+    }
+    material(color,extra={}){ return this.own(new THREE.MeshStandardMaterial({color,roughness:.87,metalness:0,...extra})); }
+    stroke(points,{color=theme.accent,radius=.016,closed=false}={}){
+      const vertices=points.map(p=>new THREE.Vector3(...p));if(closed)vertices.push(vertices[0]);
+      const curve=new THREE.CurvePath();
+      for(let i=1;i<vertices.length;i++)curve.add(new THREE.LineCurve3(vertices[i-1],vertices[i]));
+      return new THREE.Mesh(this.own(new THREE.TubeGeometry(curve,Math.max(4,vertices.length*3),radius,5,false)),this.own(new THREE.MeshBasicMaterial({color})));
+    }
+    turnArrow(inverse){
+      const group=new THREE.Group(),points=[];
+      for(let i=0;i<=36;i++){const a=.3+(inverse?1:-1)*i/36*Math.PI*1.55;points.push([Math.cos(a)*.79,Math.sin(a)*.79,.025]);}
+      group.add(this.stroke(points,{radius:.022}));
+      const cone=new THREE.Mesh(this.own(new THREE.ConeGeometry(.065,.17,8)),this.own(new THREE.MeshBasicMaterial({color:theme.accent})));
+      const end=new THREE.Vector3(...points.at(-1)),direction=end.clone().sub(new THREE.Vector3(...points.at(-2))).normalize();
+      cone.position.copy(end);cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);group.add(cone);return group;
+    }
+    dispose(){ for(const item of this.items)item.dispose();this.items.clear();this.labels.clear(); }
+  }
+  return {Resources,theme};
+})();
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* One pointer subscription per canvas; puzzle adapters receive semantic hits. */
+window.PuzzlePointer = class {
+  constructor(canvas,{enabled,pick,select,hover,drag}){
+    Object.assign(this,{canvas,enabled,pick,select,hover,drag});
+    this.events=new AbortController();this.gesture=null;
+    const listen=(type,fn)=>canvas.addEventListener(type,fn,{signal:this.events.signal});
+    listen('pointerdown',event=>{
+      if(event.button!==0||event.isPrimary===false||this.gesture||!enabled())return;
+      this.gesture={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,
+        slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false};
+      hover(this.gesture.hit);
+      canvas.setPointerCapture(event.pointerId);event.preventDefault();
+    });
+    listen('pointermove',event=>{
+      const g=this.gesture;
+      if(!g){if(enabled()&&event.pointerType!=='touch')hover(pick(event.clientX,event.clientY));return;}
+      if(g.id!==event.pointerId)return;
+      if(Math.hypot(event.clientX-g.startX,event.clientY-g.startY)>g.slop)g.moved=true;
+      if(g.moved&&enabled()){hover(null);drag(event.clientX-g.x,event.clientY-g.y);}
+      g.x=event.clientX;g.y=event.clientY;
+    });
+    listen('pointerup',event=>{
+      const g=this.gesture;if(!g||g.id!==event.pointerId)return;
+      this.cancel();
+      if(!g.moved&&enabled()){
+        const hit=g.hit||pick(event.clientX,event.clientY);if(hit)select(hit);
+      }
+      hover(event.pointerType==='touch'||!enabled()?null:pick(event.clientX,event.clientY));
+    });
+    listen('pointercancel',event=>{if(this.gesture?.id===event.pointerId){this.cancel();hover(null);}});
+    listen('lostpointercapture',()=>this.cancel());
+    listen('pointerleave',()=>{if(!this.gesture)hover(null);});
+  }
+  cancel(){
+    const id=this.gesture?.id;this.gesture=null;
+    if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);
+  }
+  destroy(){this.events.abort();this.cancel();}
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* A persistent Three renderer, raycaster and resize/input boundary. No game rules or audio clock. */
+window.PuzzleStage = class {
+  constructor(element){
+    this.element=element;this.active=null;this.disabled=true;this.timelines=new Map();this.dirty=true;
+    this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});
+    this.renderer.outputColorSpace=THREE.SRGBColorSpace;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    this.canvas=this.renderer.domElement;this.canvas.setAttribute('aria-hidden','true');element.append(this.canvas);
+    this.targets=document.createElement('div');this.targets.className='sr-only';element.append(this.targets);
+    this.ray=new THREE.Raycaster();
+    this.pointer=new PuzzlePointer(this.canvas,{
+      enabled:()=>!!this.active&&!this.disabled,
+      pick:(x,y)=>this.pick(x,y),select:hit=>this.active?.onSelect(hit),
+      hover:hit=>{this.active?.view.hover?.(hit);this.active?.onHover?.(hit);this.dirty=true;this.canvas.style.cursor=hit?'pointer':this.active?.view.drag?'grab':'default';},
+      drag:(x,y)=>{this.stopTween('camera');this.active?.view.drag?.(x,y);this.dirty=true;}
+    });
+    this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(element);
+    this.events=new AbortController();
+    this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();element.dataset.context='lost';},{signal:this.events.signal});
+    this.canvas.addEventListener('webglcontextrestored',()=>{delete element.dataset.context;this.dirty=true;},{signal:this.events.signal});
+    this.resize();
+  }
+  mount(createView,context){
+    this.unmount();
+    const resources=new PuzzleGraphics.Resources(),scene=new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x829478,2.3));
+    const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
+    try{
+      const view=createView({...context,scene,resources,tween:(...args)=>this.tween(...args)});
+      this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover};
+      this.element.dataset.puzzle=context.module.id;this.element.setAttribute('aria-label',context.module.title);
+      this.targets.replaceChildren(...context.model.choices().map(choice=>{
+        const button=document.createElement('button');button.textContent=choice.label;button.type='button';
+        button.onclick=()=>{if(!this.disabled)context.onSelect({key:choice.key,selectOnly:true});};return button;
+      }));
+      this.resize();return view;
+    }catch(error){resources.dispose();scene.clear();throw error;}
+  }
+  resize(){
+    const width=Math.max(1,this.element.clientWidth),height=Math.max(1,this.element.clientHeight);
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.setSize(width,height,false);
+    const view=this.active?.view;
+    if(view){view.resize?.(width/height);view.camera.updateProjectionMatrix();}
+    this.dirty=true;
+  }
+  pick(x,y){
+    const active=this.active;if(!active||this.disabled)return null;
+    const rect=this.canvas.getBoundingClientRect();
+    active.scene.updateMatrixWorld(true);active.view.camera.updateMatrixWorld();
+    this.ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),active.view.camera);
+    const hit=this.ray.intersectObjects(active.view.pickTargets(),false)[0];
+    if(!hit)return null;
+    const {actionCenter,...target}=active.view.hit(hit);
+    return actionCenter?{...target,inverted:x<this.project(actionCenter).x}:target;
+  }
+  project(point){
+    this.active.scene.updateMatrixWorld(true);this.active.view.camera.updateMatrixWorld();
+    const p=point.clone().project(this.active.view.camera),rect=this.canvas.getBoundingClientRect();
+    return {x:rect.x+(p.x+1)*rect.width/2,y:rect.y+(1-p.y)*rect.height/2};
+  }
+  // Also used by browser QA: these are projections of the actual Three objects, not a second hit map.
+  locations(){return (this.active?.view.locations()||[]).map(({point,region,...target})=>({...target,...this.project(point),region:region?.map(p=>this.project(p))}));}
+  update(disabled){
+    this.disabled=disabled;this.element.setAttribute('aria-disabled',String(disabled));
+    this.targets.inert=disabled;if(disabled)this.pointer.cancel();
+    this.active?.view.sync();this.dirty=true;
+  }
+  feedback(value){this.active?.view.feedback(value);this.dirty=true;}
+  tween(key,duration,step){
+    this.stopTween(key);
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches||duration===0){step(1);this.dirty=true;return Promise.resolve(true);}
+    return new Promise(resolve=>this.timelines.set(key,{start:performance.now(),duration,step,resolve}));
+  }
+  stopTween(key){const old=this.timelines.get(key);if(old){this.timelines.delete(key);old.resolve(false);}}
+  frame(now){
+    for(const [key,t]of this.timelines){
+      const progress=Math.min(1,(now-t.start)/t.duration);t.step(progress*progress*(3-2*progress));this.dirty=true;
+      if(progress===1){this.timelines.delete(key);t.resolve(true);}
+    }
+    if(this.active&&this.dirty){this.renderer.render(this.active.scene,this.active.view.camera);this.dirty=false;}
+  }
+  unmount(){
+    this.pointer.cancel();for(const key of this.timelines.keys())this.stopTween(key);
+    if(this.active){this.active.view.dispose?.();this.active.resources.dispose();this.active.scene.clear();this.active=null;}
+    this.targets.replaceChildren();this.renderer.renderLists.dispose();this.canvas.style.cursor='default';this.dirty=true;
+  }
+  info(){return {canvasCount:this.element.querySelectorAll('canvas').length,geometries:this.renderer.info.memory.geometries,
+    textures:this.renderer.info.memory.textures,tweens:this.timelines.size,puzzle:this.element.dataset.puzzle};}
+  destroy(){this.unmount();this.pointer.destroy();this.events.abort();this.resizeObserver.disconnect();this.renderer.dispose();this.element.replaceChildren();}
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Shared selection, move preview, hint, action animation and keyboard adapter. */
+window.PuzzleControl = {
+  mount({presentation,module,commands,model,game,canInteract,onMove,onPreview,onSelect,createView}){
+    let preview=null,armed=null;
+    const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:model.selected,move:preview});};
+    const controls=new PuzzleTurnControls(commands,{model,onMove,onPreview:move=>{preview=move;feedback();onPreview(move);}});
+    const view=presentation.mount(createView,{module,model,game,onHover:hit=>{
+      const move=canInteract()&&hit&&armed===model.selected&&hit.key===armed&&typeof hit.inverted==='boolean'?model.moveFor(armed,hit.inverted):null;
+      if(preview!==move){preview=move;feedback();onPreview(move);}
+    },onSelect:hit=>{
+      if(!canInteract())return;
+      if(!hit.selectOnly&&armed===model.selected&&hit.key===armed&&typeof hit.inverted==='boolean'){
+        onMove(model.moveFor(armed,hit.inverted));return;
+      }
+      model.select(hit.key);armed=hit.key;controls.hint(null);onSelect();
+    }});
+    return {
+      update(disabled){controls.update(disabled);presentation.update(disabled);feedback();},
+      async animate(move,before){armed=model.moveTarget(move);try{await view.animate(move,before);}finally{if(presentation.active?.view===view){view.sync();feedback();}}},
+      hint(move){controls.hint(move);armed=model.selected;preview=move;view.focus?.(model.selected);feedback();},
+      clearHint(){controls.hint(null);preview=null;feedback();},
+      resetInteraction(){armed=null;preview=null;presentation.active?.view.hover?.(null);feedback();},
+      focus:()=>presentation.element.focus({preventScroll:true}),
+      destroy(){if(presentation.active?.view===view)presentation.unmount();},
+      key(event){const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
+    };
+  }
+};
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.PuzzleTurnControls=class{
-  constructor(host,{model,onMove,onSelect,onPreview}){
+  constructor(host,{model,onMove,onPreview}){
     this.model=model;this.host=host;this.hinted=null;
     const hint=document.getElementById('hint');hint.remove();
     host.innerHTML='<button id="turn-left" class="turn-button" aria-label="Поворот против часовой стрелки">↶</button><span class="hint-slot"></span><button id="turn-right" class="turn-button" aria-label="Поворот по часовой стрелке">↷</button>';
@@ -3226,9 +3584,9 @@ window.PuzzleTurnControls=class{
   }
   update(disabled){
     this.buttons.forEach((b,i)=>{b.disabled=disabled;b.classList.toggle('hinted',this.hinted===this.model.moveFor(this.model.selected,i===0));
-      b.setAttribute('aria-label',this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
+      b.setAttribute('aria-label',this.model.actionLabel?.(this.model.selected,i===0)||this.model.choices().find(c=>c.key===this.model.selected).label+': '+(i===0?'против':'по')+' часовой стрелке');});
   }
-  hint(move){this.hinted=move;if(move)this.model.select(move[0]);}
+  hint(move){this.hinted=move;if(move)this.model.select(this.model.moveTarget(move));}
   focus(){this.buttons[1].focus({preventScroll:true});}
 };
 
@@ -3248,7 +3606,7 @@ window.PuzzleHint=class{
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.PuzzlePlayer=class{
   constructor(host,{onSeek,onUndo,onPause,onHint}){
-    host.innerHTML='<label class="song-seek"><span class="sr-only">Позиция в композиции</span><input id="song-seek" type="range" min="0" max="1" step="0.25" value="0" aria-label="Позиция в композиции"></label><div class="puzzle-command cube-command" role="group" aria-label="Поворот выбранного блока"></div><div class="secondary-actions"><button id="undo" class="secondary-button" aria-label="Отменить ход"><span aria-hidden="true">↩</span><span class="action-label">Отменить</span></button><span class="hint-host"></span><button id="pause" class="secondary-button" aria-label="Пауза"><span id="pause-icon" aria-hidden="true">Ⅱ</span><span class="action-label" id="pause-label">Пауза</span></button></div>';
+    host.innerHTML='<label class="song-seek"><span class="sr-only">Позиция в композиции</span><input id="song-seek" type="range" min="0" max="1" step="0.25" value="0" aria-label="Позиция в композиции"></label><div class="puzzle-command" role="group" aria-label="Поворот выбранного блока"></div><div class="secondary-actions"><button id="undo" class="secondary-button" aria-label="Отменить ход"><span aria-hidden="true">↩</span><span class="action-label">Отменить</span></button><span class="hint-host"></span><button id="pause" class="secondary-button" aria-label="Пауза"><span id="pause-icon" aria-hidden="true">Ⅱ</span><span class="action-label" id="pause-label">Пауза</span></button></div>';
     this.commands=host.querySelector('.puzzle-command');this.seek=host.querySelector('#song-seek');this.undo=host.querySelector('#undo');this.pause=host.querySelector('#pause');
     this.dragging=false;this.seek.oninput=()=>{this.dragging=true;};this.seek.onpointercancel=()=>{this.dragging=false;};
     this.seek.onchange=()=>{this.dragging=false;onSeek(Number(this.seek.value));};this.undo.onclick=onUndo;this.pause.onclick=onPause;
@@ -3268,15 +3626,16 @@ window.PuzzlePlayer=class{
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.PuzzleDialogs=class{
-  constructor(host,{onStart,onChoose,onAgain,onMenu}){
+  constructor(host,{onStart,onChoose,onAgain,onMenu,onRetry=()=>location.reload()}){
     host.innerHTML='<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title"><div class="record-mark" aria-hidden="true"><span>◈</span></div><div class="setup-choices"><label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled></select></label><label class="song-choice"><span>Головоломка</span><select id="puzzle-select" aria-label="Головоломка" disabled></select></label></div><h1 id="session-title">Музыкальная головоломка</h1><p id="song-meta" class="song-meta"></p><p id="session-feedback" class="session-feedback" role="status">Загрузка…</p><button id="start" class="primary-button" disabled>Начать</button></dialog><dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title"><div id="celebration" class="celebration" aria-hidden="true" hidden></div><p class="result-caption">Композиция собрана</p><h2 id="result-title"></h2><p id="result-song" class="song-meta"></p><a id="download-mp3" class="primary-button" download>Скачать трек · MP3</a><button id="play-again" class="outline-button">Ещё раз</button><button id="choose-song" class="outline-button">Выбрать композицию</button></dialog>';
     this.root=host;this.$=id=>host.querySelector('#'+id);
-    this.$('start').onclick=onStart;this.$('play-again').onclick=onAgain;this.$('choose-song').onclick=onMenu;
+    this.$('start').onclick=()=>this.error?onRetry():onStart();this.$('play-again').onclick=onAgain;this.$('choose-song').onclick=onMenu;
     for(const id of ['song-select','puzzle-select'])this.$(id).onchange=()=>onChoose({songId:this.$('song-select').value,puzzleId:this.$('puzzle-select').value});
     host.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>e.preventDefault()));
   }
   catalog(songs,puzzles){for(const[id,list]of [['song-select',songs],['puzzle-select',puzzles]])this.$(id).replaceChildren(...list.map(item=>{const o=document.createElement('option');o.value=item.id;o.textContent=item.title;return o;}));}
-  update({song,puzzleId,phase,loading,starting,error}){
+  update({song,puzzleId,phase,loading,starting,error,loadingMessage}){
+    this.error=error;
     if(song){
       const duration=Math.floor(song.stats.seconds/60)+':'+String(Math.floor(song.stats.seconds%60)).padStart(2,'0');
       const meta=song.style+' · '+song.bpm+' BPM · '+duration;
@@ -3285,8 +3644,8 @@ window.PuzzleDialogs=class{
       const link=this.$('download-mp3');link.href=globalThis.PhaseCubeEmbeddedAssets?.[song.download]||song.download;link.download=song.title+'.mp3';
     }
     this.$('puzzle-select').value=puzzleId;
-    this.$('session-feedback').textContent=error?'Не удалось загрузить: '+error:loading?'Загружаем композицию…':starting?'Включаем звук…':'';
-    this.$('start').disabled=!song||loading||starting||!!error;this.$('start').textContent=phase==='paused'?'Продолжить':'Начать';
+    this.$('session-feedback').textContent=error?'Не удалось запустить: '+error:loading?(loadingMessage||'Загружаем композицию…'):starting?'Включаем звук…':'';
+    this.$('start').disabled=loading||starting||(!song&&!error);this.$('start').textContent=error?'Повторить':phase==='paused'?'Продолжить':'Начать';
     for(const id of ['song-select','puzzle-select'])this.$(id).disabled=loading||starting;
     for(const[id,open]of [['session-overlay',phase==='ready'||phase==='paused'||starting],['result-dialog',phase==='won']]){
       const d=this.$(id);if(open&&!d.open)d.showModal();else if(!open&&d.open)d.close();
@@ -3352,254 +3711,6 @@ window.PuzzleDialogs=class{
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Input/feedback adapter for this cube: native Three.js raycasts + projected SVG. */
-(function(root,factory){
-  if(typeof module==='object'&&module.exports)module.exports=factory();
-  else root.PhaseCubeInput=factory();
-})(typeof globalThis!=='undefined'?globalThis:this,function(){
-  'use strict';
-  const NS='http://www.w3.org/2000/svg';
-  const NORMALS={U:[0,1,0],R:[1,0,0],F:[0,0,1],D:[0,-1,0],L:[-1,0,0],B:[0,0,-1]};
-  function halfPolygon(points,x,left){
-    const result=[];
-    for(let i=0;i<points.length;i++){
-      const a=points[i],b=points[(i+1)%points.length],inside=p=>left?p[0]<=x:p[0]>=x;
-      if(inside(a))result.push(a);
-      if(inside(a)!==inside(b)){const t=(x-a[0])/(b[0]-a[0]);result.push([x,a[1]+(b[1]-a[1])*t]);}
-    }
-    return result;
-  }
-  const path=points=>points.length?'M'+points.map(p=>p.join(',')).join(' L')+' Z':'';
-  function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);parent?.append(e);return e;}
-  class Input {
-    constructor({T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace=()=>null,selectOnly=()=>false}){
-      Object.assign(this,{T,stage,view,svg,root,camera,getStickers,isBusy,onMove,onPreview,onDrag,onSelect,getSelectedFace,selectOnly});
-      this.ray=new T.Raycaster();this.pointer=null;this.hover=null;this.hint=null;this.buttonMove=null;this.dirty=true;this.signature='';
-      this.bounds=new T.Box3(new T.Vector3(-1.03,-1.03,-1.03),new T.Vector3(1.03,1.03,1.03));
-      this.events=new AbortController();
-      const listen=(type,handler)=>stage.addEventListener(type,handler,{signal:this.events.signal});
-      const defs=el('defs',{},svg),marker=el('marker',{id:'cube-arrowhead',viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:4,markerHeight:4,orient:'auto-start-reverse'},defs);
-      el('path',{d:'M1 1 L9 5 L1 9 Z',fill:'currentColor'},marker);
-      this.hits=el('g',{'class':'cube-hit-areas'},svg);
-      this.feedback=el('g',{'class':'cube-feedback','aria-hidden':'true'},svg);
-      listen('pointerdown',e=>{
-        if(e.button!==0||e.isPrimary===false||this.pointer||this.isBusy())return;
-        this.onDrag?.();this.pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,
-          slop:e.pointerType==='touch'?12:6,hit:this.pick(e.clientX,e.clientY),moved:false};
-        stage.setPointerCapture(e.pointerId);e.preventDefault();
-      });
-      listen('pointermove',e=>{
-        if(this.pointer){
-          const p=this.pointer;
-          if(p.id!==e.pointerId)return;
-          if(Math.hypot(e.clientX-p.startX,e.clientY-p.startY)>p.slop)p.moved=true;
-          if(p.moved){root.rotation.y+=(e.clientX-p.x)*.009;root.rotation.x+=(e.clientY-p.y)*.009;this.setHover(null);this.refresh();}
-          p.x=e.clientX;p.y=e.clientY;
-        }else this.setHover(this.pick(e.clientX,e.clientY));
-      });
-      listen('pointerup',e=>{
-        if(!this.pointer||this.pointer.id!==e.pointerId)return;
-        const p=this.pointer;this.pointer=null;
-        if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId);
-        if(p.moved||this.isBusy())return;
-        const hit=p.hit||this.pick(e.clientX,e.clientY);
-        if(hit){
-          if(e.pointerType==='touch'||this.selectOnly())this.onSelect?.(hit.face,hit.id);
-          else{svg.dataset.lastMove=hit.move;svg.dataset.lastHalf=hit.left?'left':'right';this.onMove(hit.move,hit.id);}
-        }
-      });
-      const cancel=()=>{this.pointer=null;this.setHover(null);};
-      listen('pointercancel',e=>{if(this.pointer?.id===e.pointerId)cancel();});listen('lostpointercapture',()=>{if(this.pointer)cancel();});
-      listen('pointerleave',()=>{if(!this.pointer)this.setHover(null);});
-    }
-    destroy(){
-      this.events.abort();const id=this.pointer?.id;this.pointer=null;
-      if(id!==undefined&&this.stage.hasPointerCapture(id))this.stage.releasePointerCapture(id);
-      this.hover=null;this.hint=null;this.buttonMove=null;this.stage.style.cursor='';
-      this.hits.replaceChildren();this.feedback.replaceChildren();
-    }
-    refresh(){this.dirty=true;}
-    previewMove(move){this.buttonMove=move;this.notify();}
-    setHint(move){this.hint=move;this.notify();}
-    resetPreview(){this.hover=null;this.hint=null;this.buttonMove=null;this.notify();}
-    setHover(hit){
-      if(this.hover?.move===hit?.move&&this.hover?.id===hit?.id)return;
-      this.hover=hit;this.stage.style.cursor=hit?'pointer':'grab';this.notify();
-    }
-    notify(){
-      const move=this.buttonMove||(!this.selectOnly()?this.hover?.move:null)||this.hint;
-      this.onPreview(move,this.buttonMove?'button':this.hover?'tile':this.hint?'hint':null);
-      this.drawFeedback();
-    }
-    project(world){const p=world.clone().project(this.camera);return[(p.x+1)*this.view.clientWidth/2,(1-p.y)*this.view.clientHeight/2];}
-    pick(x,y){
-      if(this.isBusy())return null;
-      this.root.updateMatrixWorld(true);
-      const rect=this.view.getBoundingClientRect();
-      this.ray.setFromCamera(new this.T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.camera);
-      // Pick the solid face, including seams between its four stickers.
-      const local=this.ray.ray.clone().applyMatrix4(this.root.matrixWorld.clone().invert());
-      const point=local.intersectBox(this.bounds,new this.T.Vector3());if(!point)return null;
-      const axis=['x','y','z'].reduce((a,b)=>Math.abs(point[a])>Math.abs(point[b])?a:b);
-      const face=(point[axis]>0?{x:'R',y:'U',z:'F'}:{x:'L',y:'D',z:'B'})[axis];
-      const world=this.root.localToWorld(point);
-      const candidates=this.getStickers().filter(s=>s.userData.face===face);
-      const sticker=candidates.sort((a,b)=>a.getWorldPosition(new this.T.Vector3()).distanceToSquared(world)-b.getWorldPosition(new this.T.Vector3()).distanceToSquared(world))[0];
-      if(!sticker)return null;
-      const center=this.project(sticker.getWorldPosition(new this.T.Vector3())),left=x-rect.left<center[0];
-      return{face,id:sticker.userData.id,left,move:face+(left?"'":'')};
-    }
-    facePoint(face,x,y){
-      const n=new this.T.Vector3(...NORMALS[face]),q=new this.T.Quaternion().setFromUnitVectors(new this.T.Vector3(0,0,1),n);
-      return this.project(this.root.localToWorld(new this.T.Vector3(x,y,0).applyQuaternion(q).add(n.multiplyScalar(1.032))));
-    }
-    drawFeedback(){
-      this.feedback.replaceChildren();
-      delete this.svg.dataset.previewMove;this.svg.classList.remove('hint-preview');
-      const move=this.buttonMove||(!this.selectOnly()?this.hover?.move:null)||this.hint;if(this.isBusy())return;
-      const face=move?.[0]||this.getSelectedFace();if(!this.visibleFaces?.has(face))return;
-      const quad=[[-1.015,1.015],[1.015,1.015],[1.015,-1.015],[-1.015,-1.015]].map(([x,y])=>this.facePoint(face,x,y));
-      el('path',{d:path(quad),'class':'cube-face-outline'},this.feedback);
-      if(!move){this.svg.dataset.selectedFace=face;return;}
-      if(this.hover&&!this.buttonMove){
-        const tile=this.visibleTiles?.find(t=>t.face===face&&t.id===this.hover.id);
-        if(tile)el('path',{d:path(halfPolygon(tile.points,tile.center[0],this.hover.left)),'class':'cube-half-highlight'},this.feedback);
-      }
-      const inverse=move.endsWith("'"),points=[];
-      for(let i=0;i<=32;i++){const a=(.30+(inverse?1:-1)*i/32*Math.PI*1.55);points.push(this.facePoint(face,Math.cos(a)*.79,Math.sin(a)*.79));}
-      const d='M'+points.map(p=>p.join(',')).join(' L');
-      el('path',{d,'class':'cube-turn-underlay'},this.feedback);
-      el('path',{d,'class':'cube-turn-arrow','marker-end':'url(#cube-arrowhead)'},this.feedback);
-      this.svg.dataset.previewMove=move;this.svg.classList.toggle('hint-preview',!!this.hint&&!this.hover&&!this.buttonMove);
-    }
-    update(){
-      this.svg.classList.toggle('is-busy',this.isBusy());
-      const signature=[...this.root.quaternion.toArray(),this.view.clientWidth,this.view.clientHeight,this.isBusy(),this.selectOnly(),this.getSelectedFace()].join(',');
-      if(!this.dirty&&signature===this.signature)return;
-      this.signature=signature;this.dirty=false;this.root.updateMatrixWorld(true);this.hits.replaceChildren();
-      this.hits.setAttribute('aria-hidden',String(this.selectOnly()));
-      this.svg.setAttribute('viewBox',`0 0 ${this.view.clientWidth} ${this.view.clientHeight}`);
-      this.visibleTiles=[];this.visibleFaces=new Set();
-      if(this.isBusy()){this.feedback.replaceChildren();return;}
-      for(const sticker of this.getStickers()){
-        const center=sticker.getWorldPosition(new this.T.Vector3()),normal=sticker.getWorldDirection(new this.T.Vector3());
-        if(normal.dot(this.camera.position.clone().sub(center))<=.001)continue;
-        const points=[[-.41,.41],[.41,.41],[.41,-.41],[-.41,-.41]].map(([x,y])=>this.project(sticker.localToWorld(new this.T.Vector3(x,y,0))));
-        const tile={face:sticker.userData.face,id:sticker.userData.id,center:this.project(center),points};
-        this.visibleTiles.push(tile);this.visibleFaces.add(tile.face);
-        for(const left of [true,false]){
-          const move=tile.face+(left?"'":''),shape=halfPolygon(points,tile.center[0],left);
-          const target=el('path',{d:path(shape),'class':'cube-hit',role:'button',tabindex:-1,'data-face':tile.face,'data-id':tile.id,'data-half':left?'left':'right','data-move':move,'aria-label':`${tile.face}: ${left?'против часовой стрелки':'по часовой стрелке'}, ${left?'левая':'правая'} половина плитки ${tile.id+1}`},this.hits);
-          const activate=()=>{if(!this.isBusy()){
-            if(this.selectOnly())this.onSelect?.(tile.face,tile.id);
-            else{this.svg.dataset.lastMove=move;this.svg.dataset.lastHalf=left?'left':'right';this.onMove(move,tile.id);}
-          }};
-          target.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!e.repeat){e.preventDefault();e.stopPropagation();activate();}});
-          target.addEventListener('click',e=>{if(e.detail===0)activate();});
-        }
-      }
-      this.drawFeedback();
-    }
-  }
-  return{Input,halfPolygon};
-});
-
-</script>
-<script>
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Three.js scene and animation. State and audio stay in their own modules. */
-window.PhaseCubeView=(()=>{
-  'use strict';
-  function create({T,M,colors,view,stage,svg,getState,getSelected,getSelectedFace,isBusy,onMove,onPreview,onError,onSelect,selectOnly}) {
-    let inputView,renderCube,animateTurn,resetView,focusFace;
-    if(!T)throw new Error('Three.js не загрузился');
-    const scene=new T.Scene(), camera=new T.PerspectiveCamera(34,1,.1,100);
-    camera.position.set(0,0,6.5);camera.lookAt(0,0,0);
-    let renderer;
-    try{renderer=new T.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});}catch(e){onError(e);return null;}
-    renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=T.SRGBColorSpace;
-    renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;view.append(renderer.domElement);
-    scene.add(new T.HemisphereLight(0xfffdf1,0x789075,2.2));
-    const light=new T.DirectionalLight(0xfff5df,3);light.position.set(-3,6,5);light.castShadow=true;
-    light.shadow.mapSize.set(1024,1024);light.shadow.camera.left=-4;light.shadow.camera.right=4;light.shadow.camera.top=4;light.shadow.camera.bottom=-4;scene.add(light);
-    const root=new T.Group();root.rotation.set(.40,-.56,0);root.position.y=.10;scene.add(root);
-    const floor=new T.Mesh(new T.PlaneGeometry(12,12),new T.ShadowMaterial({color:0x5a7052,opacity:.12}));floor.rotation.x=-Math.PI/2;floor.position.y=-1.69;floor.receiveShadow=true;scene.add(floor);
-    let cubies=[], stickers=[], textures=new Map(), anim=null, viewTween=null;
-    const normals={U:[0,1,0],R:[1,0,0],F:[0,0,1],D:[0,-1,0],L:[-1,0,0],B:[0,0,-1]};
-    const materials={body:new T.MeshStandardMaterial({color:0x314c3c,roughness:.7}),edge:new T.LineBasicMaterial({color:0x203c30,transparent:true,opacity:.7})};
-    const geo=new T.BoxGeometry(.97,.97,.97), edgeGeo=new T.EdgesGeometry(geo), stickerGeo=new T.PlaneGeometry(.82,.82);
-    function stickerTexture(color,id) {
-      const key=color+id;if(textures.has(key))return textures.get(key);
-      const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');
-      x.fillStyle=colors[color];x.beginPath();x.roundRect(1,1,254,254,22);x.fill();
-      x.strokeStyle='#263c31';x.lineWidth=6;x.stroke();
-      x.fillStyle='#263c31';x.textAlign='center';x.textBaseline='middle';x.font='700 94px Arial';x.fillText(String(id+1),128,117);
-      x.fillStyle='#263c3144';
-      for(let i=0;i<5;i++){x.beginPath();x.roundRect(70+i*25,184-(i%3)*6,12,19+(i%3)*6,3);x.fill();}
-      const texture=new T.CanvasTexture(c);texture.colorSpace=T.SRGBColorSpace;textures.set(key,texture);return texture;
-    }
-    function clear() {
-      if(anim){root.remove(anim.pivot);anim=null;}
-      for(const group of cubies){group.removeFromParent();group.traverse(o=>{if(o.isMesh&&o.material!==materials.body)o.material.dispose();});}
-      for(const child of [...root.children])if(child.userData.turnPivot)root.remove(child);
-      cubies=[];stickers=[];
-    }
-    renderCube=()=>{
-      clear();const s=getState();
-      for(let slot=0;slot<8;slot++){
-        const group=new T.Group();group.position.fromArray(M.POSITIONS[slot].map(x=>x*.53));group.userData={slot,id:s.cp[slot]};
-        const body=new T.Mesh(geo,materials.body);body.castShadow=true;group.add(body);
-        group.add(new T.LineSegments(edgeGeo,materials.edge));
-        for(const sticker of M.stickers(s,slot)){
-          const material=new T.MeshStandardMaterial({map:stickerTexture(sticker.color,sticker.id),roughness:.74,metalness:0,emissive:sticker.face===getSelectedFace()?0x293c1c:0x000000,emissiveIntensity:.24});
-          const plane=new T.Mesh(stickerGeo,material), normal=new T.Vector3(...normals[sticker.face]);
-          plane.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);plane.position.copy(normal.multiplyScalar(.493));
-          plane.userData={face:sticker.face,id:sticker.id};group.add(plane);stickers.push(plane);
-        }
-        root.add(group);cubies.push(group);
-      }
-      inputView?.refresh();
-    };
-    animateTurn=move=>new Promise(resolve=>{
-      const normal=new T.Vector3(...normals[move[0]]), pivot=new T.Group();pivot.userData.turnPivot=true;root.add(pivot);
-      for(const group of cubies)if(group.position.dot(normal)>.1){root.remove(group);pivot.add(group);}
-      const angle=(move.endsWith("'")?1:-1)*(move.endsWith('2')?Math.PI:Math.PI/2);
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches){resolve();return;}
-      anim={pivot,normal,angle,start:performance.now(),duration:270,resolve};
-    });
-    resetView=()=>{viewTween=null;root.rotation.set(.40,-.56,0);inputView?.refresh();};
-    focusFace=face=>{
-      const target=new T.Quaternion().setFromUnitVectors(new T.Vector3(...normals[face]),new T.Vector3(0,0,1));
-      target.premultiply(new T.Quaternion().setFromEuler(new T.Euler(.18,-.18,0)));
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches){root.quaternion.copy(target);inputView?.refresh();}
-      else viewTween={from:root.quaternion.clone(),to:target,start:performance.now(),duration:320};
-    };
-    const resize=()=>{const w=view.clientWidth,h=view.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};
-    const observer=new ResizeObserver(resize);observer.observe(view);resize();
-    let frameId;
-    inputView=new PhaseCubeInput.Input({T,stage,view,svg,root,camera,getStickers:()=>stickers,isBusy,
-      onMove,onPreview,onSelect,selectOnly,getSelectedFace,onDrag:()=>{viewTween=null;}});
-    function frame(now){
-      if(viewTween){const v=viewTween,t=Math.min(1,(now-v.start)/v.duration);root.quaternion.slerpQuaternions(v.from,v.to,t*t*(3-2*t));if(t===1)viewTween=null;}
-      if(anim){
-        const a=anim, t=Math.min(1,(now-a.start)/a.duration),ease=t*t*(3-2*t);a.pivot.quaternion.setFromAxisAngle(a.normal,a.angle*ease);
-        if(t===1){anim=null;a.resolve();}
-      }
-      renderer.render(scene,camera);inputView.update();frameId=requestAnimationFrame(frame);
-    }
-    renderCube();frameId=requestAnimationFrame(frame);
-    return {input:inputView,render:renderCube,animate:animateTurn,reset:resetView,focus:focusFace,
-      destroy(){cancelAnimationFrame(frameId);observer.disconnect();inputView.destroy();clear();textures.forEach(t=>t.dispose());
-        geo.dispose();edgeGeo.dispose();stickerGeo.dispose();materials.body.dispose();materials.edge.dispose();renderer.dispose();}
-    };
-  }
-
-  return {create};
-})();
-
-</script>
-<script>
-/* SPDX-License-Identifier: AGPL-3.0-or-later */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../vendor/cube-1.3.2.js'));else root.RubikPuzzle=factory(root.PhaseCube,root.Cube);})(globalThis,function(M,Cube){
   const colors={U:'#e9dca6',R:'#dc8e70',F:'#739e87',D:'#c5ad63',L:'#a4b6c3',B:'#a196b6'};
   // A physical 2x2 is assembled in any of its 24 rigid orientations.
@@ -3623,6 +3734,7 @@ window.PhaseCubeView=(()=>{
     validMove(move){return /^([URFDLB])('|2)?$/.test(move);}
     select(value){if(!M.FACES.includes(value))throw new Error('Неверная грань');this.selected=value;}
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
+    moveTarget(move){return move[0];}
     choices(){return M.FACES.map((key,i)=>({key,label:['Сверху','Справа','Спереди','Снизу','Слева','Сзади'][i]}));}
     reset(seed,depth){this.cube.identity();this.path=M.scramble(seed,depth);this.cube.move(this.path.join(' '));this.history=[];this.moves=[];this.selected='F';}
     apply(move){this.history.push({state:this.snapshot(),path:[...this.path],move});this.cube.move(move);this.path=M.appendPath(this.path,move);this.moves.push(move);this.selected=move[0];}
@@ -3638,24 +3750,92 @@ window.PhaseCubeView=(()=>{
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-RubikPuzzle.mount=function({stage,commands,model,game,canInteract,onMove,onPreview,onSelect}){
-  let selected=0,animating=false;
-  stage.className='puzzle-stage cube-stage';stage.innerHTML='<div id="cube-view"></div><svg id="cube-input" aria-label="Выбранная грань"></svg><div id="view-error" hidden>3D недоступно</div>';
-  stage.setAttribute('aria-label','Кубик: коснись грани для выбора, перетаскивай для осмотра');
-  const view=PhaseCubeView.create({T:THREE,M:PhaseCube,colors:RubikPuzzle.colors,view:stage.querySelector('#cube-view'),stage,svg:stage.querySelector('#cube-input'),
-    getState:()=>model.snapshot(),getSelected:()=>selected,getSelectedFace:()=>model.selected,isBusy:()=>!canInteract(),
-    onMove,onPreview,onSelect:(face,id)=>{if(canInteract()){model.select(face);selected=id;controls.hint(null);onSelect();}},selectOnly:()=>true,
-    onError:()=>{stage.querySelector('#view-error').hidden=false;}});
-  const controls=new PuzzleTurnControls(commands,{model,onMove,onPreview:move=>view?.input.previewMove(move)});
-  return {
-    update(disabled){stage.inert=disabled;stage.setAttribute('aria-disabled',String(disabled));controls.update(disabled);if(!animating)view?.render();},
-    async animate(move){animating=true;try{await view?.animate(move);}finally{animating=false;}},
-    hint(move){controls.hint(move);view?.focus(model.selected);view?.input.setHint(move);},
-    clearHint(){controls.hint(null);view?.input.resetPreview();},
-    focus:()=>controls.focus(),destroy:()=>view?.destroy(),
-    key(event){const key=event.code?.replace('Key','');if(PhaseCube.FACES.includes(key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
+/* Cube geometry only. Renderer, pointer events, timing and disposal are shared. */
+window.RubikView = {create({scene,resources,model,tween}){
+  const T=THREE,M=PhaseCube,theme=PuzzleGraphics.theme;
+  const normals={U:[0,1,0],R:[1,0,0],F:[0,0,1],D:[0,-1,0],L:[-1,0,0],B:[0,0,-1]};
+  const root=new T.Group();root.rotation.set(.4,-.56,0);scene.add(root);
+  const camera=new T.PerspectiveCamera(34,1,.1,100);camera.position.set(0,0,6);camera.lookAt(0,0,0);
+  const box=resources.own(new T.BoxGeometry(.97,.97,.97)),edges=resources.own(new T.EdgesGeometry(box));
+  const edgeMaterial=resources.own(new T.LineBasicMaterial({color:theme.ink})),bodyMaterial=resources.material(0x425d49);
+  const plane=resources.own(new T.PlaneGeometry(.84,.84));
+  const cubies=M.POSITIONS.map((position,slot)=>{
+    const group=new T.Group();root.add(group);
+    group.add(new T.Mesh(box,bodyMaterial),new T.LineSegments(edges,edgeMaterial));
+    const stickers={};
+    for(const face of M.CORNER_FACES[slot]){
+      const mesh=new T.Mesh(plane,resources.own(new T.MeshBasicMaterial())),normal=new T.Vector3(...normals[face]);
+      mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);mesh.position.copy(normal.multiplyScalar(.494));
+      group.add(mesh);stickers[face]=mesh;
+    }
+    return {group,stickers,position:new T.Vector3(...position).multiplyScalar(.53)};
+  });
+  const pickBox=new T.Mesh(resources.own(new T.BoxGeometry(2.08,2.08,2.08)),resources.own(new T.MeshBasicMaterial({visible:false})));
+  root.add(pickBox);
+  const frames={};
+  for(const [face,n]of Object.entries(normals)){
+    const group=new T.Group(),normal=new T.Vector3(...n);
+    group.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);group.position.copy(normal.multiplyScalar(1.048));
+    group.add(resources.stroke([[-1.02,1.02,0],[1.02,1.02,0],[1.02,-1.02,0],[-1.02,-1.02,0]],{closed:true}));
+    root.add(group);frames[face]=group;
+  }
+  const arrows=[false,true].map(inverse=>resources.turnArrow(inverse));
+  let animating=false,disposed=false,hover=null,feedback={selected:model.selected,move:null};
+  function refresh(){
+    for(const [face,frame]of Object.entries(frames)){
+      frame.visible=face===feedback.selected||face===hover;
+      frame.children[0].material.color.setHex(face===feedback.selected?theme.accent:theme.hover);
+    }
+    arrows.forEach((arrow,i)=>{arrow.visible=!!feedback.move&&feedback.move.endsWith("'")===!!i;if(feedback.move)frames[feedback.move[0]].add(arrow);});
+  }
+  function sync(){
+    if(animating||disposed)return;
+    const state=model.snapshot();
+    cubies.forEach(({group,stickers,position},slot)=>{
+      root.add(group);group.position.copy(position);group.quaternion.identity();
+      for(const s of M.stickers(state,slot)){
+        const material=stickers[s.face].material,map=resources.label(RubikPuzzle.colors[s.color],s.id+1);
+        if(material.map!==map){material.map=map;material.needsUpdate=true;}
+      }
+    });refresh();
+  }
+  const view={
+    camera,resize(aspect){camera.aspect=aspect;},sync,dispose(){disposed=true;},
+    pickTargets:()=>[pickBox],
+    hit(intersection){
+      const n=intersection.face.normal,face=Object.entries(normals).find(([,v])=>n.dot(new T.Vector3(...v))>.9)[0];
+      const p=root.worldToLocal(intersection.point.clone());
+      const slot=cubies.reduce((best,c,i)=>c.position.distanceToSquared(p)<cubies[best].position.distanceToSquared(p)?i:best,0);
+      return {key:face,pieceId:model.snapshot().cp[slot],actionCenter:root.localToWorld(new T.Vector3(...normals[face]).multiplyScalar(1.04))};
+    },
+    locations(){
+      root.updateMatrixWorld(true);
+      return Object.entries(normals).flatMap(([key,n])=>{
+        const point=root.localToWorld(new T.Vector3(...n).multiplyScalar(1.04)),normal=new T.Vector3(...n).transformDirection(root.matrixWorld);
+        const rotation=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,0,1),new T.Vector3(...n));
+        const region=[[-1,1],[1,1],[1,-1],[-1,-1]].map(([x,y])=>root.localToWorld(new T.Vector3(x,y,0).applyQuaternion(rotation).add(new T.Vector3(...n).multiplyScalar(1.04))));
+        return normal.dot(camera.position.clone().sub(point))>.001?[{key,kind:'face',point,region}]:[];
+      });
+    },
+    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
+    drag(x,y){root.rotation.y+=x*.009;root.rotation.x+=y*.009;},
+    focus(face){
+      const from=root.quaternion.clone(),to=new T.Quaternion().setFromUnitVectors(new T.Vector3(...normals[face]),new T.Vector3(0,0,1));
+      to.premultiply(new T.Quaternion().setFromEuler(new T.Euler(.18,-.18,0)));
+      tween('camera',320,t=>root.quaternion.slerpQuaternions(from,to,t));
+    },
+    async animate(move){
+      animating=true;
+      const normal=new T.Vector3(...normals[move[0]]),pivot=new T.Group();root.add(pivot);
+      for(const {group,position}of cubies)if(position.dot(normal)>.1)pivot.add(group);
+      const angle=(move.endsWith("'")?1:-1)*(move.endsWith('2')?Math.PI:Math.PI/2);
+      try{await tween('move',280,t=>pivot.quaternion.setFromAxisAngle(normal,angle*t));}
+      finally{animating=false;sync();root.remove(pivot);}
+    }
   };
-};
+  sync();return view;
+}};
+RubikPuzzle.mount=context=>PuzzleControl.mount({...context,module:RubikPuzzle,createView:RubikView.create});
 
 </script>
 <script>
@@ -3693,6 +3873,7 @@ RubikPuzzle.mount=function({stage,commands,model,game,canInteract,onMove,onPrevi
     validMove(move){return moves.includes(move);}
     select(value){if(!rings[value])throw new Error('Неверный блок');this.selected=value;}
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
+    moveTarget(move){return move[0];}
     choices(){return [{key:'A',label:'Левый блок'},{key:'B',label:'Правый блок'}];}
     reset(seed=1730,depth=3){
       const pool=[...states().values()].filter(e=>e.depth===Math.max(1,Math.min(7,depth)));
@@ -3719,58 +3900,132 @@ RubikPuzzle.mount=function({stage,commands,model,game,canInteract,onMove,onPrevi
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-TwiddlePuzzle.mount=function({stage,commands,model,game,canInteract,onMove,onPreview,onSelect}){
-  const NS='http://www.w3.org/2000/svg';let frame=0,dead=false;
-  stage.className='puzzle-stage twiddle-stage';stage.innerHTML='<svg viewBox="0 0 360 250" role="img" aria-label="Изометрическое поле: шесть плиток, левый и правый вращающиеся блоки"></svg>';
-  stage.setAttribute('aria-label','Поворотные плитки: выбери левый или правый блок');
-  const svg=stage.firstElementChild,project=(x,y,z=0)=>[154+(x-y)*57,28+(x+y)*31-z];
-  const points=vertices=>vertices.map(p=>project(...p).join(',')).join(' ');
-  const add=(tag,attrs,parent=svg)=>{const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);parent.append(e);return e;};
-  function draw(positions){
-    svg.replaceChildren();
-    add('polygon',{points:points([[0,0],[3,0],[3,2],[0,2]]),class:'twiddle-base'});
-    add('polygon',{points:points([[0,2],[3,2],[3,2,-12],[0,2,-12]]),class:'twiddle-edge'});
-    add('polygon',{points:points([[3,0],[3,2],[3,2,-12],[3,0,-12]]),class:'twiddle-side'});
-    const pieces=positions||model.snapshot().map((id,slot)=>({id,x:slot%3+.5,y:Math.floor(slot/3)+.5,z:0}));
-    pieces.sort((a,b)=>a.x+a.y-b.x-b.y).forEach(({id,x,y,z=0})=>{
-      const g=add('g',{'data-piece':id,class:'twiddle-piece',style:'--piece-color:'+game.voices[id].color});
-      const d=.44;
-      add('polygon',{points:points([[x-d,y+d,z],[x+d,y+d,z],[x+d,y+d,z-7],[x-d,y+d,z-7]]),class:'tile-edge'},g);
-      add('polygon',{points:points([[x+d,y-d,z],[x+d,y+d,z],[x+d,y+d,z-7],[x+d,y-d,z-7]]),class:'tile-side'},g);
-      add('polygon',{points:points([[x-d,y-d,z],[x+d,y-d,z],[x+d,y+d,z],[x-d,y+d,z]]),class:'tile-top'},g);
-      const p=project(x,y,z);add('text',{x:p[0],y:p[1]+6,'text-anchor':'middle',class:'tile-number'},g).textContent=id+1;
-      g.addEventListener('click',()=>{if(canInteract()){
-        // The shared middle column belongs to both blocks: tapping it switches blocks.
-        model.select(x===1.5?(model.selected==='A'?'B':'A'):x<1.5?'A':'B');controls.hint(null);onSelect();
-      }});
-    });
-    const left=model.selected==='A'?0:1;
-    add('polygon',{points:points([[left+.02,.02,2],[left+1.98,.02,2],[left+1.98,1.98,2],[left+.02,1.98,2]]),class:'twiddle-selection'});
+/* Orthographic board. Rendering, picking and QA all use these same Three objects. */
+window.TwiddleView = {create({scene,resources,model,game,tween}){
+  const T=THREE,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
+  const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.set(4,6,5);camera.lookAt(0,0,0);
+  const base=new T.Mesh(resources.own(new T.BoxGeometry(3.16,.16,2.16)),resources.material(0xbdcbb0));base.position.y=-.2;root.add(base);
+  const box=resources.own(new T.BoxGeometry(.93,.2,.93)),edges=resources.own(new T.EdgesGeometry(box));
+  const edgeMaterial=resources.own(new T.LineBasicMaterial({color:theme.ink})),top=resources.own(new T.PlaneGeometry(.88,.88));
+  const hitGeometry=resources.own(new T.BoxGeometry(.99,.04,.99)),hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
+  const pieces=game.voices.map((voice,id)=>{
+    const group=new T.Group(),body=new T.Mesh(box,resources.material(voice.color));
+    const label=new T.Mesh(top,resources.own(new T.MeshBasicMaterial({map:resources.label(voice.color,id+1)})));
+    label.rotation.x=-Math.PI/2;label.position.y=.104;
+    const hit=new T.Mesh(hitGeometry,hitMaterial);hit.position.y=.14;hit.userData.pieceId=id;
+    group.add(body,new T.LineSegments(edges,edgeMaterial),label,hit);root.add(group);return{group,hit,slot:id};
+  });
+  const frames=['A','B'].map((key,i)=>{
+    const left=i-1.5,frame=resources.stroke([[left,.16,-1],[left+2,.16,-1],[left+2,.16,1],[left,.16,1]],{radius:.022,closed:true});
+    root.add(frame);return{key,frame};
+  });
+  const arrows=[false,true].map(inverse=>{const arrow=resources.turnArrow(inverse);arrow.rotation.x=-Math.PI/2;root.add(arrow);return arrow;});
+  let animating=false,disposed=false,hover=null,feedback={selected:model.selected};
+  function refresh(){
+    for(const {key,frame}of frames){frame.visible=key===feedback.selected||key===hover;frame.material.color.setHex(key===feedback.selected?theme.accent:theme.hover);}
+    arrows.forEach((arrow,i)=>{arrow.visible=!!feedback.move&&feedback.move.endsWith("'")===!!i;arrow.position.set(feedback.move?.[0]==='A'?-.5:.5,.18,0);});
   }
-  const controls=new PuzzleTurnControls(commands,{model,onMove,onPreview,onSelect});
-  draw();
-  return {
-    update(disabled){stage.inert=disabled;stage.setAttribute('aria-disabled',String(disabled));controls.update(disabled);draw();},
-    animate(move,before){
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches){draw();return Promise.resolve();}
-      const ring=TwiddleModel.rings[move[0]],cx=move[0]==='A'?1:2,cy=1,sign=move.endsWith("'")?-1:1,start=performance.now();
-      return new Promise(resolve=>{
-        const tick=now=>{if(dead){resolve();return;}const t=Math.min(1,(now-start)/300),q=t*t*(3-2*t),angle=sign*q*Math.PI/2;
-          draw(before.map((id,slot)=>{let x=slot%3+.5,y=Math.floor(slot/3)+.5,z=0;if(ring.includes(slot)){const dx=x-cx,dy=y-cy;x=cx+dx*Math.cos(angle)-dy*Math.sin(angle);y=cy+dx*Math.sin(angle)+dy*Math.cos(angle);z=Math.sin(t*Math.PI)*9;}return{id,x,y,z};}));
-          if(t<1)frame=requestAnimationFrame(tick);else{draw();resolve();}
-        };frame=requestAnimationFrame(tick);
-      });
+  function sync(){
+    if(animating||disposed)return;
+    model.snapshot().forEach((id,slot)=>{pieces[id].slot=slot;pieces[id].group.position.set(slot%3-1,0,Math.floor(slot/3)-.5);});refresh();
+  }
+  const view={
+    camera,resize(aspect){camera.left=-1.9*aspect;camera.right=1.9*aspect;camera.top=1.9;camera.bottom=-1.9;},sync,dispose(){disposed=true;},
+    pickTargets:()=>pieces.map(p=>p.hit),
+    hit(intersection){
+      const id=intersection.object.userData.pieceId,column=pieces[id].slot%3,key=column===0?'A':column===2?'B':model.selected;
+      return {pieceId:id,column,key,actionCenter:root.localToWorld(new T.Vector3(key==='A'?-.5:.5,.16,0))};
     },
-    hint(move){controls.hint(move);draw();},clearHint(){controls.hint(null);},focus:()=>controls.focus(),
-    destroy(){dead=true;cancelAnimationFrame(frame);svg.replaceChildren();},
-    key(event){const k=event.code?.replace('Key','');if(['A','B'].includes(k)){onMove(model.moveFor(k,event.shiftKey));return true;}return false;}
+    locations(){root.updateMatrixWorld(true);return pieces.map(({group,slot},pieceId)=>({kind:'tile',slot,pieceId,column:slot%3,point:group.localToWorld(new T.Vector3(0,.16,0)),
+      region:[[-.495,-.495],[.495,-.495],[.495,.495],[-.495,.495]].map(([x,z])=>group.localToWorld(new T.Vector3(x,.16,z)))}));},
+    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
+    async animate(move,before){
+      animating=true;
+      const ring=TwiddleModel.rings[move[0]],cx=move[0]==='A'?-.5:.5,sign=move.endsWith("'")?-1:1;
+      try{await tween('move',300,t=>{
+        const a=sign*t*Math.PI/2;
+        ring.forEach(slot=>{const x=slot%3-1-cx,z=Math.floor(slot/3)-.5;
+          pieces[before[slot]].group.position.set(cx+x*Math.cos(a)-z*Math.sin(a),Math.sin(t*Math.PI)*.12,x*Math.sin(a)+z*Math.cos(a));});
+      });}finally{animating=false;sync();}
+    }
   };
-};
+  sync();return view;
+}};
+TwiddlePuzzle.mount=context=>PuzzleControl.mount({...context,module:TwiddlePuzzle,createView:TwiddleView.create});
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./twiddle/module.js'),require('./rubik/module.js'));else root.PuzzleRegistry=factory(root.TwiddlePuzzle,root.RubikPuzzle);})(globalThis,function(...modules){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.FourierPuzzle=factory(root.FourierModel);})(globalThis,function(F){
+  return{id:'fourier',title:'Фурье-печать',progressLabel:'волн\nсовпало',create:()=>new F.Model(),
+    manifest:Object.freeze({schema:'music-puzzle/2',id:'fourier',version:1,projection:'fourier-time/1',fragments:6,goalPolicy:'single-reference',operations:{A:4,B:4,M:8},stateCount:192})};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Fourier contour and unitary coefficient rotors; all input stays in PuzzleControl. */
+window.FourierView={create({scene,resources,model,tween}){
+  const T=THREE,F=FourierModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
+  const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.z=6;camera.lookAt(0,0,0);
+  const padGeometry=resources.own(new T.CircleGeometry(1.12,80));
+  const pad=new T.Mesh(padGeometry,resources.material(0xe1e8d6));pad.position.set(0,.45,-.08);root.add(pad);
+  const energy=Math.sqrt(F.reference.flat().reduce((s,x)=>s+x*x,0)*2),count=160;
+  function curve(color,dashed=false){
+    const geometry=resources.own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
+    const material=resources.own(dashed?new T.LineDashedMaterial({color,dashSize:.045,gapSize:.035}):new T.LineBasicMaterial({color}));
+    const line=new T.LineLoop(geometry,material);root.add(line);return line;
+  }
+  const target=curve(0x80958a,true),current=curve(theme.accent);
+  function contour(line,coefficients){
+    const attr=line.geometry.attributes.position;
+    for(let j=0;j<count;j++){
+      const t=j/count,a=t*Math.PI*2,value=FourierBinding.field(coefficients,t),r=.78+.20*value/energy;
+      attr.setXYZ(j,Math.sin(a)*r,.45+Math.cos(a)*r,.04);
+    }
+    attr.needsUpdate=true;line.geometry.computeBoundingSphere();line.computeLineDistances();
+  }
+  contour(target,F.reference);
+  const disk=resources.own(new T.CylinderGeometry(.42,.42,.09,40));disk.rotateX(Math.PI/2);
+  const hitGeometry=resources.own(new T.BoxGeometry(1.05,1.05,.15)),hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
+  const sealHit=new T.Mesh(padGeometry,hitMaterial);sealHit.position.copy(pad.position);root.add(sealHit);
+  const controls=model.choices().map((choice,i)=>{
+    const group=new T.Group();group.position.set((i===2?0:i===0?-1.02:1.02),-.95,0);root.add(group);
+    const material=resources.material(theme.paper),body=new T.Mesh(disk,material);group.add(body);
+    const ring=resources.stroke(Array.from({length:48},(_,j)=>{const a=j*Math.PI/24;return[Math.cos(a)*.40,Math.sin(a)*.40,.06];}),{radius:.017,closed:true});group.add(ring);
+    const label=new T.Mesh(resources.own(new T.PlaneGeometry(.46,.46)),resources.own(new T.MeshBasicMaterial({map:resources.label('#fcfaf2',i===2?'↔':i===0?'C₁':'C₂')})));label.position.z=.055;group.add(label);
+    const needle=resources.stroke([[0,0,.085],[.35,0,.085]],{radius:.022});needle.visible=i!==2;group.add(needle);
+    const dot=new T.Mesh(resources.own(new T.SphereGeometry(.034,8,6)),resources.own(new T.MeshBasicMaterial({color:theme.hover})));dot.visible=i!==2;group.add(dot);
+    if(i!==2){const c=F.reference[i];dot.position.set(c[0]*.42,c[1]*.42,.095);}
+    const hit=new T.Mesh(hitGeometry,hitMaterial);hit.userData.key=choice.key;group.add(hit);return{key:choice.key,group,hit,ring,material,needle,index:i};
+  });
+  const arrows=[false,true].map(inverse=>{const a=resources.turnArrow(inverse);a.scale.setScalar(.5);a.position.z=.11;return a;});
+  let feedback={selected:model.selected,move:null},hover=null,animating=false,disposed=false;
+  function refresh(){
+    for(const c of controls){c.ring.visible=c.key===feedback.selected||c.key===hover;c.ring.material.color.setHex(c.key===feedback.selected?theme.accent:theme.hover);}
+    arrows.forEach((arrow,i)=>{arrow.visible=!!feedback.move&&feedback.move.endsWith("'")===!!i;if(feedback.move)controls.find(c=>c.key===model.moveTarget(feedback.move)).group.add(arrow);});
+  }
+  function draw(coefficients){
+    contour(current,coefficients);
+    controls.slice(0,2).forEach((c,i)=>{const z=coefficients[i];c.needle.rotation.z=Math.atan2(z[1],z[0]);c.needle.scale.x=Math.hypot(...z)/Math.sqrt(energy*energy/2);});refresh();
+  }
+  function sync(){if(!animating&&!disposed)draw(model.coefficients());}
+  const view={camera,sync,resize(aspect){camera.left=-1.9*aspect;camera.right=1.9*aspect;},dispose(){disposed=true;},
+    pickTargets:()=>[...controls.map(c=>c.hit),sealHit],
+    hit(intersection){const key=intersection.object.userData.key||model.selected,c=controls.find(c=>c.key===key);return{key,actionCenter:(intersection.object===sealHit?sealHit:c.group).getWorldPosition(new T.Vector3())};},
+    locations(){root.updateMatrixWorld(true);return[...controls.map(c=>({key:c.key,kind:'control',point:c.group.getWorldPosition(new T.Vector3()),region:[[-.525,-.525],[.525,-.525],[.525,.525],[-.525,.525]].map(([x,y])=>c.group.localToWorld(new T.Vector3(x,y,.075)))})),
+      {key:model.selected,kind:'seal',point:sealHit.getWorldPosition(new T.Vector3()),region:[[-.78,-.78],[.78,-.78],[.78,.78],[-.78,.78]].map(([x,y])=>sealHit.localToWorld(new T.Vector3(x,y,0)))}];},
+    feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
+    async animate(move,before){animating=true;try{await tween('move',420,t=>draw(F.interpolate(before,move,t)));}finally{animating=false;sync();}}
+  };
+  sync();return view;
+}};
+FourierPuzzle.mount=context=>PuzzleControl.mount({...context,module:FourierPuzzle,createView:FourierView.create});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./twiddle/module.js'),require('./rubik/module.js'),require('./fourier/module.js'));else root.PuzzleRegistry=factory(root.TwiddlePuzzle,root.RubikPuzzle,root.FourierPuzzle);})(globalThis,function(...modules){
   const get=id=>{const module=modules.find(p=>p.id===id);if(!module)throw new Error('Неизвестная головоломка: '+id);return module;};
   return {modules,get};
 });
@@ -3818,7 +4073,7 @@ window.PhaseCubeCelebration=(()=>{
   const mix=()=>({foundation:true,solo:-1,muted:[]});
   let module=PuzzleRegistry.get(params.get('puzzle')||C.defaultPuzzle),model=null,control=null,music=null,game=null,song=null,catalog=[];
   let session=S.initial(),seed=Number(params.get('seed'))||1730,loading=true,starting=false,busy=false,seeking=false,error=null,loadToken=0;
-  let preparation=null,loadAbort=null;
+  let preparation=null,loadAbort=null,presentation=null,loadError=false,loadingMessage='Запускаем музыкальный движок…';
   let orbit=null,rows=[],preview=null,hintMove=null,affected=[],pulseTimer,repl,soundReady,analysisData,lastDiagnostics=0;
   const transport=new PhaseCubeTransport(strudel,{onChange:()=>updateUI(),onError:fail,outputGain:C.outputGain});
   const canMove=()=>!!model&&session.phase==='playing'&&transport.running&&!loading&&!starting&&!busy&&!seeking&&!transport.pending;
@@ -3827,15 +4082,16 @@ window.PhaseCubeCelebration=(()=>{
   const player=new PuzzlePlayer($('player-controls'),{onSeek:bar=>seekSong(bar).catch(fail),onUndo:()=>undo().catch(fail),
     onPause:()=>dispatch(session.phase==='playing'?'pause':'start').catch(fail),onHint:showHint});
   const dialogs=new PuzzleDialogs($('dialogs'),{onStart:()=>dispatch('start').catch(fail),onChoose:choice=>choose(choice).catch(fail),
+    onRetry:()=>{if(loadError||!song)location.reload();else{error=null;dispatch('start').catch(fail);}},
     onAgain:()=>restart().catch(fail),onMenu:async()=>{await transport.stop();session=S.initial();celebration.clear();updateUI();}});
   const celebration=PhaseCubeCelebration.create($('celebration'));
-  function fail(e){console.error(e);error=String(e.message||e);starting=false;session=S.transition(session,'pause');updateUI();}
+  function fail(e){console.error(e);error=String(e.message||e);starting=false;loading=false;session=S.transition(session,'pause');updateUI();}
   function clearHint(){hintMove=null;preview=null;control?.clearHint();}
   function updateRows(){
     if(!music||!model||!orbit)return;
     const state=heardState();rows=music.rows(state);
     const forecast=preview&&canMove()?music.predict(preview,state,rows):null;
-    orbit.update({rows,target:game.targetRows,phases:music.phases(state),selected:-1,muted:[],solo:-1,mode:'current',showTarget:true,pending:!!transport.pending,forecast,affected});
+    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast,affected});
   }
   function updateUI(){
     let won=false;
@@ -3843,30 +4099,31 @@ window.PhaseCubeCelebration=(()=>{
       session=S.transition(session,'complete');won=true;
     }
     document.body.dataset.phase=session.phase;document.body.dataset.puzzle=module.id;
-    if(model){const n=model.correct();$('correct-count').innerHTML=n+'<span>/'+model.count+'</span>';$('correct-count').setAttribute('aria-label',n+' из '+model.count+' деталей на месте');}
+    if(model){const n=model.correct();$('correct-count').innerHTML=n+'<span>/'+model.count+'</span>';$('correct-count').setAttribute('aria-label',n+' из '+model.count+' '+(module.progressLabel||'деталей на месте').replace('\n',' '));}
     control?.update(!canMove());
     player.update({disabled:!canMove(),canUndo:!!model?.history.length,canHint:!!model?.hint(),hinted:hintMove,phase:session.phase,
       busy:loading||starting||busy||seeking||!!transport.pending,song});
-    dialogs.update({song,puzzleId:module.id,phase:session.phase,loading,starting,error});
+    dialogs.update({song,puzzleId:module.id,phase:session.phase,loading,starting,error,loadingMessage});
     if(won)celebration.play();
     updateRows();
   }
   async function choose({songId=song?.id||C.defaultSong,puzzleId=module.id}={}){
     const token=++loadToken,nextModule=PuzzleRegistry.get(puzzleId);
     loadAbort?.abort();const controller=new AbortController();loadAbort=controller;
-    loading=true;error=null;session=S.initial();clearHint();updateUI();
+    loading=true;loadError=false;error=null;loadingMessage='Готовим композицию и головоломку…';session=S.initial();clearHint();updateUI();
     try{
-      await transport.stop();const next=await loader.prepareSession({songId,puzzleId:nextModule.id,signal:controller.signal});
+      await transport.stop();const next=await PuzzleAsync.wait(loader.prepareSession({songId,puzzleId:nextModule.id,signal:controller.signal}),'Подготовка композиции не завершилась. Проверьте соединение и повторите загрузку.',30000);
       if(token!==loadToken)return;
       control?.destroy();preparation=next;module=next.module;model=next.model;game=next.fragments;song=next.composition;
       model.reset(seed++,C.scrambleLength);music=new PuzzleMusic.Music(strudel,next);transport.setComposition(song);
+      $('correct-count').nextElementSibling.innerText=module.progressLabel||'деталей\nна месте';
       $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{gridSteps:next.phaseMap.gridSteps,periodBeats:song.timing.periodBeats});
-      control=module.mount({stage:$('puzzle-stage'),commands:player.commands,model,game,canInteract:canMove,
+      control=module.mount({presentation,commands:player.commands,model,game,canInteract:canMove,
         onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:move=>{preview=move;updateRows();}});
       celebration.clear();loading=false;affected=[];updateUI();
       const url=new URL(location.href);url.searchParams.set('song',song.id);url.searchParams.set('puzzle',module.id);
       try{history.replaceState(null,'',url);}catch{}
-    }catch(e){if(token!==loadToken||e.name==='AbortError')return;if(token===loadToken){loading=false;fail(e);}throw e;}
+    }catch(e){if(token!==loadToken||e.name==='AbortError')return;if(token===loadToken){controller.abort();loadError=true;loading=false;fail(e);}throw e;}
   }
   function makePattern(state=model.snapshot()){if(!music)throw new Error('Музыка ещё загружается');return music.pattern(state);}
   async function syncAudio(){
@@ -3884,7 +4141,7 @@ window.PhaseCubeCelebration=(()=>{
     if(!canMove()||(isUndo?!model.history.length:!model.validMove(move)))return;
     if(isUndo)move=model.inverse(model.history[model.history.length-1].move);
     const before=model.snapshot(),changes=music.predict(move,before).changed;
-    clearHint();model.select(move[0]);busy=true;affected=changes;
+    clearHint();model.select(model.moveTarget(move));busy=true;affected=changes;
     try{
       const animation=control?.animate(move,before);
       if(isUndo)model.undo();else model.apply(move);
@@ -3902,7 +4159,7 @@ window.PhaseCubeCelebration=(()=>{
     if(loading||busy||seeking||starting)return;
     busy=true;
     await transport.stop();transport.cursor=0;clearHint();celebration.clear();clearTimeout(pulseTimer);affected=[];
-    model.reset(seed++,C.scrambleLength);session=S.transition(session,'restart');busy=false;updateUI();await dispatch('start');
+    model.reset(seed++,C.scrambleLength);control.resetInteraction();session=S.transition(session,'restart');busy=false;updateUI();await dispatch('start');
   }
   async function seekSong(bar){
     if(!song||busy||seeking||starting||transport.pending||session.phase==='won')return;
@@ -3911,21 +4168,23 @@ window.PhaseCubeCelebration=(()=>{
     finally{seeking=false;updateUI();}
   }
   async function init(){
-    repl=await strudel.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
-      prebake:()=>PhaseCubeBank.register(strudel),defaultOutput:(...args)=>transport.output(...args),onUpdateState:state=>{if(state.error)fail(state.error);}});
-    transport.attach(repl);catalog=await library.catalog();dialogs.catalog(catalog,PuzzleRegistry.modules);
+    presentation=new PuzzleStage($('puzzle-stage'));
+    repl=await PuzzleAsync.wait(strudel.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
+      prebake:()=>PhaseCubeBank.register(strudel),defaultOutput:(...args)=>transport.output(...args),onUpdateState:state=>{if(state.error)fail(state.error);}}),'Музыкальный движок не загрузился. Повторите загрузку.',15000);
+    transport.attach(repl);loadingMessage='Загружаем список композиций…';updateUI();catalog=await PuzzleAsync.wait(library.catalog(),'Список композиций не загрузился. Проверьте соединение и повторите загрузку.',15000);dialogs.catalog(catalog,PuzzleRegistry.modules);
     const requested=params.get('song');await choose({songId:catalog.some(s=>s.id===requested)?requested:C.defaultSong,puzzleId:module.id});
   }
   function diagnostics(){
     let peak=0,rms=0;if(transport.analyser){analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);
       for(const v of analysisData){peak=Math.max(peak,Math.abs(v));rms+=v*v;}rms=Math.sqrt(rms/analysisData.length);}
-    return {build:'music-puzzles/contracts1',puzzleId:module.id,pieceCount:model?.count,songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,
+    return {build:'music-puzzles/safari1',graphics:presentation?.info(),puzzleId:module.id,pieceCount:model?.count,fragmentCount:game?.count,songId:song?.id,songTitle:song?.title,stats:song?.stats,songBars:song?.bars,localBars:song?.periodBars,
       sessionPhase:session.phase,context:strudel.getAudioContext().state,playing:transport.running,loading,starting,busy,seeking,selectedFace:model?.selected,moves:model?.moves,hint:hintMove,
-      phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks):null,phaseMap:preparation?{gridSteps:preparation.phaseMap.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
+      phases:model&&music?music.phases(model.snapshot()).map(p=>p.ticks??null):null,projection:preparation?.phaseMap.algorithm,phaseMap:preparation?{gridSteps:preparation.phaseMap.gridSteps,...preparation.diagnostics}:null,...transport.info(),backingId:transport.backingId,volume:C.volume,masterGain:transport.master?.gain.value??0,
       peak,rms,error,changes:transport.changes,log:transport.log.slice(-30)};
   }
-  function tick(){
+  function tick(now){
     transport.poll();
+    presentation?.frame(now);
     if(song&&model&&orbit){
       const cycle=transport.clock(),phase=((cycle/song.periodBars)%1+1)%1;
       player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
@@ -3941,10 +4200,10 @@ window.PhaseCubeCelebration=(()=>{
     if(event.code==='Space'&&!event.target.closest('button')){event.preventDefault();dispatch(session.phase==='playing'?'pause':'start').catch(fail);return;}
     if(canMove()&&control?.key(event))event.preventDefault();
   });
-  window.addEventListener('pagehide',event=>{if(session.phase!=='won')session=S.transition(session,'pause');transport.stop();if(!event.persisted)control?.destroy();});
-  soundReady=init();soundReady.catch(fail);updateUI();requestAnimationFrame(tick);
+  window.addEventListener('pagehide',event=>{if(session.phase!=='won')session=S.transition(session,'pause');transport.stop();if(!event.persisted)presentation?.destroy();});
+  soundReady=init();soundReady.catch(e=>{loadError=true;fail(e);});updateUI();requestAnimationFrame(tick);
   if(debug)window.phaseCubeApp={
-    ready:soundReady,diagnostics,state:()=>model.snapshot(),phases:()=>music.phases(model.snapshot()),turn,undo,hint:showHint,getPreparation:()=>preparation,
+    ready:soundReady,diagnostics,state:()=>model.snapshot(),phases:()=>music.phases(model.snapshot()),turn,undo,hint:showHint,getPreparation:()=>preparation,getPresentation:()=>presentation,
     getPuzzle:()=>model,getPuzzleModule:()=>module,getGame:()=>game,getMusic:()=>music,getSong:()=>song,getCatalog:()=>catalog,getTransport:()=>transport,getRepl:()=>repl,
     choose,chooseSong:id=>choose({songId:id}),choosePuzzle:id=>choose({puzzleId:id}),seekSong,makePattern,
     code:()=>music.code(model.snapshot()),getSourcePattern:id=>game.basePatterns[id],eventsOf:PuzzleMusic.eventsOf,

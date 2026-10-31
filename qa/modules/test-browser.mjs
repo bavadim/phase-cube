@@ -4,6 +4,7 @@ import {readFile,writeFile,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {openBrowser,root} from './browser.mjs';
+import {turnOnField,select} from './field-input.mjs';
 const runtime=await openBrowser(),report={schema:'music-puzzle-modules/1',combinations:[],layouts:[],errors:[],physicalDevice:false};
 const settled=page=>page.waitForFunction(()=>{const d=phaseCubeApp.diagnostics();return!d.busy&&!d.starting&&!d.seeking&&!d.pending&&!d.loading;});
 async function layout(page){return page.evaluate(()=>{
@@ -32,6 +33,11 @@ async function checkCelebration(page,screenshot){
 try{
  const ctx=await runtime.browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,acceptDownloads:true});
  const page=await ctx.newPage();page.on('pageerror',e=>report.errors.push(e.message));
+ await page.addInitScript(()=>{window.inputAudit=[];for(const type of ['pointerdown','pointerup','pointercancel','lostpointercapture'])document.addEventListener(type,e=>{
+  if(e.target.tagName!=='CANVAS')return;
+  inputAudit.push({type,x:e.clientX,y:e.clientY,primary:e.isPrimary,disabled:window.phaseCubeApp?.getPresentation()?.disabled,selected:window.phaseCubeApp?.diagnostics()?.selectedFace});
+  if(inputAudit.length>20)inputAudit.shift();
+ },true);});
  await page.goto(runtime.url+'/?debug=1');await page.waitForFunction(()=>window.phaseCubeApp);await page.evaluate(()=>phaseCubeApp.ready);
  assert.equal(await page.locator('#puzzle-select').inputValue(),'twiddle');
  for(const puzzleId of ['twiddle','rubik'])for(const songId of ['turkish-circuit','steel-shift','elise-after-hours']){
@@ -51,13 +57,7 @@ try{
   await page.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
   assert.equal(await page.locator('#touch-face').count(),0);
   const selectionBefore=await page.evaluate(()=>phaseCubeApp.state());
-  if(puzzleId==='twiddle'){
-   const piece=await page.evaluate(()=>phaseCubeApp.state()[2]);await page.locator('g[data-piece="'+piece+'"] .tile-top').click();
-   assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),'B');
-  }else{
-   const target=await page.locator('.cube-hit[data-face="R"]').first().evaluate(e=>{const a=e.getAttribute('d').match(/-?\d+(?:\.\d+)?/g).map(Number),r=e.ownerSVGElement.getBoundingClientRect();let x=0,y=0;for(let i=0;i<a.length;i+=2){x+=a[i];y+=a[i+1];}return{x:r.x+x/(a.length/2),y:r.y+y/(a.length/2)};});
-   await page.touchscreen.tap(target.x,target.y);assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),'R');
-  }
+  try{await select(page,puzzleId==='twiddle'?'B':'R',true);}catch(e){report.inputAudit=await page.evaluate(()=>inputAudit);throw e;}
   assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),selectionBefore,'Field selection must not move pieces');
   await page.screenshot({path:join(root,'qa/modules/'+puzzleId+'-'+songId+'-playing.png')});
   const before=await page.evaluate(()=>phaseCubeApp.state()),backing=await page.evaluate(()=>phaseCubeApp.getTransport().backingEntry.id);
@@ -74,7 +74,8 @@ try{
    const hintedFrom=await page.evaluate(()=>phaseCubeApp.state());
    await page.locator('#hint').click();const hint=await page.evaluate(()=>phaseCubeApp.diagnostics().hint);assert(hint);
    assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().selectedFace),hint[0]);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),hintedFrom,'Hint must not make a move');
-   await page.locator('.turn-button.hinted').click();await settled(page);assert(++steps<=8);
+   await page.waitForFunction(()=>phaseCubeApp.getPresentation().info().tweens===0);
+   await turnOnField(page,hint[0],hint.endsWith("'"),true);assert(++steps<=8);
   }
   await page.waitForFunction(()=>document.querySelector('#result-dialog').open);assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().playing),true);
   const firework=await checkCelebration(page,puzzleId+'-'+songId+'-fireworks.png');
@@ -86,6 +87,9 @@ try{
   await page.locator('#play-again').click();await page.waitForFunction(()=>phaseCubeApp.diagnostics().sessionPhase==='playing'&&!document.querySelector('dialog[open]'));await settled(page);assert.equal(await page.locator('#undo').isDisabled(),true);
   assert.equal(await page.locator('#celebration').evaluate(e=>e.hidden&&e.childElementCount===0),true,'Replay clears fireworks');
   assert.equal(await page.evaluate(()=>phaseCubeApp.diagnostics().masterGain),1);
+  // Replay preserves the camera: its default selected face can be on the back.
+  const replayKey=await page.evaluate(()=>phaseCubeApp.diagnostics().puzzleId==='rubik'?phaseCubeApp.getPresentation().locations()[0].key:phaseCubeApp.diagnostics().selectedFace);
+  await select(page,replayKey,true);
   await page.screenshot({path:join(root,'qa/modules/'+puzzleId+'-'+songId+'-playing.png')});
   const m=await layout(page);checkLayout(m);
   report.combinations.push({puzzleId,songId,binding,steps,peakAtBar32:peak,masterGain:1,undo:true,hint:true,win:true,download:true,replay:true,firework});

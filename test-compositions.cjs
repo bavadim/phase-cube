@@ -7,7 +7,8 @@ const {Loader,analyze,attacks}=require('./composition-loader.js');
 const palette=require('./config.js').palette;
 const puzzles=require('./puzzles/registry.js').modules;
 const Parts=require('./controls/pattern-pieces.js');
-const build=(puzzle,song)=>Parts.build(S,song,{count:puzzle.manifest.pieceIds.length,palette});
+const Contract=require('./puzzle-contract.js');
+const build=(puzzle,song)=>Parts.build(S,song,{count:Contract.fragmentCount(puzzle.manifest),palette});
 const loader=new Loader(S,{palette,baseURL:pathToFileURL(root+'/')});
 test('pinned Strudel compiles every score and derives the cube from declared player parts',async()=>{
  const catalog=await loader.catalog();assert.equal(catalog.length,3);
@@ -19,8 +20,9 @@ test('pinned Strudel compiles every score and derives the cube from declared pla
   const expected=attacks(S.stack(...song.playerParts.map(p=>p.pattern)),0,song.periodBars);
   for(const puzzle of puzzles){
    const game=build(puzzle,song),model=puzzle.create();
-   assert.equal(game.voices.length,model.count);assert.equal(game.targetRows.length,model.count);
-   assert.equal(game.parts.reduce((n,p)=>n+p.pieces,0),model.count);
+   const count=Contract.fragmentCount(puzzle.manifest);
+   assert.equal(game.voices.length,count);assert.equal(game.targetRows.length,count);
+   assert.equal(game.parts.reduce((n,p)=>n+p.pieces,0),count);
    assert.deepEqual([...new Set(game.voices.map(v=>v.part))],song.playerParts.map(p=>p.key));
    for(const rows of game.targetRows)assert(rows.length&&rows.every(e=>e.start>=0&&e.start<1&&e.duration>0));
    assert.equal(game.targetRows.reduce((n,row)=>n+row.length,0),expected.length,'Partition must neither lose nor double notes');
@@ -43,7 +45,7 @@ test('module changes drive all displayed metadata and player rows without a conf
  const base=await loader.load('turkish-circuit');
  const changed=analyze(S,{...base,title:'Другая музыка',bpm:120,playerParts:[{key:'bell',name:'Колокольчик',pattern:S.note('c5 d5 e5 f5 g5 a5 b5 c6').s('sine').duration(.1)}]},'test',palette);
  assert.equal(changed.stats.seconds,128);
- for(const puzzle of puzzles){const game=build(puzzle,changed);assert.equal(game.voices.length,puzzle.create().count);assert(game.voices.every(v=>v.name.startsWith('Колокольчик')));}
+ for(const puzzle of puzzles){const game=build(puzzle,changed);assert.equal(game.voices.length,Contract.fragmentCount(puzzle.manifest));assert(game.voices.every(v=>v.name.startsWith('Колокольчик')));}
  assert.deepEqual(changed.stats.parts.map(p=>p.key),['bell']);
  assert.throws(()=>analyze(S,{...base,playerParts:[]},'test',palette),/партий/);
  assert.throws(()=>analyze(S,{...base,periodBars:3},'test',palette),/целое/);

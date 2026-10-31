@@ -32,6 +32,7 @@
     validMove(move){return moves.includes(move);}
     select(value){if(!rings[value])throw new Error('Неверный блок');this.selected=value;}
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
+    moveTarget(move){return move[0];}
     choices(){return [{key:'A',label:'Левый блок'},{key:'B',label:'Правый блок'}];}
     reset(seed=1730,depth=3){
       const pool=[...states().values()].filter(e=>e.depth===Math.max(1,Math.min(7,depth)));
