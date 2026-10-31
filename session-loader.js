@@ -29,7 +29,7 @@
       const analysis=game.targetRows.map(row=>Projection.analyzePattern(row,song.timing.periodBeats));
       const subdivisions=song.phaseOptions?.subdivisionsPerBeat||[2,4];
       const home=puzzle.manifest.schema==='music-puzzle/1'?Contract.project(puzzle,puzzle.model.initialState()):puzzle.model.initialState();
-      const input={algorithm:Projection.version(puzzle.manifest),spec:puzzle.manifest,home,parts:game.voices.map(v=>v.part),analysis,subdivisions};
+      const input={algorithm:Projection.version(puzzle.manifest),spec:puzzle.manifest,home,reference:puzzle.manifest.schema==='music-puzzle/2'?game.targetRows.map(row=>row.map(({start,duration,value})=>({start,duration,value}))):undefined,parts:game.voices.map(v=>v.part),analysis,subdivisions};
       const hash=await fingerprint(input),key=hash||JSON.stringify(input);aborted(signal);
       let binding=this.bindings.get(key)||this.read(hash,puzzle.manifest),cache=binding?'hit':'miss';
       if(binding&&binding.periodBeats!==song.timing.periodBeats){binding=null;cache='miss';}

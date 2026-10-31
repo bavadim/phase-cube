@@ -7,10 +7,10 @@
   'use strict';
   const NS='http://www.w3.org/2000/svg',CENTER=380,INNER=250;
   const mod=n=>((n%1)+1)%1,delta=(a,b)=>mod(b-a+.5)-.5;
-  const level=e=>Math.max(0,Math.min(1,(e.volume??1)*(typeof e.value?.velocity==='number'?e.value.velocity:1)));
+  const level=e=>Math.max(0,Math.min(2,(e.volume??1)*(typeof e.value?.velocity==='number'?e.value.velocity:1)));
   // Multiplying RGB channels changes HSV value while retaining hue/saturation.
   // Width provides a second level cue on the light paper background.
-  const brightness=level=>.3+.7*Math.sqrt(Math.max(0,Math.min(1,level)));
+  const brightness=level=>.3+.7*Math.sqrt(Math.max(0,Math.min(1,level/2)));
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
     const a=point(radius,start),b=point(radius,end),span=end-start;
@@ -30,10 +30,10 @@
     events.forEach((e,i)=>{const key=e.start+':'+e.duration;if(!result.has(key))result.set(key,[]);result.get(key).push({...e,id:e.id??String(i)});});
     return [...result.values()].map(values=>{
       values.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-      return{id:values.map(e=>e.id).join('|'),start:values[0].start,duration:values[0].duration,layers:Math.min(3,values.length),levels:values.slice(0,3).map(level)};
+      return{id:values.map(e=>e.id).join('|'),start:values[0].start,duration:values[0].duration,layers:Math.min(3,values.length),levels:values.slice(0,3).map(level),pitches:values.slice(0,3).map(e=>e.pitch??null)};
     });
   }
-  const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration,e.levels]).sort((a,b)=>a[0].localeCompare(b[0]))));
+  const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration,e.levels,e.pitches]).sort((a,b)=>a[0].localeCompare(b[0]))));
   class Score{
     constructor(svg,voices,{periodBeats=16,periodSeconds=8}={}){
       Object.assign(this,{svg,voices,periodSeconds});this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
@@ -57,16 +57,21 @@
       node('line',{x1:CENTER,y1:CENTER-INNER+9,x2:CENTER,y2:CENTER-335},sweep);
       node('circle',{cx:CENTER,cy:CENTER-335,r:5.5},sweep);this.sweep=sweep;
     }
+    pitchRadius(row,pitch){const range=row.pitchRange;return row.r+(Number.isFinite(pitch)&&range?.max>range?.min?7*((pitch-range.min)/(range.max-range.min)-.5):0);}
     drawSlots(target){
       this.rows.forEach((row,id)=>{
+        const pitches=(target[id]||[]).map(e=>e.pitch).filter(Number.isFinite);row.pitchRange={min:Math.min(...pitches),max:Math.max(...pitches)};
         row.target.replaceChildren();
         for(const e of groups(target[id]||[])){
-          for(const [start,end]of segments(e.start,e.duration)){
-            const inset=Math.min(.002,(end-start)/5);
-            node('path',{d:arc(row.r,start+inset,end-inset),'class':'target-slot','stroke-width':3+4.5*Math.max(...e.levels)},row.target);
+          for(let layer=0;layer<e.layers;layer++){
+            const r=this.pitchRadius(row,e.pitches[layer]);
+            for(const [start,end]of segments(e.start,e.duration)){
+              const inset=Math.min(.002,(end-start)/5);
+              node('path',{d:arc(r,start+inset,end-inset),'class':'target-slot','data-pitch':e.pitches[layer]??'','stroke-width':e.layers>1?3:5.5},row.target);
+            }
+            const a=point(r-2.5,e.start),b=point(r+2.5,e.start);
+            node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'target-stop'},row.target);
           }
-          const a=point(row.r-4.5,e.start),b=point(row.r+4.5,e.start);
-          node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'target-stop'},row.target);
         }
       });
     }
@@ -78,18 +83,20 @@
         const onset=node('line',{'class':'event-onset'},g),flash=node('circle',{'class':'event-flash',r:4.2},g);
         item={g,paths,onset,flash};row.events.set(e.id,item);
       }
-      const levelsKey=JSON.stringify(e.levels);
+      const levelsKey=JSON.stringify([e.levels,e.pitches]);
       if(item.start===e.start&&item.duration===e.duration&&item.levelsKey===levelsKey)return;
       const spans=segments(e.start,e.duration);
       item.paths.forEach((paths,i)=>paths.forEach((path,k)=>{
         const span=spans[k];path.style.display=span?'':'none';if(!span)return;
-        const inset=Math.min(.002,(span[1]-span[0])/5),r=row.r+(e.layers>1?(i-(e.layers-1)/2)*1.8:0);
+        const inset=Math.min(.002,(span[1]-span[0])/5),r=this.pitchRadius(row,e.pitches[i])+(e.layers>1?(i-(e.layers-1)/2)*.5:0);
         const intensity=e.levels[i]??e.levels[0];
         set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?.5+intensity:2+3.5*intensity});
-        path.style.filter='brightness('+brightness(intensity)+')';
+        path.style.filter='brightness('+brightness(intensity)+')';path.style.opacity=intensity>0?'1':'0';path.dataset.pitch=e.pitches[i]??'';
       }));
-      const a=point(row.r-3.5,e.start),b=point(row.r+3.5,e.start),p=point(row.r,e.start);
+      const radii=e.pitches.map(p=>this.pitchRadius(row,p)),r=radii.reduce((a,b)=>a+b,0)/radii.length;
+      const a=point(Math.min(...radii)-1.5,e.start),b=point(Math.max(...radii)+1.5,e.start),p=point(r,e.start);
       set(item.onset,{x1:a[0],y1:a[1],x2:b[0],y2:b[1]});set(item.flash,{cx:p[0],cy:p[1]});
+      item.onset.style.opacity=Math.max(...e.levels)>0?'1':'0';
       item.onset.style.filter='brightness('+brightness(Math.max(...e.levels))+')';
       item.start=e.start;item.duration=e.duration;item.levelsKey=levelsKey;
     }
@@ -105,7 +112,7 @@
       });
       if(t===1)this.motion=null;
     }
-    transition(rows){
+    transition(rows,immediate=false){
       const key=fingerprint(rows);if(key===this.destination)return;
       const now=performance.now();this.advance(now);
       const to=rows.map(groups),from=this.rows.map(row=>new Map(row.positions));
@@ -113,7 +120,7 @@
         const ids=new Set(to[id].map(e=>e.id));
         for(const [key,item]of row.events)if(!ids.has(key)){item.g.remove();row.events.delete(key);row.positions.delete(key);}
       });
-      this.motion={from,to,start:this.destination==null||this.reduced?now-300:now};this.destination=key;this.advance(now);
+      this.motion={from,to,start:this.destination==null||this.reduced||immediate?now-300:now};this.destination=key;this.advance(now);
     }
     commit(rows){this.committed={key:fingerprint(rows),rows};}
     cancel(){this.committed=null;this.forecast=null;}
@@ -139,7 +146,7 @@
         if(phases[id].ticks!==undefined)row.g.dataset.phase=phases[id].ticks;else delete row.g.dataset.phase;
         if(forecast?.phases[id].ticks!==undefined)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
       });
-      this.transition(visible);
+      this.transition(visible,!!forecast?.continuous);
     }
     frame(phase,playing,now=performance.now()){
       this.advance(now);this.sweep.setAttribute('transform',`rotate(${phase*360} ${CENTER} ${CENTER})`);
@@ -152,7 +159,7 @@
           row.cycleTicks.forEach((tick,k)=>{const a=point(row.r+4.5,anchor+k*row.period),b=point(row.r+8,anchor+k*row.period);set(tick,{x1:a[0],y1:a[1],x2:b[0],y2:b[1]});});
         }else delete row.g.dataset.localPhase;
         for(const [id,item]of row.events){
-          const e=row.positions.get(id),on=!!(actual&&e&&mod(phase-e.start)*this.periodSeconds<.12);
+          const e=row.positions.get(id),on=!!(actual&&e&&Math.max(...e.levels)>0&&mod(phase-e.start)*this.periodSeconds<.12);
           if(item.sounding!==on){item.g.classList.toggle('sounding',on);item.sounding=on;}
         }
       });

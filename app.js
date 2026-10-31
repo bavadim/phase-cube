@@ -2,7 +2,7 @@
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/complex1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/continuous2';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -43,7 +43,7 @@
   function updateRows(){
     if(!music||!model||!orbit)return;
     const state=heardState();rows=music.rows(state);
-    const move=control?.focusState()?.move,forecast=move&&canMove()?music.predict(move,state,rows):null;
+    const focus=control?.focusState(),forecast=canMove()?(focus?.point?music.preview(focus.point,state,rows,focus.move):focus?.move?music.predict(focus.move,state,rows):null):null;
     orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast,selectedKey:control?.selection()});
   }
   function updateUI(){

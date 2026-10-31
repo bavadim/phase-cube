@@ -4,7 +4,7 @@ window.PuzzleControl = {
   mount({presentation,module,commands,model,game,canInteract,onMove,onPreview,onSelect,createView}){
     let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
     const hasSelection=()=>!view?.requiresSelection||armed!=null;
-    const updateControls=()=>controls?.update(disabled||!hasSelection(),{label:hasSelection()?model.selectionLabel?.()||'':view.selectionPrompt||'Выберите объект'});
+    const updateControls=()=>controls?.update(disabled||!hasSelection(),{label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
     const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:hasSelection()?model.selected:null,move:focus.current?.move||null,focus:focus.current});};
     const focus=new PuzzleActionFocus({
       resolve:value=>{
@@ -24,7 +24,7 @@ window.PuzzleControl = {
       else focus.clear(source,action.id);
     }});
     view=presentation.mount(createView,{module,model,game,onMove,
-      onEditPreview:move=>{if(move)focus.set('edit',intent(move));else focus.clear('edit');},
+      onEditPreview:(move,point)=>{if(point)focus.set('edit',{key:point.key,move,point});else if(move)focus.set('edit',intent(move));else focus.clear('edit');},
       onHover:(hit,event={})=>{
         if(view?.hoverActions===false){focus.clear('field');return;}
         if(event.pointerType==='touch')return;

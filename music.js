@@ -17,6 +17,10 @@ window.PuzzleMusic=(()=>{
       const next=this.model.applyTo(state,move),phases=this.phases(next),rows=this.rows(next);
       return{move,phases,rows,changed:rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
     }
+    preview(point,state,currentRows=this.rows(state),move=null){
+      const result=FourierBinding.preview(this.binding,this.puzzle,state,this.game,point);
+      return{point,move,continuous:true,phases:result.parts,rows:result.rows,changed:result.rows.map((row,i)=>eventKey(row)!==eventKey(currentRows[i])?i:-1).filter(i=>i>=0)};
+    }
     pattern(state){return this.S.stack(...this.shifted(state));}
     code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+(this.puzzle.manifest.schema==='music-puzzle/2'?JSON.stringify({projection:this.binding.algorithm,state,coefficients:this.project(state).coefficients}):this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n'));}
   }

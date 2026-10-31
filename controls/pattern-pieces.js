@@ -42,7 +42,7 @@
     });
     // Visual identities survive phase wrapping and sorting, without adding
     // metadata to the native Strudel values sent to the audio engine.
-    const targetRows=basePatterns.map((p,id)=>L.eventsOf(p,song.periodBars).map((e,i)=>({...e,id:id+':'+i})));
+    const targetRows=basePatterns.map((p,id)=>L.eventsOf(p,song.periodBars).map((e,i)=>({...e,id:id+':'+i,pitch:e.value.note==null?null:S.noteToMidi(e.value.note)})));
     return Object.freeze({periodBars:song.periodBars,count,voices,basePatterns,parts,targetRows});
   }
   return {build};

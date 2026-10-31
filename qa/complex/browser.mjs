@@ -17,14 +17,14 @@ try{
   const before=await p.evaluate(()=>{
    window.qaNodes=[...document.querySelectorAll('.score-event')];
    const m=phaseCubeApp.getPuzzle(),id=FourierModel.keys.indexOf(m.selected),score=phaseCubeApp.getEqualizer();
-   return{state:m.snapshot(),id,rows:score.rows.map(r=>[...r.positions.values()]),opacity:score.rows.map(r=>getComputedStyle(r.g).opacity),audio:phaseCubeApp.getTransport().active.meta.state};
+   return{state:m.snapshot(),id,ratio:(FourierModel.levels[m.parameters()[id].level-1]/FourierModel.levels[m.parameters()[id].level]),rows:score.rows.map(r=>[...r.positions.values()]),opacity:score.rows.map(r=>getComputedStyle(r.g).opacity),audio:phaseCubeApp.getTransport().active.meta.state};
   });
   await p.locator('#magnitude-down').hover();await p.waitForFunction(()=>!phaseCubeApp.getEqualizer().motion);
   const preview=await p.evaluate(()=>{const s=phaseCubeApp.getEqualizer();return{changed:s.forecast.changed,rows:s.rows.map(r=>[...r.positions.values()]),state:phaseCubeApp.state(),audio:phaseCubeApp.getTransport().active.meta.state,sameNodes:qaNodes.every((n,i)=>n===document.querySelectorAll('.score-event')[i]),opacity:s.rows.map(r=>getComputedStyle(r.g).opacity),filter:s.rows[FourierModel.keys.indexOf(phaseCubeApp.getPuzzle().selected)].current.querySelector('.current-event').style.filter};});
   assert.deepEqual(preview.changed,[before.id]);assert.equal(preview.state,before.state);assert.equal(preview.audio,before.audio);assert(preview.sameNodes);assert.deepEqual(preview.opacity,before.opacity);assert(preview.filter.startsWith('brightness('));
   for(let i=0;i<6;i++){
    const byId=new Map(before.rows[i].map(e=>[e.id,e]));
-   for(const event of preview.rows[i]){const old=byId.get(event.id);close(event.start,old.start);event.levels.forEach((v,j)=>close(v,old.levels[j]*(i===before.id?.5:1)));}
+   for(const event of preview.rows[i]){const old=byId.get(event.id);close(event.start,old.start);event.levels.forEach((v,j)=>close(v,old.levels[j]*(i===before.id?before.ratio:1)));}
   }
   await p.locator('#magnitude-down').click();await p.mouse.move(0,0);await settled(p);await p.waitForFunction(()=>!phaseCubeApp.getEqualizer().motion);
   const after=await p.evaluate(()=>({rows:phaseCubeApp.getEqualizer().rows.map(r=>[...r.positions.values()]),state:phaseCubeApp.state(),audio:phaseCubeApp.getTransport().active.meta.state,committed:phaseCubeApp.getEqualizer().committed}));
@@ -86,7 +86,7 @@ try{
   S.resetGlobalEffects();const levels=results.slice(0,4),mixed=results.slice(4);
   return{levels,ratios:levels.map(v=>v.rms/levels[0].rms),mixed,singleContinuousContext:true,scope:'isolated distorted synth ratios plus target and one aligned-phase mix per score; not exhaustive'};
  });
- assert(report.pcm.levels[0].rms>.001);report.pcm.ratios.forEach((v,i)=>assert(Math.abs(v-[1,.5,.25,1][i])<.002,`Native gain/phase RMS ${i}: ${v}`));assert(report.pcm.mixed.every(v=>v.events>0&&v.rms>.0001&&v.clipped===0));await c.close();
+ assert(report.pcm.levels[0].rms>.001);report.pcm.ratios.forEach((v,i)=>assert(Math.abs(v-[1,.75,.5,1][i])<.002,`Native gain/phase RMS ${i}: ${v}`));assert(report.pcm.mixed.every(v=>v.events>0&&v.rms>.0001&&v.clipped===0));await c.close();
  assert.deepEqual(report.errors,[]);report.status='PASS';
 }catch(e){report.status='FAIL';report.failure=e.stack;throw e;}
 finally{

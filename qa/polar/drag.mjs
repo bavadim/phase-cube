@@ -52,7 +52,7 @@ try{
  });assert.equal(forecast.source,'edit');assert.equal(forecast.key,'A');assert.deepEqual(forecast.others,forecast.nextOthers);assert.deepEqual(forecast.affected,[0],'Only the edited riff changes');
  report.dragFocusIsSelectedCoefficient=true;report.independentRiffProjection=true;
  await touch('touchEnd',destination);await settled(p);
- assert.deepEqual(await p.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]),{phase:4,level:2});assert.equal(await p.evaluate(()=>phaseCubeApp.getPuzzle().history.length),1);
+ assert.deepEqual(await p.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]),{phase:4,level:8});assert.equal(await p.evaluate(()=>phaseCubeApp.getPuzzle().history.length),1);
  await p.locator('#undo').tap();await p.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(p);assert.equal(await p.evaluate(()=>phaseCubeApp.state()),initial);report.touchCommitUndo=cdp?'native CDP touch':'synthetic touch PointerEvents';
  await p.mouse.move((await origin()).x,(await origin()).y);await p.mouse.down();await p.mouse.move(destination.x,destination.y,{steps:8});
  assert.equal(await p.evaluate(()=>phaseCubeApp.diagnostics().actionFocus.source),'edit');assert.equal(await p.evaluate(()=>phaseCubeApp.state()),initial);
@@ -63,7 +63,7 @@ try{
  const box=await p.locator('#puzzle-stage canvas').boundingBox(),outside={x:box.x-35,y:box.y-35};
  const expected=await p.evaluate(outside=>{const s=phaseCubeApp.getPresentation(),w=s.unproject(outside.x,outside.y);return phaseCubeApp.getPuzzle().snap([w.x/(1.15/Math.max(...FourierModel.levels)),w.y/(1.15/Math.max(...FourierModel.levels))]);},outside);
  await touch('touchStart',await origin());await touch('touchMove',outside);await touch('touchEnd',outside);await settled(p);
- assert.deepEqual(await p.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]),expected);assert.equal(expected.level,2);await p.locator('#undo').tap();await p.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(p);report.outsideCanvas=true;
+ assert.deepEqual(await p.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]),expected);assert.equal(expected.level,8);await p.locator('#undo').tap();await p.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(p);report.outsideCanvas=true;
  await touch('touchStart',await origin());await touch('touchMove',destination);
  await p.locator('#pause').evaluate(b=>b.click());await p.waitForFunction(()=>phaseCubeApp.diagnostics().context==='suspended');
  await touch('touchEnd',destination);assert.equal(await p.evaluate(()=>phaseCubeApp.state()),initial);assert.equal(await p.evaluate(()=>phaseCubeApp.getPuzzle().history.length),0);assert.equal(await p.evaluate(()=>phaseCubeApp.getPresentation().pointer.gesture),null);

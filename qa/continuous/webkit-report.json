@@ -1,0 +1,212 @@
+{
+  "schema": "continuous-riff-controls/1",
+  "engine": "webkit",
+  "physicalDevice": false,
+  "cases": [
+    {
+      "width": 1280,
+      "height": 800,
+      "masterGain": 1,
+      "busGains": [
+        1,
+        1
+      ],
+      "subStepPreview": true,
+      "previewIsSilent": true,
+      "zeroAndDouble": true,
+      "zeroRetainsPhase": true,
+      "plusLeavesZero": true,
+      "pitchContourDisambiguates": true,
+      "fullTurnsAreEquivalent": true,
+      "otherPuzzles": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "masterGain": 1,
+      "busGains": [
+        1,
+        1
+      ],
+      "subStepPreview": true,
+      "previewIsSilent": true,
+      "zeroAndDouble": true,
+      "zeroRetainsPhase": true,
+      "plusLeavesZero": true,
+      "pitchContourDisambiguates": true,
+      "fullTurnsAreEquivalent": true,
+      "otherPuzzles": true
+    }
+  ],
+  "errors": [],
+  "audio": {
+    "results": [
+      {
+        "kind": "gain",
+        "gain": 0,
+        "rms": 0,
+        "peak": 0,
+        "clipped": 0
+      },
+      {
+        "kind": "gain",
+        "gain": 0.5,
+        "rms": 0.020660369339215025,
+        "peak": 0.08430825918912888,
+        "clipped": 0
+      },
+      {
+        "kind": "gain",
+        "gain": 1,
+        "rms": 0.04132073869325338,
+        "peak": 0.16861651837825775,
+        "clipped": 0
+      },
+      {
+        "kind": "gain",
+        "gain": 2,
+        "rms": 0.0826414773568601,
+        "peak": 0.3372330367565155,
+        "clipped": 0
+      },
+      {
+        "id": "turkish-circuit",
+        "kind": "intro",
+        "rms": 0.025730861556791374,
+        "peak": 0.1698465496301651,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2491
+      },
+      {
+        "id": "turkish-circuit",
+        "kind": "dense",
+        "rms": 0.02402717283695383,
+        "peak": 0.22787372767925262,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2491
+      },
+      {
+        "id": "turkish-circuit",
+        "kind": "doubled-rearranged",
+        "rms": 0.032910933586935184,
+        "peak": 0.2484654188156128,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2491
+      },
+      {
+        "id": "steel-shift",
+        "kind": "intro",
+        "rms": 0.018506664393063334,
+        "peak": 0.24093912541866302,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2322
+      },
+      {
+        "id": "steel-shift",
+        "kind": "dense",
+        "rms": 0.05662630449123012,
+        "peak": 0.586997389793396,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2322
+      },
+      {
+        "id": "steel-shift",
+        "kind": "doubled-rearranged",
+        "rms": 0.062342772355444324,
+        "peak": 0.5781574249267578,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2322
+      },
+      {
+        "id": "elise-after-hours",
+        "kind": "intro",
+        "rms": 0.04384461780125153,
+        "peak": 0.3043781816959381,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2580
+      },
+      {
+        "id": "elise-after-hours",
+        "kind": "dense",
+        "rms": 0.06353003279055826,
+        "peak": 0.4000644385814667,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2580
+      },
+      {
+        "id": "elise-after-hours",
+        "kind": "doubled-rearranged",
+        "rms": 0.08750451696570112,
+        "peak": 0.5446569323539734,
+        "clipped": 0,
+        "nativeScoreEquivalent": true,
+        "nativeEvents": 2580
+      }
+    ],
+    "ratios": [
+      0,
+      0.49999999982063087,
+      1,
+      1.9999999992825235
+    ],
+    "singleContinuousContext": true,
+    "scope": "Full-song symbolic equivalence; rendered intro and dense windows plus one doubled rearrangement per score. Not an exhaustive acoustic audit."
+  },
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "b5149e2bff79423807578d5daf73f74ed930993a0d64415ed3d2a923f161b3b0",
+    "steel-shift-cube.html": "22addbdae22310c6d16c062da0962b05f1860fac86dd978637d35fe4cb8a16ea",
+    "style.css": "2482e2717acba00722bc820865b7cf9adf2f98e30e6e78cd19c8d53260fec676",
+    "controls/equalizer.css": "ba8a2ba4c6eda758f02eb4038fa1bc20bee0c293db0151ce4ee30f75b7d6a0be",
+    "controls/player.css": "1019519195a9525213d51c1e47ecf1dcc2bdf9417a0af9b6a40c641bae4c1a33",
+    "vendor/three-0.160.1.min.js": "170c6789f43217c96b3170f4b42fafe135de7f7cd48497a4218f9757ee1d49fa",
+    "vendor/cube-1.3.2.js": "450a53a9acf5033fde7ca23be8fd08ac37d30f04c58aac63f053a1c05a7f5802",
+    "vendor/strudel-web-1.3.0.js": "265cae9cf769a7dc2c1ac253784fce80fef5062db9a1aac5be7fa5f205af5e86",
+    "audio-bank.js": "59e7fda1421efb7a23fd024b5ab2d3f6cc26d3371ab93b9f97b1d834df3e8c83",
+    "composition-loader.js": "caeb1acadce22a9380376ba29a8c2860b9862a2f3838e3530558132603f0b5c3",
+    "config.js": "0c171bf646ced16979d6ea33cc4d5675010608465311daa82bdea93413c950d4",
+    "session.js": "c6abb00e72baa503e2e368498914cf079c1fc2997c931586fef73be1e1dc2075",
+    "diagnostics.js": "5744872be7aded9bded3c0acd21da5a8a7d543705c933b7ab9d2c81908bf9eaa",
+    "puzzles/actions.js": "bc8ef385e92d424bcc634a32eb1a39de914b87e125604628a8139f21cfaa2446",
+    "puzzles/shuffle.js": "94d3513080e44ad9d67541d875c4030621d778f9a6076cf0d91099daf0079be5",
+    "controls/pattern-pieces.js": "01fe30db9649554c34e14a5ba03d1660e7a68b6b2e766d58f0869e68de70ff17",
+    "puzzle-contract.js": "32ccd83fd1c41846d4e9c29cd3f9b014ff70e1f986512834a51a8edd1e671848",
+    "phase-map.js": "f4972177807a0f6b530c71a59f9ad4a44759d52d12d0ed633a7f69b7e3027657",
+    "puzzles/fourier/model.js": "7349cc1774a01c1206ea4e159f91162ac77186239d5a34b36d70e205132fc2cc",
+    "puzzles/fourier/binding.js": "be53ff4befcf827614fe24ac9105993dd6c2a96be095cc0d4a98595bffdc85d3",
+    "music-projection.js": "55be7cb6cc946c4b83ae0bf555053a132296a694bc8c23b1d4a0991392b38ed7",
+    "session-loader.js": "19550991d313edd3b9b7a914134ed39ec0e4e5b263b26f012143d5f33b4b0c3a",
+    "music.js": "a5369031cec37f54ae0b6d75ae7138372493eb94336678fbf3b06af056c7682c",
+    "async-task.js": "e676078cb1b9693a0186e1d1f36b23e6ff0835bdf6350eb787d068bfe8d40931",
+    "transport.js": "d38463b6674246d1e51204c7adfd3acfc546684e0bdd7bad9eb0ce78e2888318",
+    "controls/equalizer.js": "2e0f9393b39287c867f488d2e5bf8f0dd5b360dfc1d1331b8385ef4ccc04136e",
+    "graphics/resources.js": "d6376f85aa611c39677b20bc70aa8c342c4a5549dd1ce662cf68d77a5a32b5a3",
+    "graphics/pointer.js": "e58c7768dc2770b0b2ef73e15247ede60b372a149c6deeee5cca5e0f5afc7479",
+    "graphics/stage.js": "3203a929a90862aa5beb1ec78396c3c873f70588700d1b7d086e6f29a08833f8",
+    "controls/puzzle.js": "7b296791e1c8ed54ad6ad05f07e24585cf8e53e431d30944368a5906eefef1f9",
+    "controls/action-focus.js": "8ffdbee174af38cca75133f468c4df12ba51d7e3bd2a5a5dcbf5ccca5cb1e84a",
+    "controls/action-controls.js": "17743773ae1c4f610b20dcb26f072d38e7d4c194ddcfc37460eeb60204949a14",
+    "controls/hint.js": "7509954e43dcf81f3e95051a934072ffda64bb452da4847e9978502ac5effa9d",
+    "controls/player.js": "c7aad09505944d76a6eeaf9f07d2cd764cdb91a9c9f5be01e1e0a280cedab7c2",
+    "controls/dialogs.js": "292bff4bd9df4066c02f2a936c78f189cac2ce9f3a46c698937cbdd9bf904227",
+    "puzzles/rubik/model.js": "c4524496cea0b4d60ed0cba61fa59f8ffd4048ed6cbbedef11d3784b95c59dca",
+    "puzzles/rubik/module.js": "8df1f6eb3d6f59b6d736e7c1289644dd86a32eb9d19d193c783bbe1027f4cf53",
+    "puzzles/rubik/three-view.js": "73fa82d9df531e4491c43ac066b89ed4bfc3771f3b20b2d755d667ca4c41e640",
+    "puzzles/twiddle/model.js": "2d610c2ad8582db289a1672d34e95232da1861db2352e56ca96e656eb4417de1",
+    "puzzles/twiddle/module.js": "e837c7bc02410a925d207ca03ca62b814e29b07b50ed23de598c4f4777374c3a",
+    "puzzles/twiddle/three-view.js": "f52e7fd89940964153a1d9bca55746aee6c931532c58aa25bd1da94a8370c987",
+    "puzzles/fourier/module.js": "a7ed12e7aba2ec4277abe3c0e9977a79096bc002bfdc401471138fadbb082642",
+    "puzzles/fourier/three-view.js": "cee365c778c6ad135accaeb2d14b3051e4a73cbb882f78f176df424510bd6de3",
+    "puzzles/registry.js": "862fcf479a9f8dfeb75b5c588abff781cf1cdf42abc9bb2262833a91595392c5",
+    "celebration.js": "6f941db21c30a110650220fcb8f098e92699f41a3a50cb26da9a77c539b0e0b5",
+    "app.js": "05042f32b09c174b8f2065a346215534cb70821d429e70b28159edd399e6a51e"
+  }
+}

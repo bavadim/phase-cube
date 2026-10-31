@@ -13,7 +13,7 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
     points.forEach((p,i)=>mesh.geometry.attributes.position.setXYZ(i,p[0],p[1],z));
     mesh.geometry.attributes.position.needsUpdate=true;mesh.geometry.computeBoundingSphere();mesh.computeLineDistances();
   }
-  for(const radius of F.levels){const mesh=line(81,0xc4cfbb);plot(mesh,Array.from({length:81},(_,i)=>[radius*scale*Math.cos(i*Math.PI/40),radius*scale*Math.sin(i*Math.PI/40)]),-.03);}
+  for(const radius of [1,2]){const mesh=line(81,0xc4cfbb);plot(mesh,Array.from({length:81},(_,i)=>[radius*scale*Math.cos(i*Math.PI/40),radius*scale*Math.sin(i*Math.PI/40)]),-.03);}
   plot(line(2,0xc4cfbb),[[-1.25,0],[1.25,0]],-.025);plot(line(2,0xc4cfbb),[[0,-1.25],[0,1.25]],-.025);
   const targetLine=line(2,theme.ink,{dashed:true,opacity:.45}),trail=line(steps+1,theme.accent,{dashed:true,opacity:.7});
   const dotGeometry=resources.own(new T.CircleGeometry(.12,40)),haloGeometry=resources.own(new T.RingGeometry(.155,.18,40));
@@ -46,7 +46,7 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
       p.shaft.material.opacity=active?1:.55;
       const z=display[p.index],v=new T.Vector3(z[0]*scale,z[1]*scale,0),direction=v.clone().normalize();
       p.group.position.set(v.x,v.y,.12);plot(p.shaft,[[0,0],[v.x,v.y]],.02);
-      p.head.position.copy(v.addScaledVector(direction,-.15));p.head.position.z=.03;
+      p.head.visible=v.lengthSq()>1e-10;p.head.position.copy(v.addScaledVector(direction,-.15));p.head.position.z=.03;
       p.head.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),direction);
     }
     target.visible=targetLine.visible=selected>=0;
@@ -89,15 +89,16 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
     feedback(value){feedback=value;refresh();},
     beginDrag(hit){
       if(!hit.draggable||animating)return false;
-      dragging={key:hit.key,before:model.snapshot(),move:null};committed=null;return true;
+      dragging={key:hit.key,before:model.snapshot(),move:null,phase:model.parameters()[F.keys.indexOf(hit.key)].phase};committed=null;return true;
     },
     dragTo(world){
       if(!dragging||!world)return;
       const p=root.worldToLocal(world.clone()),i=F.keys.indexOf(dragging.key),length=Math.hypot(p.x,p.y);
-      const previous=display[i],angle=length>1e-6?Math.atan2(p.y,p.x):Math.atan2(previous[1],previous[0]),radius=Math.max(F.levels[0],Math.min(F.levels.at(-1),length/scale));
+      const angle=length/scale>=F.levels[1]/2?Math.atan2(p.y,p.x):dragging.phase*Math.PI/4,radius=Math.max(F.levels[0],Math.min(F.levels.at(-1),length/scale));
       const z=[radius*Math.cos(angle),radius*Math.sin(angle)],values=model.coefficients(dragging.before);values[i]=z;draw(values);
-      const move=model.editMove(dragging.key,model.snap(z),dragging.before);
-      if(JSON.stringify(move)!==JSON.stringify(dragging.move)){dragging.move=move;onEditPreview(move);}
+      const phase=angle/(Math.PI/4);dragging.phase=phase;
+      const move=model.editMove(dragging.key,model.snap(z,phase),dragging.before);dragging.move=move;
+      onEditPreview(move,{key:dragging.key,phase,gain:radius});
     },
     endDrag(cancelled){
       if(!dragging)return null;const old=dragging;dragging=null;onEditPreview(null);

@@ -1,25 +1,25 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Six independent nonzero complex riff controls: C8 phase and powers-of-two gain. */
+/* Six independent riff controls: C8 phase, zero through double gain. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.FourierModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
-  const keys=['A','B','C','D','E','F'],levels=[.25,.5,1],homePhase=[0,1,3,4,5,7],homeLevel=keys.map(()=>2),stateCount=24**keys.length;
+  const keys=['A','B','C','D','E','F'],levels=Array.from({length:9},(_,i)=>i/4),homePhase=[0,1,3,4,5,7],homeLevel=keys.map(()=>4),radix=8*levels.length,stateCount=radix**keys.length;
   const mod=(n,d)=>((n%d)+d)%d,validState=s=>Number.isInteger(s)&&s>=0&&s<stateCount;
-  const point=p=>p&&Number.isInteger(p.phase)&&p.phase>=0&&p.phase<8&&Number.isInteger(p.level)&&p.level>=0&&p.level<3;
+  const point=p=>p&&Number.isSafeInteger(p.phase)&&Number.isInteger(p.level)&&p.level>=0&&p.level<levels.length;
   function parameters(state){
     if(!validState(state))throw new Error('Неверное состояние Фурье');
-    return keys.map((_,i)=>{const digit=Math.floor(state/24**i)%24;return{phase:mod(homePhase[i]+digit%8,8),level:mod(homeLevel[i]+Math.floor(digit/8),3)};});
+    return keys.map((_,i)=>{const digit=Math.floor(state/radix**i)%radix;return{phase:mod(homePhase[i]+digit%8,8),level:mod(homeLevel[i]+Math.floor(digit/8),levels.length)};});
   }
-  const encode=values=>values.reduce((s,p,i)=>s+(mod(p.phase-homePhase[i],8)+8*mod(p.level-homeLevel[i],3))*24**i,0);
+  const encode=values=>values.reduce((s,p,i)=>s+(mod(p.phase-homePhase[i],8)+8*mod(p.level-homeLevel[i],levels.length))*radix**i,0);
   const coefficient=p=>[levels[p.level]*Math.cos(p.phase*Math.PI/4),levels[p.level]*Math.sin(p.phase*Math.PI/4)];
   const coefficients=state=>parameters(state).map(coefficient),reference=coefficients(0);
   const edit=move=>move&&typeof move==='object'&&move.kind==='coefficient'&&keys.includes(move.key)&&point(move.from)&&point(move.to);
-  const match=(a,b)=>a.phase===b.phase&&a.level===b.level;
+  const match=(a,b)=>mod(a.phase,8)===mod(b.phase,8)&&a.level===b.level;
   function target(move){if(typeof move==='string'&&/^[ABCDEF]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
   function applyTo(state,move){
     const values=parameters(state),i=keys.indexOf(target(move)),p=values[i];
     if(edit(move)){
       if(!match(p,move.from)||match(move.from,move.to))throw new Error('Устаревшее или пустое перетаскивание');
-      values[i]={...move.to};
+      values[i]={phase:mod(move.to.phase,8),level:move.to.level};
     }else if(move.endsWith('+')||move.endsWith('-')){
       const level=p.level+(move.endsWith('+')?1:-1);if(level<0||level>=levels.length)throw new Error('Модуль вне диапазона');
       values[i]={...p,level};
@@ -47,7 +47,7 @@
     initialState(){return 0;}
     parameters(state=this.current){return parameters(state);}
     coefficients(state=this.current){return coefficients(state);}
-    legalMoves(state=this.current){const p=parameters(state);return keys.flatMap((key,i)=>[key,key+"'",...(p[i].level>0?[key+'-']:[]),...(p[i].level<2?[key+'+']:[])]);}
+    legalMoves(state=this.current){const p=parameters(state);return keys.flatMap((key,i)=>[key,key+"'",...(p[i].level>0?[key+'-']:[]),...(p[i].level<levels.length-1?[key+'+']:[])]);}
     applyTo(state,move){return applyTo(state,move);}
     inverse(move){return inverse(move);}
     validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
@@ -55,21 +55,21 @@
     select(key){if(!keys.includes(key))throw new Error('Неверный риф');this.selected=key;}
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
     choices(){return keys.map((key,i)=>({key,label:'Риф '+(i+1)}));}
-    selectionLabel(){const i=keys.indexOf(this.selected),p=parameters(this.current)[i];return 'Риф '+(i+1)+' · '+p.phase*45+'° · '+Math.round(20*Math.log10(levels[p.level]))+' дБ';}
+    selectionLabel(preview){const i=keys.indexOf(this.selected),p=parameters(this.current)[i],phase=preview?.phase??p.phase,gain=preview?.gain??levels[p.level];return 'Риф '+(i+1)+' · '+Math.round(mod(phase,8)*45)+'° · '+Math.round(gain*100)+'%';}
     actions(callbacks){
       const key=this.selected,n=keys.indexOf(key)+1;
       return [
         {id:'turn-left',label:'Риф '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Фаза',move:key+"'"},
         {id:'turn-right',label:'Риф '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Фаза',move:key},
-        {id:'magnitude-down',label:'Риф '+n+': тише вдвое',icon:{text:'÷2'},group:'Громкость',move:key+'-'},
-        {id:'magnitude-up',label:'Риф '+n+': громче вдвое',icon:{text:'×2'},group:'Громкость',move:key+'+'}
+        {id:'magnitude-down',label:'Риф '+n+': уровень −25%',icon:{text:'−'},group:'Громкость',move:key+'-'},
+        {id:'magnitude-up',label:'Риф '+n+': уровень +25%',icon:{text:'+'},group:'Громкость',move:key+'+'}
       ].map(action=>Actions.move(this,callbacks,action));
     }
     editMove(key,to,state=this.current){
       if(!keys.includes(key)||!point(to))throw new Error('Неверные координаты коэффициента');
-      const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{...to}};
+      const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{phase:mod(to.phase,8),level:to.level}};
     }
-    snap(z){const radius=Math.hypot(...z);return{phase:mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:levels.reduce((best,v,i)=>Math.abs(v-radius)<Math.abs(levels[best]-radius)?i:best,0)};}
+    snap(z,fallbackPhase=0){const radius=Math.hypot(...z);return{phase:radius<1e-8?mod(Math.round(fallbackPhase),8):mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:levels.reduce((best,v,i)=>Math.abs(v-radius)<Math.abs(levels[best]-radius)?i:best,0)};}
     restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=state;}
     reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleStep=0;}
     shuffle(){
@@ -92,10 +92,10 @@
       return null;
     }
     distance(state=this.current){return parameters(state).reduce((sum,p,i)=>{const phase=mod(p.phase-homePhase[i],8);return sum+Math.min(phase,8-phase)+Math.abs(p.level-homeLevel[i]);},0);}
-    solved(state=this.current){return state===0;}
+    solved(state=this.current){return this.correct(state)===this.count;}
     correct(state=this.current){return parameters(state).filter((p,i)=>p.phase===homePhase[i]&&p.level===homeLevel[i]).length;}
     probeStates(){
-      const result=[0];for(let i=0;i<keys.length;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<3;level++){
+      const result=[0];for(let i=0;i<keys.length;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<levels.length;level++){
         const p=parameters(0);p[i]={phase,level};result.push(encode(p));
       }
       return [...new Set(result)];

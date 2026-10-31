@@ -16,7 +16,7 @@ try{
    await page.evaluate(songId=>phaseCubeApp.choose({songId,puzzleId:'fourier'}),songId);
    await page.locator('#start').click();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().playing&&phaseCubeApp.diagnostics().rms>.0001);
    const initial=await page.evaluate(()=>phaseCubeApp.state()),d=await page.evaluate(()=>phaseCubeApp.diagnostics());
-   assert.equal(d.projection,'complex-riff/1');assert.equal(d.masterGain,1);assert.equal(d.fragmentCount,6);assert.equal(d.pieceCount,6);
+   assert.equal(d.projection,'complex-riff/2');assert.equal(d.masterGain,1);assert.equal(d.fragmentCount,6);assert.equal(d.pieceCount,6);
    assert.equal(await page.locator('.puzzle-actions-left .puzzle-action').count(),2);assert.equal(await page.locator('.puzzle-actions-right .puzzle-action').count(),2);
    assert.equal(await page.locator('#hint').count(),1);assert.equal((await targets(page)).filter(p=>p.kind==='point').length,6);
    assert(d.shuffle.moves.some(m=>/[+-]$/.test(m)),'Intro must demonstrate radius too');
@@ -30,7 +30,7 @@ try{
    }
    // Actual mouse drag of one coefficient, changing both its coordinates.
    await select(page,'A',touch);
-   const before=await page.evaluate(()=>{const m=phaseCubeApp.getPuzzle(),p=m.parameters()[0];return{state:m.snapshot(),count:m.history.length,to:{phase:(p.phase+2)%8,level:(p.level+1)%3}};});
+   const before=await page.evaluate(()=>{const m=phaseCubeApp.getPuzzle(),p=m.parameters()[0];return{state:m.snapshot(),count:m.history.length,to:{phase:(p.phase+2)%8,level:(p.level+1)%FourierModel.levels.length}};});
    const tip=(await targets(page)).find(t=>t.kind==='point'&&t.key==='A');
    const destination=await page.evaluate(to=>{const a=to.phase*Math.PI/4,r=FourierModel.levels[to.level]*1.15/Math.max(...FourierModel.levels);return phaseCubeApp.getPresentation().project(new THREE.Vector3(r*Math.cos(a),r*Math.sin(a),0));},before.to);
    await page.mouse.move(tip.x,tip.y);await page.mouse.down();await page.mouse.move(destination.x,destination.y,{steps:8});
@@ -54,7 +54,7 @@ try{
    let steps=0;
    while(await page.evaluate(()=>phaseCubeApp.diagnostics().sessionPhase!=='won')){
     await page.locator('#hint').click();assert.equal(await page.locator('.puzzle-action.hinted').count(),1);
-    await page.locator('.puzzle-action.hinted').click();await settled(page);assert(++steps<=36);
+    await page.locator('.puzzle-action.hinted').click();await settled(page);assert(++steps<=48);
    }
    await page.waitForFunction(()=>document.querySelector('#result-dialog').open);assert.equal(await page.locator('#correct-count').textContent(),'6/6');
    assert.equal(await page.locator('#celebration .firework-spark').count(),70);
