@@ -1,0 +1,87 @@
+{
+  "schema": "xronomorph-browser/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "audioOutput": "native-null-sink",
+  "cases": [
+    {
+      "width": 1280,
+      "height": 900,
+      "input": "mouse",
+      "independentRotation": true,
+      "irregular": true,
+      "continuousPhase": 0.13749999999999996,
+      "wfHierarchy": true,
+      "complement": true,
+      "reverse": true,
+      "persistence": true,
+      "nativePCM": {
+        "observedPeakRms": 0.019617389221304817,
+        "events": 4
+      },
+      "editingPreservesClock": true,
+      "stopRms": 0,
+      "layout": {
+        "viewport": 1280,
+        "width": 1280,
+        "field": 836
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "input": "native CDP touch",
+      "independentRotation": true,
+      "irregular": true,
+      "continuousPhase": 0.13749999999999996,
+      "wfHierarchy": true,
+      "complement": true,
+      "reverse": true,
+      "persistence": true,
+      "nativePCM": {
+        "observedPeakRms": 0.019617389221304817,
+        "events": 4
+      },
+      "editingPreservesClock": true,
+      "stopRms": 0,
+      "layout": {
+        "viewport": 390,
+        "width": 390,
+        "field": 366
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native CDP touch",
+      "independentRotation": true,
+      "irregular": true,
+      "continuousPhase": 0.13749999999999996,
+      "wfHierarchy": true,
+      "complement": true,
+      "reverse": true,
+      "persistence": true,
+      "nativePCM": {
+        "observedPeakRms": 0.019617389221304817,
+        "events": 4
+      },
+      "editingPreservesClock": true,
+      "stopRms": 0,
+      "layout": {
+        "viewport": 844,
+        "width": 844,
+        "field": 421.375
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "model.js": "0f716a0be5f2563a157e9efd4cfb70d89d5953ae6128a6508f4cb730c7a534aa",
+    "transport.js": "b29aab91373aafb81238cbd5b56f2aac593d1e82cd0da8d7707e2df85622160d",
+    "view.js": "8a831ae04ed070db56aaa70ea8abec231bdb6f4b17fecd6082ea9e0e5445c241",
+    "app.js": "662d40209f6ec095c2e6452aa8cbb7bbce7e7804d7624838aa75b35730758059",
+    "index.html": "0915f6aaa390873f61f2a7b7c25ff3d68594c7c9ea5cb9ee1443b2c7c054ee9d",
+    "style.css": "bce867853675e18ed248267aef8053c48262f509ce7eb84d394020970d72057a"
+  }
+}
