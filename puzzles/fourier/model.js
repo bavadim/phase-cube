@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.FourierModel=factory();})(globalThis,function(){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'));else root.FourierModel=factory(root.PuzzleShuffle);})(globalThis,function(Shuffle){
   'use strict';
   const reference=[[.61,.17],[.29,.43]],q=Math.SQRT1_2;
   const identity=[[1,0],[0,0],[0,0],[1,0]];
@@ -32,7 +32,7 @@
     const a=sign*t*Math.PI/2,k=move[0]==='A'?0:1;c[k]=mul(c[k],[Math.cos(a),Math.sin(a)]);return c;
   }
   class Model{
-    constructor(){this.current=0;this.count=2;this.selected='A';this.history=[];this.moves=[];}
+    constructor(){this.count=2;this.reset();}
     snapshot(){return this.current;}
     initialState(){return 0;}
     allStates(){return matrices.map((_,i)=>i);}
@@ -46,11 +46,12 @@
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
     choices(){return[{key:'A',label:'Первая волна'},{key:'B',label:'Вторая волна'},{key:'M',label:'Перелив волн'}];}
     actionLabel(key,inverted){return key==='M'?'Перелить волны на '+(inverted?'−45°':'+45°'):'Повернуть '+(key==='A'?'первую':'вторую')+' волну на '+(inverted?'−90°':'+90°');}
-    reset(seed=1730,level=3){const pool=depth.map((d,i)=>({d,i})).filter(e=>e.d===Math.min(Math.max(1,level),Math.max(...depth)));this.current=pool[(seed>>>0)%pool.length].i;this.history=[];this.moves=[];this.selected='A';}
+    reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);}
+    shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){const next=this.applyTo(this.current,move);this.history.push({state:this.current,move});this.current=next;this.moves.push(move);this.selected=this.moveTarget(move);}
     undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=this.moveTarget(old.move);return this.inverse(old.move);}
     hint(){return hints[this.current];}
-    distance(){return depth[this.current];}
+    distance(state=this.current){return depth[state];}
     solved(state=this.current){return state===0;}
     correct(state=this.current){return coefficients(state).filter((z,i)=>z.every((v,j)=>Math.abs(v-reference[i][j])<1e-8)).length;}
     coefficients(state=this.current){return coefficients(state);}

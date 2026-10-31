@@ -12,13 +12,15 @@
       case 'pause': return {phase:state.phase==='ready'?'ready':'paused',mode:'current'};
       case 'complete': return {phase:'won',mode:'current'};
       case 'restart': return initial();
+      case 'shuffle-start': return {phase:'shuffling',mode:'current'};
+      case 'shuffle-complete': return state.phase==='shuffling'?{phase:'playing',mode:'current'}:state;
       case 'target': return {...state,mode:state.mode==='target'?'current':'target'};
       case 'move':
       case 'shuffle': return {...state,mode:'current'};
       default: throw new Error(`Unknown session action: ${action}`);
     }
   }
-  const shouldPlay=state=>state.phase==='playing'||state.phase==='won'||state.mode==='target';
+  const shouldPlay=state=>['playing','shuffling','won'].includes(state.phase)||state.mode==='target';
   const canMove=state=>state.phase==='playing';
   return {initial,transition,shouldPlay,canMove};
 });

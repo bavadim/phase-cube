@@ -6,9 +6,10 @@
     const spec=puzzle.manifest,model=puzzle.create();
     if(!['music-puzzle/1','music-puzzle/2'].includes(spec?.schema)||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
-    for(const name of ['initialState','legalMoves','applyTo','inverse','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
+    if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
     if(spec.schema==='music-puzzle/2'){
       if(spec.projection!=='fourier-time/1'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
       if(!Number.isInteger(model.count)||model.count<1)throw new Error('Неверный домен прогресса');

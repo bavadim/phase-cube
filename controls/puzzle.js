@@ -17,7 +17,11 @@ window.PuzzleControl = {
     }});
     return {
       update(disabled){controls.update(disabled);presentation.update(disabled);feedback();},
-      async animate(move,before){armed=model.moveTarget(move);try{await view.animate(move,before);}finally{if(presentation.active?.view===view){view.sync();feedback();}}},
+      async animate(move,before,options={}){
+        armed=model.moveTarget(move);
+        if(options.demonstration){controls.hint(move);preview=move;feedback();}
+        try{await view.animate(move,before,options);}finally{if(presentation.active?.view===view){view.sync();feedback();}}
+      },
       hint(move){controls.hint(move);armed=model.selected;preview=move;view.focus?.(model.selected);feedback();},
       clearHint(){controls.hint(null);preview=null;feedback();},
       resetInteraction(){armed=null;preview=null;presentation.active?.view.hover?.(null);feedback();},

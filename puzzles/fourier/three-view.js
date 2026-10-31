@@ -51,7 +51,7 @@ window.FourierView={create({scene,resources,model,tween}){
     locations(){root.updateMatrixWorld(true);return[...controls.map(c=>({key:c.key,kind:'control',point:c.group.getWorldPosition(new T.Vector3()),region:[[-.525,-.525],[.525,-.525],[.525,.525],[-.525,.525]].map(([x,y])=>c.group.localToWorld(new T.Vector3(x,y,.075)))})),
       {key:model.selected,kind:'seal',point:sealHit.getWorldPosition(new T.Vector3()),region:[[-.78,-.78],[.78,-.78],[.78,.78],[-.78,.78]].map(([x,y])=>sealHit.localToWorld(new T.Vector3(x,y,0)))}];},
     feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
-    async animate(move,before){animating=true;try{await tween('move',420,t=>draw(F.interpolate(before,move,t)));}finally{animating=false;sync();}}
+    async animate(move,before,{duration=420}={}){animating=true;try{await tween('move',duration,t=>draw(F.interpolate(before,move,t)));}finally{animating=false;sync();}}
   };
   sync();return view;
 }};

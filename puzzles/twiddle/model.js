@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.TwiddleModel=factory();})(globalThis,function(){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'));else root.TwiddleModel=factory(root.PuzzleShuffle);})(globalThis,function(Shuffle){
   'use strict';
   const HOME=[0,1,2,3,4,5],rings={A:[0,1,4,3],B:[1,2,5,4]},key=s=>s.join('');
   const inverse=m=>m.endsWith("'")?m[0]:m+"'";
@@ -20,7 +20,7 @@
     return graph;
   }
   class Model{
-    constructor(){this.count=6;this.selected='A';this.history=[];this.current=[...HOME];this.moves=[];}
+    constructor(){this.count=6;this.reset();}
     snapshot(){return [...this.current];}
     initialState(){return [...HOME];}
     legalMoves(){return [...moves];}
@@ -34,14 +34,12 @@
     moveFor(value,inverted=false){return value+(inverted?"'":'');}
     moveTarget(move){return move[0];}
     choices(){return [{key:'A',label:'Левый блок'},{key:'B',label:'Правый блок'}];}
-    reset(seed=1730,depth=3){
-      const pool=[...states().values()].filter(e=>e.depth===Math.max(1,Math.min(7,depth)));
-      this.current=[...pool[(seed>>>0)%pool.length].state];this.history=[];this.moves=[];this.selected='A';
-    }
+    reset(seed=1730){this.current=[...HOME];this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);}
+    shuffle(){const move=this.shuffler.next(this);this.apply(move);this.history=[];this.moves=[];return move;}
     apply(move){this.history.push({state:this.snapshot(),move});this.current=applyTo(this.current,move);this.moves.push(move);this.selected=move[0];}
     undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=old.move[0];return inverse(old.move);}
     hint(){return states().get(key(this.current)).hint;}
-    distance(){return states().get(key(this.current)).depth;}
+    distance(state=this.current){return states().get(key(state)).depth;}
     solved(state=this.current){return state.every((id,slot)=>id===slot);}
     correct(state=this.current){return state.filter((id,slot)=>id===slot).length;}
   }

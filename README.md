@@ -1,9 +1,15 @@
-# Музыкальные головоломки · fourier1
+# Музыкальные головоломки · shuffle1
 
 HTML-прототип с независимыми композициями и головоломками. Twiddle — изометрическое
 поле 2×3 с шестью деталями; Rubik — трёхмерный кубик 2×2 с восемью деталями.
 Фурье-печать — два комплексных коэффициента и их смешивание, меняющие ритм
 шести музыкальных деталей. Все три головоломки работают с текущими композициями.
+
+Каждая модель создаётся собранной. После «Начать» игрок видит цель и три
+последовательных хода перемешивания с подсветкой направления и изменением звука.
+Во время показа ввод заблокирован; ходы показа не попадают в историю отмены.
+`reset(seed)` снова собирает модель, `shuffle()` применяет и возвращает один ход.
+Повторный запуск показывает новую цепочку, продолжение с паузы сохраняет позицию.
 
 ## Стек и архитектура
 
@@ -54,7 +60,8 @@ Flex-компоновка зависит от геометрии окна. На 
 | Файл / каталог | Ответственность |
 | --- | --- |
 | `app.js` | Сессия, выбор ресурсов, соединение компонентов, применение звуковых транзакций |
-| `session.js`, `config.js` | Переходы ready/playing/paused/won и настройки по умолчанию |
+| `session.js`, `config.js` | Переходы ready/shuffling/playing/paused/won и настройки по умолчанию |
+| `puzzles/shuffle.js` | Выбор одного воспроизводимого хода по seed и правилам модели; не владеет состоянием головоломки |
 | `composition-loader.js` | Каталог, import композиции, проверка формы/повторяемости и музыкальная статистика; без нарезки под головоломку |
 | `compositions/*.strudel.mjs` | Авторские ноты, патчи, форма, playerParts, фон и метаданные |
 | `puzzles/rubik/` | Манифест, правила, положения/ориентации, hint/undo, Three.js-вид и выбор грани |
@@ -186,13 +193,21 @@ python3 -m http.server 5173 --bind 127.0.0.1 --directory experiments/steel-shift
 
 ```sh
 node check.mjs
-node --test test-model.cjs test-session.cjs test-compositions.cjs test-puzzles.cjs test-bindings.cjs test-fourier.cjs
+node --test test-model.cjs test-session.cjs test-compositions.cjs test-puzzles.cjs test-bindings.cjs test-fourier.cjs test-shuffle.cjs
 node export.mjs
 node qa/modules/test-input.mjs
 node qa/three/layout.mjs
 node qa/modules/test-browser.mjs
 node qa/fourier/browser.mjs
+node qa/shuffle/browser.mjs
+BIBA_BROWSER=webkit node qa/shuffle/browser.mjs
 ```
+
+Прогон `qa/shuffle` отдельно проверяет собранный старт, три видимых операции,
+блокировку ввода, управление на поле после показа, подсказки, отмену,
+продолжение с паузы, повтор и отмену незаконченного показа при смене ресурсов.
+WebKit требует установленный браузер Playwright и не заменяет проверку на
+физическом iPhone. Отчёты содержат хеши проверенных ресурсов.
 
 Браузерный прогон требует Playwright/Chromium; при необходимости задать
 BIBA_PLAYWRIGHT и BIBA_CHROMIUM. Он проверяет все шесть сочетаний, реальные

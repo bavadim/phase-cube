@@ -7,6 +7,7 @@
 .turn-button:hover:not(:disabled) { background:#326c50; }
 .turn-button:active:not(:disabled) { transform:translateY(1px); }
 .turn-button.hinted { background:#b97732; border-color:#9a5e25; box-shadow:0 0 0 3px #d4a65c55; }
+body[data-phase="shuffling"] .turn-button.hinted { opacity:1; }
 .hint-host { display:none; }
 .hint-slot { display:flex; align-items:stretch; min-width:0; }
 .hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #bac9ae; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1.1rem; }

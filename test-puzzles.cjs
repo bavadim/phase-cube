@@ -24,7 +24,7 @@ test('Twiddle: all 120 states, every inverse/four-turn cycle and shortest hint c
 });
 test('Both modules own state, undo and valid hints after exploration',()=>{
  for(const create of [()=>new T.Model(),R.create]){
-  const m=create();m.reset(1730,3);const state=m.snapshot(),move=m.moveFor(m.choices()[0].key);
+  const m=create();m.reset(1730);for(let i=0;i<3;i++)m.shuffle();const state=m.snapshot(),move=m.moveFor(m.choices()[0].key);
   m.apply(move);m.undo();assert.deepEqual(m.snapshot(),state);
   let n=0;while(!m.solved()){const hint=m.hint();assert(m.validMove(hint));m.apply(hint);assert(++n<40);}
  }

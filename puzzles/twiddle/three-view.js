@@ -38,10 +38,10 @@ window.TwiddleView = {create({scene,resources,model,game,tween}){
     locations(){root.updateMatrixWorld(true);return pieces.map(({group,slot},pieceId)=>({kind:'tile',slot,pieceId,column:slot%3,point:group.localToWorld(new T.Vector3(0,.16,0)),
       region:[[-.495,-.495],[.495,-.495],[.495,.495],[-.495,.495]].map(([x,z])=>group.localToWorld(new T.Vector3(x,.16,z)))}));},
     feedback(value){feedback=value;refresh();},hover(hit){hover=hit?.key||null;refresh();},
-    async animate(move,before){
+    async animate(move,before,{duration=300}={}){
       animating=true;
       const ring=TwiddleModel.rings[move[0]],cx=move[0]==='A'?-.5:.5,sign=move.endsWith("'")?-1:1;
-      try{await tween('move',300,t=>{
+      try{await tween('move',duration,t=>{
         const a=sign*t*Math.PI/2;
         ring.forEach(slot=>{const x=slot%3-1-cx,z=Math.floor(slot/3)-.5;
           pieces[before[slot]].group.position.set(cx+x*Math.cos(a)-z*Math.sin(a),Math.sin(t*Math.PI)*.12,x*Math.sin(a)+z*Math.cos(a));});
