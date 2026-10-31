@@ -16,11 +16,11 @@ try{
    await page.evaluate(songId=>phaseCubeApp.choose({songId,puzzleId:'fourier'}),songId);
    await page.locator('#start').click();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().playing&&phaseCubeApp.diagnostics().rms>.0001);
    const initial=await page.evaluate(()=>phaseCubeApp.state()),d=await page.evaluate(()=>phaseCubeApp.diagnostics());
-   assert.equal(d.projection,'fourier-time/3');assert.equal(d.masterGain,1);assert.equal(d.fragmentCount,6);assert.equal(d.pieceCount,4);
+   assert.equal(d.projection,'complex-riff/1');assert.equal(d.masterGain,1);assert.equal(d.fragmentCount,6);assert.equal(d.pieceCount,6);
    assert.equal(await page.locator('.puzzle-actions-left .puzzle-action').count(),2);assert.equal(await page.locator('.puzzle-actions-right .puzzle-action').count(),2);
-   assert.equal(await page.locator('#hint').count(),1);assert.equal((await targets(page)).filter(p=>p.kind==='point').length,4);
+   assert.equal(await page.locator('#hint').count(),1);assert.equal((await targets(page)).filter(p=>p.kind==='point').length,6);
    assert(d.shuffle.moves.some(m=>/[+-]$/.test(m)),'Intro must demonstrate radius too');
-   for(const key of ['A','B','C','D']){
+   for(const key of songId==='turkish-circuit'?['A','B','C','D','E','F']:['A']){
     await select(page,key,touch);await select(page,key,touch);
     await turnPuzzle(page,key,false,touch);await turnPuzzle(page,key,true,touch);assert.equal(await page.evaluate(()=>phaseCubeApp.state()),initial);
     const enabled=await page.evaluate(()=>phaseCubeApp.getPuzzle().actions().find(a=>a.enabled&&a.id.startsWith('magnitude-')).id);
@@ -32,7 +32,7 @@ try{
    await select(page,'A',touch);
    const before=await page.evaluate(()=>{const m=phaseCubeApp.getPuzzle(),p=m.parameters()[0];return{state:m.snapshot(),count:m.history.length,to:{phase:(p.phase+2)%8,level:(p.level+1)%3}};});
    const tip=(await targets(page)).find(t=>t.kind==='point'&&t.key==='A');
-   const destination=await page.evaluate(to=>{const a=to.phase*Math.PI/4,r=FourierModel.levels[to.level]*1.15/.6;return phaseCubeApp.getPresentation().project(new THREE.Vector3(r*Math.cos(a),r*Math.sin(a),0));},before.to);
+   const destination=await page.evaluate(to=>{const a=to.phase*Math.PI/4,r=FourierModel.levels[to.level]*1.15/Math.max(...FourierModel.levels);return phaseCubeApp.getPresentation().project(new THREE.Vector3(r*Math.cos(a),r*Math.sin(a),0));},before.to);
    await page.mouse.move(tip.x,tip.y);await page.mouse.down();await page.mouse.move(destination.x,destination.y,{steps:8});
    assert.equal(await page.evaluate(()=>phaseCubeApp.state()),before.state,'Preview must not mutate model/audio state');
    await page.mouse.up();await settled(page);
@@ -46,7 +46,7 @@ try{
    assert.equal(await page.evaluate(()=>phaseCubeApp.state()),before.state);assert.equal(await page.evaluate(()=>phaseCubeApp.getPresentation().pointer.gesture),null);
    // Distinct fixed labels preserve selection even if all tips coincide.
    await page.evaluate(()=>{const m=phaseCubeApp.getPuzzle();window.qaSaved=m.snapshot();for(const key of FourierModel.keys){const move=m.editMove(key,{phase:1,level:1});if(move)m.restore(m.applyTo(m.snapshot(),move));}phaseCubeApp.getPresentation().update(false);});
-   for(const key of ['A','B','C','D'])await select(page,key,touch);
+   for(const key of ['A','B','C','D','E','F'])await select(page,key,touch);
    await page.evaluate(()=>{phaseCubeApp.getPuzzle().restore(qaSaved);phaseCubeApp.getPresentation().update(false);});
    await select(page,'B',touch);await page.screenshot({path:join(root,`qa/polar/${runtime.engine}-${songId}-${width}.png`)});
    await page.locator('#pause').click();await page.waitForFunction(()=>phaseCubeApp.diagnostics().context==='suspended');await page.locator('#start').click();await settled(page);
@@ -54,9 +54,9 @@ try{
    let steps=0;
    while(await page.evaluate(()=>phaseCubeApp.diagnostics().sessionPhase!=='won')){
     await page.locator('#hint').click();assert.equal(await page.locator('.puzzle-action.hinted').count(),1);
-    await page.locator('.puzzle-action.hinted').click();await settled(page);assert(++steps<=24);
+    await page.locator('.puzzle-action.hinted').click();await settled(page);assert(++steps<=36);
    }
-   await page.waitForFunction(()=>document.querySelector('#result-dialog').open);assert.equal(await page.locator('#correct-count').textContent(),'4/4');
+   await page.waitForFunction(()=>document.querySelector('#result-dialog').open);assert.equal(await page.locator('#correct-count').textContent(),'6/6');
    assert.equal(await page.locator('#celebration .firework-spark').count(),70);
    await page.locator('#play-again').click();await settled(page);assert.equal(await page.locator('#undo').isDisabled(),true);await page.locator('#pause').click();
    report.cases.push({width,height,touch,songId,selection:true,phaseAndRadius:true,mouseDragOneMove:true,cancel:true,coincidentTips:true,undo:true,winReplay:true,steps});

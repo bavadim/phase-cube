@@ -55,6 +55,7 @@ window.PuzzleControl = {
       clearHint(){focus.reset();},
       resetInteraction(){armed=null;focus.reset();feedback();},
       focusState:()=>focus.current,
+      selection:()=>hasSelection()?model.selected:null,
       focus:()=>presentation.element.focus({preventScroll:true}),
       destroy(){focus.reset();controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
       key(event){const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}

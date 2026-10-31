@@ -49,8 +49,8 @@ try{
  const forecast=await p.evaluate(()=>{
   const f=phaseCubeApp.getEqualizer().forecast,m=phaseCubeApp.getPuzzle(),before=m.parameters(),next=m.parameters(m.applyTo(m.snapshot(),f.move));
   return{source:phaseCubeApp.diagnostics().actionFocus.source,key:f.move.key,affected:f.changed,others:before.slice(1),nextOthers:next.slice(1)};
- });assert.equal(forecast.source,'edit');assert.equal(forecast.key,'A');assert.deepEqual(forecast.others,forecast.nextOthers);assert(forecast.affected.length>1,'A shared Fourier coefficient legitimately affects multiple riffs');
- report.dragFocusIsSelectedCoefficient=true;report.globalMusicProjectionPreserved=true;
+ });assert.equal(forecast.source,'edit');assert.equal(forecast.key,'A');assert.deepEqual(forecast.others,forecast.nextOthers);assert.deepEqual(forecast.affected,[0],'Only the edited riff changes');
+ report.dragFocusIsSelectedCoefficient=true;report.independentRiffProjection=true;
  await touch('touchEnd',destination);await settled(p);
  assert.deepEqual(await p.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]),{phase:4,level:2});assert.equal(await p.evaluate(()=>phaseCubeApp.getPuzzle().history.length),1);
  await p.locator('#undo').tap();await p.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(p);assert.equal(await p.evaluate(()=>phaseCubeApp.state()),initial);report.touchCommitUndo=cdp?'native CDP touch':'synthetic touch PointerEvents';
@@ -61,7 +61,7 @@ try{
  await p.locator('#undo').tap();await settled(p);assert.equal(await p.evaluate(()=>phaseCubeApp.state()),initial);report.mouseCommitUndo=true;
  // Move beyond the canvas: capture preserves the drag and the radius clamps.
  const box=await p.locator('#puzzle-stage canvas').boundingBox(),outside={x:box.x-35,y:box.y-35};
- const expected=await p.evaluate(outside=>{const s=phaseCubeApp.getPresentation(),w=s.unproject(outside.x,outside.y);return phaseCubeApp.getPuzzle().snap([w.x/(1.15/.6),w.y/(1.15/.6)]);},outside);
+ const expected=await p.evaluate(outside=>{const s=phaseCubeApp.getPresentation(),w=s.unproject(outside.x,outside.y);return phaseCubeApp.getPuzzle().snap([w.x/(1.15/Math.max(...FourierModel.levels)),w.y/(1.15/Math.max(...FourierModel.levels))]);},outside);
  await touch('touchStart',await origin());await touch('touchMove',outside);await touch('touchEnd',outside);await settled(p);
  assert.deepEqual(await p.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]),expected);assert.equal(expected.level,2);await p.locator('#undo').tap();await p.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(p);report.outsideCanvas=true;
  await touch('touchStart',await origin());await touch('touchMove',destination);

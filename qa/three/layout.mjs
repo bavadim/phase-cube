@@ -4,7 +4,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {openBrowser,root} from '../modules/browser.mjs';
-const runtime=await openBrowser(),report={status:'RUNNING',layouts:[],errors:[],physicalDevice:false};
+const runtime=await openBrowser(),report={status:'RUNNING',engine:runtime.engine,layouts:[],errors:[],physicalDevice:false};
 const sizes=[[320,568],[375,667],[390,724],[390,844],[430,932],[568,320],[844,390],[1280,800],[1440,900],[1512,982],[1920,1080]];
 try{
  const context=await runtime.browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,hasTouch:true});

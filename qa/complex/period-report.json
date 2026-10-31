@@ -1,0 +1,46 @@
+{
+  "schema": "period-detection-regression/1",
+  "status": "PASS",
+  "scope": "Projection outputs match on native contract probes of existing scores after rational-period precision repair",
+  "pairs": [
+    {
+      "id": "turkish-circuit",
+      "periods": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "identicalStates": 296
+    },
+    {
+      "id": "steel-shift",
+      "periods": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "identicalStates": 296
+    },
+    {
+      "id": "elise-after-hours",
+      "periods": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "identicalStates": 296
+    }
+  ],
+  "bindingSha256": "6b8b91867c1adbaeb6f1820be2ca3d9b22ae0fa8cf794e21392e2ef89631d8b2",
+  "referenceBindingSha256": "054402af28c982642ed0adab7d675a082a3b42e627913d5fa6e9658bec633864",
+  "referenceReport": "qa/polar/chromium-report.json"
+}

@@ -5,7 +5,7 @@
 .ruler-tick { stroke:#8da181; stroke-width:1.5; }
 .orbit-track { transition:opacity .16s; }
 .orbit-bed { fill:none; stroke:#e7ecde; stroke-width:9; }
-.target-slot { fill:none; stroke:#bdcbb1; stroke-width:7.5; stroke-linecap:round; }
+.target-slot { fill:none; stroke:#bdcbb1; stroke-linecap:round; }
 .target-stop { stroke:#8fa17f; stroke-width:1.5; }
 .orbit-track.aligned:not(.will-change) .orbit-target { visibility:hidden; }
 .current-event { fill:none; stroke:var(--track-color); stroke-linecap:round; }
@@ -16,6 +16,6 @@
 .orbit-sweep line { stroke:var(--ink); stroke-width:2; opacity:.45; }
 .orbit-sweep circle { fill:var(--green); stroke:var(--panel); stroke-width:3; }
 .is-playing .orbit-sweep line { opacity:.85; }
-.has-move-preview .orbit-track:not(.will-change) { opacity:.55; }
-.has-move-preview .orbit-track.will-change { opacity:1; }
+.has-move-preview .orbit-track.will-change .orbit-bed { stroke:#d2dfc5; }
+.orbit-cycles line { stroke:var(--ink); stroke-width:1.4; }
 @media (prefers-reduced-motion:reduce) { .orbit-track { transition:none; } }

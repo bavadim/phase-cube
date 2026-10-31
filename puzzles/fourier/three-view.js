@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* One polar chart. Views preview edits; only the shared dispatcher commits them. */
-window.FourierView={create({scene,resources,model,tween,onEditPreview}){
+window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   const T=THREE,F=FourierModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.z=6;camera.lookAt(0,0,0);
-  const scale=1.15/.6,colors=[0x32746b,0xba703e,0x646ca1,0xa64f70],steps=40;
+  const scale=1.15/Math.max(...F.levels),colors=game.voices.map(v=>v.color),steps=40;
   function line(count,color,{dashed=false,opacity=1}={}){
     const g=resources.own(new T.BufferGeometry());g.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
     const m=resources.own(dashed?new T.LineDashedMaterial({color,dashSize:.045,gapSize:.035,transparent:true,opacity}):new T.LineBasicMaterial({color,transparent:true,opacity}));
@@ -70,7 +70,8 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
       points.forEach((p,i)=>{
         p.marker.scale.setScalar(unit);p.halo.scale.setScalar(unit);p.hit.scale.setScalar(hit);
         p.legendLabel.scale.setScalar(unit);p.legendHalo.scale.setScalar(unit);p.legendHit.scale.setScalar(hit);
-        p.legend.position.set((i%2?1:-1)*edge,(i<2?1:-1)*edge,.15);
+        const angle=Math.PI/2-i*2*Math.PI/points.length;
+        p.legend.position.set(Math.cos(angle)*edge,Math.sin(angle)*edge,.15);
       });target.scale.setScalar(unit);
     },
     pickTargets:()=>points.flatMap(p=>[p.hit,p.legendHit]),
@@ -93,7 +94,7 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
     dragTo(world){
       if(!dragging||!world)return;
       const p=root.worldToLocal(world.clone()),i=F.keys.indexOf(dragging.key),length=Math.hypot(p.x,p.y);
-      const previous=display[i],angle=length>1e-6?Math.atan2(p.y,p.x):Math.atan2(previous[1],previous[0]),radius=Math.max(.2,Math.min(.6,length/scale));
+      const previous=display[i],angle=length>1e-6?Math.atan2(p.y,p.x):Math.atan2(previous[1],previous[0]),radius=Math.max(F.levels[0],Math.min(F.levels.at(-1),length/scale));
       const z=[radius*Math.cos(angle),radius*Math.sin(angle)],values=model.coefficients(dragging.before);values[i]=z;draw(values);
       const move=model.editMove(dragging.key,model.snap(z),dragging.before);
       if(JSON.stringify(move)!==JSON.stringify(dragging.move)){dragging.move=move;onEditPreview(move);}

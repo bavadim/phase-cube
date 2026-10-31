@@ -1,26 +1,26 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const F=require('./puzzles/fourier/model.js'),Contract=require('./puzzle-contract.js'),Projection=require('./music-projection.js');
+const F=require('./puzzles/fourier/model.js'),Contract=require('./puzzle-contract.js'),Projection=require('./music-projection.js'),Binding=require('./puzzles/fourier/binding.js');
 const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-loader.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
 const samples=m=>[...new Set([...m.probeStates(),...Array.from({length:128},(_,i)=>(Math.imul(i+11,1664525)>>>0)%F.stateCount)])];
 
 test('polar Fourier: independent bounded radii, phases of order 8 and exact inverses',()=>{
- const m=new F.Model();assert.equal(F.stateCount,24**4);assert.equal(m.snapshot(),0);assert.equal(m.correct(),4);
+ const m=new F.Model();assert.equal(F.stateCount,24**6);assert.equal(m.snapshot(),0);assert.equal(m.correct(),6);
  for(const state of samples(m)){
   const before=m.parameters(state);
   for(const move of m.legalMoves(state)){
    const next=m.applyTo(state,move),after=m.parameters(next),id=F.keys.indexOf(m.moveTarget(move));
    assert.equal(m.applyTo(next,m.inverse(move)),state);
-   for(let i=0;i<4;i++)assert.equal(JSON.stringify(before[i])!==JSON.stringify(after[i]),i===id);
+   for(let i=0;i<F.keys.length;i++)assert.equal(JSON.stringify(before[i])!==JSON.stringify(after[i]),i===id);
    if(/[+-]$/.test(move))assert.equal(after[id].phase,before[id].phase);
    else{assert.equal(after[id].level,before[id].level);let cycle=state;for(let n=0;n<8;n++)cycle=m.applyTo(cycle,move);assert.equal(cycle,state);}
-   for(const t of [0,.25,.5,.75,1])F.interpolate(state,move,t).forEach(c=>assert(Math.hypot(...c)>=.2-1e-9&&Math.hypot(...c)<=.6+1e-9));
+   for(const t of [0,.25,.5,.75,1])F.interpolate(state,move,t).forEach(c=>assert(Math.hypot(...c)>=.25-1e-9&&Math.hypot(...c)<=1+1e-9));
    F.interpolate(state,move,1).flat().forEach((x,i)=>close(x,m.coefficients(next).flat()[i]));
   }
   m.restore(state);let steps=0;
-  while(!m.solved()){const distance=m.distance();m.apply(m.hint());assert.equal(m.distance(),distance-1);assert(++steps<=24);}
+  while(!m.solved()){const distance=m.distance();m.apply(m.hint());assert.equal(m.distance(),distance-1);assert(++steps<=36);}
  }
  const probe=Contract.probes(Contract.inspect(registry.get('fourier')));assert.equal(probe.coverage,'sampled');assert(probe.states.length<600);
  for(let seed=0;seed<64;seed++){
@@ -40,22 +40,33 @@ test('drag is one replayable guarded move; undo returns both coordinates and rej
 
 test('all existing scores: polar projection preserves notes/gates and native Strudel emits its event times',async()=>{
  const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},loader=new Loader(S,{palette,registry,library,storage});
- const report={schema:'fourier-contracts/3',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
+ const report={schema:'fourier-contracts/4',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
  for(const songId of L.files){
   const p=await loader.prepareSession({puzzleId:'fourier',songId}),music=new Music(S,p),m=p.model;
-  assert.equal(m.count,4);assert.equal(p.fragments.count,6);assert(Projection.validate(p.phaseMap,p.module.manifest));
+  assert.equal(m.count,6);assert.equal(p.fragments.count,6);assert(Projection.validate(p.phaseMap,p.module.manifest));
   assert.equal(norm(music.rows(0)),norm(p.fragments.targetRows));assert(music.phases(0).every(d=>d.aligned&&d.ticks===undefined));
   for(const state of samples(m)){
    const rows=music.rows(state),native=music.shifted(state).map(pat=>L.eventsOf(pat,p.fragments.periodBars));
    assert.equal(norm(native),norm(rows),'Native onset/gate/value must match projection, state '+state);
    rows.forEach((row,id)=>{
     assert(row.every(e=>e.start>=0&&e.start<1&&e.duration>0));
-    const values=r=>r.map(e=>JSON.stringify([e.duration,e.value])).sort();assert.deepEqual(values(row),values(p.fragments.targetRows[id]),'No lost/created/retuned notes');
+    const clean=value=>{const copy={...value};delete copy.postgain;return copy;};
+    const values=r=>r.map(e=>JSON.stringify([e.duration,clean(e.value)])).sort();assert.deepEqual(values(row),values(p.fragments.targetRows[id]),'No lost/created/retuned notes');
+    const gain=music.phases(state)[id].gain;
+    row.forEach(e=>{const source=p.fragments.targetRows[id].find(original=>original.id===e.id);close(e.value.postgain??1,(source.value.postgain??1)*gain);});
    });
   }
+  for(const key of F.keys){
+   const id=F.keys.indexOf(key),before=music.rows(0),shift=music.rows(m.applyTo(0,key)),quiet=music.rows(m.applyTo(0,key+'-'));
+   for(let j=0;j<6;j++)if(j!==id){assert.equal(shift[j],before[j]);assert.equal(quiet[j],before[j]);}
+   const phase=music.phases(m.applyTo(0,key))[id];
+   for(const event of shift[id]){const source=before[id].find(e=>e.id===event.id);close(((event.start-source.start-phase.period/8)%1+1)%1,0);assert.deepEqual(event.value,source.value);}
+   for(const event of quiet[id]){const source=before[id].find(e=>e.id===event.id);close(event.start,source.start);close(event.value.postgain,(source.value.postgain??1)/2);}
+   const a=m.applyTo(m.applyTo(0,key),key+'-'),b=m.applyTo(m.applyTo(0,key+'-'),key);assert.equal(a,b,'Rotation and positive scaling commute');
+  }
   const again=await new Loader(S,{palette,registry,library,storage}).prepareSession({puzzleId:'fourier',songId});assert.equal(again.diagnostics.cache,'hit');
-  assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.stateSpace,F.stateCount);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert(p.diagnostics.derivativeBound<1);
-  report.pairs.push({songId,fragments:6,progressUnits:4,bindingFingerprint:p.phaseMap.fingerprint,...p.diagnostics});
+  assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.stateSpace,F.stateCount);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(p.diagnostics.independentRiffs,true);
+  report.pairs.push({songId,fragments:6,progressUnits:6,bindingFingerprint:p.phaseMap.fingerprint,...p.diagnostics});
  }
  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
  await assert.rejects(()=>cancelled.prepareSession({puzzleId:'fourier',songId:L.files[0],signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
@@ -70,4 +81,38 @@ test('native event adapter preserves clipped gates, wrapped tails and one onset 
  const tail=wrapped.queryArc(1,1.1);assert(tail.length&&tail.every(h=>!h.hasOnset()));
  const slices=Array.from({length:20},(_,i)=>wrapped.queryArc(i/10,(i+1)/10)).flat().filter(h=>h.hasOnset());
  assert.equal(slices.length,2);assert.deepEqual(slices.map(h=>Math.round(Number(h.whole.begin)*100)),[95,195]);
+});
+
+test('riff period preserves pitch, gates and dynamics, rather than counting only attacks',()=>{
+ const row=[0,.25,.5,.75].map((start,i)=>({start,duration:.1,value:{note:i%2?62:60,gain:.2}}));
+ close(Binding.period(row),.5);close(Binding.period(row.map(e=>({...e,value:{note:60,gain:.2}}))),.25);
+ close(Binding.period(row.map((e,i)=>({...e,value:{...e.value,velocity:i/4}}))),1);
+ const {level,brightness}=require('./controls/equalizer.js');
+ close(level({volume:.5,value:{velocity:.8}}),.4);assert(brightness(.25)<brightness(.5)&&brightness(.5)<brightness(1));
+});
+
+test('volume scales after timbre processing and preserves a source without explicit gain',()=>{
+ const m=new F.Model(),event={id:'x',start:0,duration:.1,value:{s:'sine',note:60,distort:.4}},game={targetRows:Array(6).fill([event])};
+ const projected=Binding.project({periods:Array(6).fill(1)},null,m.applyTo(0,'A-'),game);
+ assert.deepEqual(projected.rows[0][0].value,{...event.value,postgain:.5});
+ assert.equal(projected.rows[0][0].value.gain,undefined);assert.equal(projected.rows[1],game.targetRows[1]);
+});
+
+test('short native riff repeats four times under one master clock and rotates by its own period',()=>{
+ const pattern=S.note('c4 e4').s('sine').fast(4).clip(.5),row=L.eventsOf(pattern,1).map((e,i)=>({...e,id:'event:'+i})),m=new F.Model();
+ const period=Binding.period(row);close(period,.25);
+ const targetRows=Array(6).fill(row),game={targetRows,basePatterns:Array(6).fill(pattern),periodBars:1},prepared={puzzle:{manifest:registry.get('fourier').manifest,model:m},fragments:game,phaseMap:{periods:Array(6).fill(period)}};
+ const projection=Projection.project(S,prepared,m.applyTo(0,"A'"));
+ projection.rows[0].forEach(e=>{const original=row.find(v=>v.id===e.id);close(((e.start-original.start+period/8+1.5)%1)-.5,0);});
+ assert.equal(norm([L.eventsOf(projection.patterns[0],1)]),norm([projection.rows[0]]));
+ for(let i=1;i<6;i++)assert.equal(projection.rows[i],targetRows[i]);
+});
+
+test('thirds and sixths retain their true period and wrapped events stay inside the master circle',()=>{
+ for(const repeats of [3,6]){
+  const row=Array.from({length:repeats},(_,i)=>({id:String(i),start:i/repeats,duration:.01,value:{note:60,s:'sine'}}));
+  const period=Binding.period(row);close(period,1/repeats);
+  const m=new F.Model(),game={targetRows:Array(6).fill(row)};
+  for(const state of m.probeStates())for(const event of Binding.project({periods:Array(6).fill(period)},null,state,game).rows.flat())assert(event.start>=0&&event.start<1);
+ }
 });

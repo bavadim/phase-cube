@@ -107,7 +107,7 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 .ruler-tick { stroke:#8da181; stroke-width:1.5; }
 .orbit-track { transition:opacity .16s; }
 .orbit-bed { fill:none; stroke:#e7ecde; stroke-width:9; }
-.target-slot { fill:none; stroke:#bdcbb1; stroke-width:7.5; stroke-linecap:round; }
+.target-slot { fill:none; stroke:#bdcbb1; stroke-linecap:round; }
 .target-stop { stroke:#8fa17f; stroke-width:1.5; }
 .orbit-track.aligned:not(.will-change) .orbit-target { visibility:hidden; }
 .current-event { fill:none; stroke:var(--track-color); stroke-linecap:round; }
@@ -118,8 +118,8 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 .orbit-sweep line { stroke:var(--ink); stroke-width:2; opacity:.45; }
 .orbit-sweep circle { fill:var(--green); stroke:var(--panel); stroke-width:3; }
 .is-playing .orbit-sweep line { opacity:.85; }
-.has-move-preview .orbit-track:not(.will-change) { opacity:.55; }
-.has-move-preview .orbit-track.will-change { opacity:1; }
+.has-move-preview .orbit-track.will-change .orbit-bed { stroke:#d2dfc5; }
+.orbit-cycles line { stroke:var(--ink); stroke-width:1.4; }
 @media (prefers-reduced-motion:reduce) { .orbit-track { transition:none; } }
 
 </style>
@@ -2744,8 +2744,8 @@ lanes.noise = noiseSound(stack(
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
     if(key(model.snapshot())!==key(initial))throw new Error('Новая головоломка должна быть собрана в опорном состоянии');
     if(spec.schema==='music-puzzle/2'){
-      if(spec.projection!=='fourier-time/3'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
-      if(!Number.isInteger(model.count)||model.count<1)throw new Error('Неверный домен прогресса');
+      if(spec.projection!=='complex-riff/1'||spec.goalPolicy!=='single-reference'||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
+      if(!Number.isInteger(model.count)||model.count!==spec.fragments)throw new Error('Независимым рифам нужен один коэффициент на фрагмент');
       return{manifest:spec,model};
     }
     for(const field of ['pieceIds','poseIds'])if(!Array.isArray(spec[field])||!spec[field].length||new Set(spec[field]).size!==spec[field].length)throw new Error('Неверный домен '+field);
@@ -2901,10 +2901,10 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* C8 phases × bounded three-position radii, independently for each coefficient. */
+/* Six independent nonzero complex riff controls: C8 phase and powers-of-two gain. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.FourierModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
-  const keys=['A','B','C','D'],levels=[.2,.4,.6],homePhase=[0,3,6,1],homeLevel=[2,1,1,0],stateCount=24**4;
+  const keys=['A','B','C','D','E','F'],levels=[.25,.5,1],homePhase=[0,1,3,4,5,7],homeLevel=keys.map(()=>2),stateCount=24**keys.length;
   const mod=(n,d)=>((n%d)+d)%d,validState=s=>Number.isInteger(s)&&s>=0&&s<stateCount;
   const point=p=>p&&Number.isInteger(p.phase)&&p.phase>=0&&p.phase<8&&Number.isInteger(p.level)&&p.level>=0&&p.level<3;
   function parameters(state){
@@ -2916,7 +2916,7 @@ lanes.noise = noiseSound(stack(
   const coefficients=state=>parameters(state).map(coefficient),reference=coefficients(0);
   const edit=move=>move&&typeof move==='object'&&move.kind==='coefficient'&&keys.includes(move.key)&&point(move.from)&&point(move.to);
   const match=(a,b)=>a.phase===b.phase&&a.level===b.level;
-  function target(move){if(typeof move==='string'&&/^[ABCD]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
+  function target(move){if(typeof move==='string'&&/^[ABCDEF]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
   function applyTo(state,move){
     const values=parameters(state),i=keys.indexOf(target(move)),p=values[i];
     if(edit(move)){
@@ -2944,7 +2944,7 @@ lanes.noise = noiseSound(stack(
     });
   }
   class Model{
-    constructor(){this.count=4;this.reset();}
+    constructor(){this.count=keys.length;this.reset();}
     snapshot(){return this.current;}
     initialState(){return 0;}
     parameters(state=this.current){return parameters(state);}
@@ -2954,24 +2954,24 @@ lanes.noise = noiseSound(stack(
     inverse(move){return inverse(move);}
     validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
     moveTarget(move){return target(move);}
-    select(key){if(!keys.includes(key))throw new Error('Неверная гармоника');this.selected=key;}
+    select(key){if(!keys.includes(key))throw new Error('Неверный риф');this.selected=key;}
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
-    choices(){return keys.map((key,i)=>({key,label:'Гармоника '+(i+1)}));}
-    selectionLabel(){const i=keys.indexOf(this.selected),p=parameters(this.current)[i];return 'Гармоника '+(i+1)+' · '+p.phase*45+'° · '+levels[p.level].toFixed(1).replace('.',',');}
+    choices(){return keys.map((key,i)=>({key,label:'Риф '+(i+1)}));}
+    selectionLabel(){const i=keys.indexOf(this.selected),p=parameters(this.current)[i];return 'Риф '+(i+1)+' · '+p.phase*45+'° · '+Math.round(20*Math.log10(levels[p.level]))+' дБ';}
     actions(callbacks){
       const key=this.selected,n=keys.indexOf(key)+1;
       return [
-        {id:'turn-left',label:'Гармоника '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Угол',move:key+"'"},
-        {id:'turn-right',label:'Гармоника '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Угол',move:key},
-        {id:'magnitude-down',label:'Гармоника '+n+': уменьшить модуль',icon:{text:'−'},group:'Модуль',move:key+'-'},
-        {id:'magnitude-up',label:'Гармоника '+n+': увеличить модуль',icon:{text:'+'},group:'Модуль',move:key+'+'}
+        {id:'turn-left',label:'Риф '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Фаза',move:key+"'"},
+        {id:'turn-right',label:'Риф '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Фаза',move:key},
+        {id:'magnitude-down',label:'Риф '+n+': тише вдвое',icon:{text:'÷2'},group:'Громкость',move:key+'-'},
+        {id:'magnitude-up',label:'Риф '+n+': громче вдвое',icon:{text:'×2'},group:'Громкость',move:key+'+'}
       ].map(action=>Actions.move(this,callbacks,action));
     }
     editMove(key,to,state=this.current){
       if(!keys.includes(key)||!point(to))throw new Error('Неверные координаты коэффициента');
       const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{...to}};
     }
-    snap(z){return{phase:mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:Math.max(0,Math.min(2,Math.round((Math.hypot(...z)-levels[0])/.2)))};}
+    snap(z){const radius=Math.hypot(...z);return{phase:mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:levels.reduce((best,v,i)=>Math.abs(v-radius)<Math.abs(levels[best]-radius)?i:best,0)};}
     restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=state;}
     reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleStep=0;}
     shuffle(){
@@ -2986,7 +2986,7 @@ lanes.noise = noiseSound(stack(
     undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=target(old.move);return inverse(old.move);}
     hint(){
       const p=parameters(this.current);
-      for(let i=0;i<4;i++){
+      for(let i=0;i<keys.length;i++){
         const delta=mod(homePhase[i]-p[i].phase,8);
         if(delta)return keys[i]+(delta<=4?"'":'');
         if(p[i].level!==homeLevel[i])return keys[i]+(p[i].level<homeLevel[i]?'+':'-');
@@ -2997,49 +2997,66 @@ lanes.noise = noiseSound(stack(
     solved(state=this.current){return state===0;}
     correct(state=this.current){return parameters(state).filter((p,i)=>p.phase===homePhase[i]&&p.level===homeLevel[i]).length;}
     probeStates(){
-      const result=[0];for(let i=0;i<4;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<3;level++){
+      const result=[0];for(let i=0;i<keys.length;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<3;level++){
         const p=parameters(0);p[i]={phase,level};result.push(encode(p));
       }
       return [...new Set(result)];
     }
   }
-  return{Model,coefficients,parameters,interpolate,reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
+  return{Model,coefficients,parameters,interpolate,homePhase:[...homePhase],reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* A bounded Fourier displacement of event onsets. This is not a PCM FFT or pitch shifter. */
+/* Diagonal C* action on independent periodic riffs, not a PCM Fourier transform. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../puzzle-contract.js'));else root.FourierBinding=factory(root.FourierModel,root.PuzzleContract);})(globalThis,function(F,Contract){
   'use strict';
-  const VERSION='fourier-time/3',strength=.012,mod=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9;
-  const field=(c,t)=>c.reduce((sum,z,k)=>sum+z[0]*Math.cos(2*Math.PI*(k+1)*t)-z[1]*Math.sin(2*Math.PI*(k+1)*t),0);
-  function project(binding,puzzle,state,game){
-    const coefficients=F.coefficients(state),delta=coefficients.map((z,i)=>z.map((v,j)=>v-F.reference[i][j]));
-    const rows=state===0?game.targetRows:game.targetRows.map((row,id)=>row.map(e=>({...e,start:round(mod(e.start+binding.strength*field(delta,e.start+id/(game.count*7))))})).sort((a,b)=>a.start-b.start));
-    const aligned=rows.map((row,id)=>signature([row],[game.voices[id]])===signature([game.targetRows[id]],[game.voices[id]]));
-    return{rows,parts:rows.map((_,id)=>({kind:VERSION,id,aligned:aligned[id]})),coefficients};
+  const VERSION='complex-riff/1',mod=x=>((x%1)+1)%1,round=x=>Math.round(x*1e9)/1e9,wrap=x=>round(mod(x))%1;
+  const sound=value=>Object.fromEntries(Object.entries(value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)));
+  const rowKey=(row,offset=0)=>row.map(e=>JSON.stringify([wrap(e.start+offset),round(e.duration),sound(e.value)])).sort().join('|');
+  function period(row){
+    const start=Math.min(...row.map(e=>e.start)),reference=rowKey(row);
+    const candidates=[...new Set(row.map(e=>mod(e.start-start)).filter(n=>n>1e-8))].sort((a,b)=>a-b);
+    return candidates.find(p=>rowKey(row,p)===reference)||1;
   }
-  function signature(rows,voices){return rows.flatMap((row,id)=>row.map(e=>JSON.stringify([voices[id].part,round(e.start),round(e.duration),e.value.velocity??1]))).sort().join('|');}
-  function validate(binding,spec){return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.strength===strength&&binding.gridSteps===64&&binding.stateCount===F.stateCount;}
+  function project(binding,puzzle,state,game){
+    const parameters=F.parameters(state),coefficients=F.coefficients(state);
+    const parts=parameters.map((p,id)=>{
+      const phase=((p.phase-F.homePhase[id]+4)%8+8)%8-4,amplitude=F.levels[p.level];
+      return{kind:VERSION,id,controlKey:F.keys[id],phase:phase/8,gain:amplitude,period:binding.periods[id],aligned:phase===0&&amplitude===1};
+    });
+    const rows=game.targetRows.map((row,id)=>{
+      const p=parts[id];if(p.aligned)return row;
+      // Positive complex phase advances the riff; positive rotation moves the
+      // score counterclockwise too. Authored dynamics/timbres stay intact.
+      return row.map(e=>({...e,start:wrap(e.start-p.phase*p.period),volume:p.gain,
+        value:p.gain===1?e.value:{...e.value,postgain:(e.value.postgain??1)*p.gain}})).sort((a,b)=>a.start-b.start);
+    });
+    return{rows,parts,coefficients};
+  }
+  const signature=rows=>rows.map(row=>rowKey(row)).join('||');
+  function validate(binding,spec){
+    return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.stateCount===F.stateCount&&binding.gridSteps===8&&
+      Array.isArray(binding.periods)&&binding.periods.length===spec.fragments&&binding.periods.every(p=>Number.isFinite(p)&&p>0&&p<=1&&Math.abs(1/p-Math.round(1/p))<1e-6);
+  }
   async function prepare({puzzle,game,signal,onProgress=()=>{}}){
-    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,strength,gridSteps:64,stateCount:F.stateCount},signatures=new Map();
-    const target=signature(game.targetRows,game.voices);let aliases=0;
+    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,gridSteps:8,stateCount:F.stateCount,periods:game.targetRows.map(period)},signatures=new Map();
+    const target=signature(game.targetRows);let aliases=0;
     for(let i=0;i<probe.states.length;i++){
       if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
-      const s=probe.states[i],sKey=signature(project(binding,puzzle,s.state,game).rows,game.voices);signatures.set(s.id,sKey);
-      if(!s.solved&&sKey===target)aliases++;
+      const s=probe.states[i],key=signature(project(binding,puzzle,s.state,game).rows);signatures.set(s.id,key);
+      if(!s.solved&&key===target)aliases++;
       if(i%24===0){onProgress({candidate:i+1,total:probe.states.length});await new Promise(r=>setTimeout(r,0));}
     }
     const silentMoves=probe.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length;
-    if(aliases||silentMoves)throw new Error('Фурье-печать не различима на этой композиции: '+aliases+' ложных целей, '+silentMoves+' неслышимых по событиям ходов');
-    // Bound every permitted radius and phase, including a continuous drag preview.
-    const derivativeBound=strength*2*Math.PI*F.reference.reduce((sum,z,i)=>sum+(i+1)*(Math.max(...F.levels)+Math.hypot(...z)),0);
-    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:F.stateCount,states:probe.states.length,edges:probe.edges.length,distinctRhythms:new Set(signatures.values()).size,
-      unsolvedGoalRhythmAliases:aliases,silentMoves,discrimination:new Set(signatures.values()).size===probe.states.length?'distinct-in-probes':'weak',
-      derivativeBound,orderPreserving:derivativeBound<1,acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
+    if(aliases||silentMoves)throw new Error('Рифы не различают действия: '+aliases+' ложных целей, '+silentMoves+' неизменных ходов');
+    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:F.stateCount,states:probe.states.length,edges:probe.edges.length,
+      distinctPatterns:new Set(signatures.values()).size,unsolvedGoalRhythmAliases:aliases,silentMoves,
+      discrimination:new Set(signatures.values()).size===probe.states.length?'distinct-in-probes':'weak',
+      independentRiffs:true,signatureScope:'per-riff-events-not-summed-PCM',acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
   }
-  return{VERSION,field,project,prepare,validate};
+  return{VERSION,period,project,prepare,validate};
 });
 
 </script>
@@ -3408,6 +3425,10 @@ window.PuzzleAsync={
   'use strict';
   const NS='http://www.w3.org/2000/svg',CENTER=380,INNER=250;
   const mod=n=>((n%1)+1)%1,delta=(a,b)=>mod(b-a+.5)-.5;
+  const level=e=>Math.max(0,Math.min(1,(e.volume??1)*(typeof e.value?.velocity==='number'?e.value.velocity:1)));
+  // Multiplying RGB channels changes HSV value while retaining hue/saturation.
+  // Width provides a second level cue on the light paper background.
+  const brightness=level=>.3+.7*Math.sqrt(Math.max(0,Math.min(1,level)));
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
     const a=point(radius,start),b=point(radius,end),span=end-start;
@@ -3425,9 +3446,12 @@ window.PuzzleAsync={
   function groups(events){
     const result=new Map();
     events.forEach((e,i)=>{const key=e.start+':'+e.duration;if(!result.has(key))result.set(key,[]);result.get(key).push({...e,id:e.id??String(i)});});
-    return [...result.values()].map(values=>({id:values.map(e=>e.id).sort().join('|'),start:values[0].start,duration:values[0].duration,layers:Math.min(3,values.length)}));
+    return [...result.values()].map(values=>{
+      values.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+      return{id:values.map(e=>e.id).join('|'),start:values[0].start,duration:values[0].duration,layers:Math.min(3,values.length),levels:values.slice(0,3).map(level)};
+    });
   }
-  const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration]).sort((a,b)=>a[0].localeCompare(b[0]))));
+  const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration,e.levels]).sort((a,b)=>a[0].localeCompare(b[0]))));
   class Score{
     constructor(svg,voices,{periodBeats=16,periodSeconds=8}={}){
       Object.assign(this,{svg,voices,periodSeconds});this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
@@ -3444,7 +3468,8 @@ window.PuzzleAsync={
         node('title',{},g).textContent=`${id+1}. ${v.name}`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g);
-        this.rows.push({g,r,target,current,events:new Map(),positions:new Map()});
+        const cycles=node('g',{'class':'orbit-cycles','aria-hidden':'true'},g);
+        this.rows.push({g,r,target,current,cycles,cycleTicks:[],events:new Map(),positions:new Map()});
       });
       const sweep=node('g',{'id':'clock-hand','class':'orbit-sweep','aria-hidden':'true'},svg);
       node('line',{x1:CENTER,y1:CENTER-INNER+9,x2:CENTER,y2:CENTER-335},sweep);
@@ -3456,7 +3481,7 @@ window.PuzzleAsync={
         for(const e of groups(target[id]||[])){
           for(const [start,end]of segments(e.start,e.duration)){
             const inset=Math.min(.002,(end-start)/5);
-            node('path',{d:arc(row.r,start+inset,end-inset),'class':'target-slot'},row.target);
+            node('path',{d:arc(row.r,start+inset,end-inset),'class':'target-slot','stroke-width':3+4.5*Math.max(...e.levels)},row.target);
           }
           const a=point(row.r-4.5,e.start),b=point(row.r+4.5,e.start);
           node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'target-stop'},row.target);
@@ -3471,16 +3496,20 @@ window.PuzzleAsync={
         const onset=node('line',{'class':'event-onset'},g),flash=node('circle',{'class':'event-flash',r:4.2},g);
         item={g,paths,onset,flash};row.events.set(e.id,item);
       }
-      if(item.start===e.start&&item.duration===e.duration)return;
+      const levelsKey=JSON.stringify(e.levels);
+      if(item.start===e.start&&item.duration===e.duration&&item.levelsKey===levelsKey)return;
       const spans=segments(e.start,e.duration);
       item.paths.forEach((paths,i)=>paths.forEach((path,k)=>{
         const span=spans[k];path.style.display=span?'':'none';if(!span)return;
         const inset=Math.min(.002,(span[1]-span[0])/5),r=row.r+(e.layers>1?(i-(e.layers-1)/2)*1.8:0);
-        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?1.5:5});
+        const intensity=e.levels[i]??e.levels[0];
+        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?.5+intensity:2+3.5*intensity});
+        path.style.filter='brightness('+brightness(intensity)+')';
       }));
       const a=point(row.r-3.5,e.start),b=point(row.r+3.5,e.start),p=point(row.r,e.start);
       set(item.onset,{x1:a[0],y1:a[1],x2:b[0],y2:b[1]});set(item.flash,{cx:p[0],cy:p[1]});
-      item.start=e.start;item.duration=e.duration;
+      item.onset.style.filter='brightness('+brightness(Math.max(...e.levels))+')';
+      item.start=e.start;item.duration=e.duration;item.levelsKey=levelsKey;
     }
     advance(now){
       if(!this.motion)return;
@@ -3488,7 +3517,8 @@ window.PuzzleAsync={
       this.rows.forEach((row,id)=>{
         for(const e of this.motion.to[id]){
           const from=this.motion.from[id].get(e.id)||e,start=mod(from.start+delta(from.start,e.start)*ease);
-          const value={...e,start};row.positions.set(e.id,value);this.renderEvent(row,value);
+          const levels=e.levels.map((v,i)=>(from.levels?.[i]??v)+(v-(from.levels?.[i]??v))*ease);
+          const value={...e,start,levels};row.positions.set(e.id,value);this.renderEvent(row,value);
         }
       });
       if(t===1)this.motion=null;
@@ -3505,7 +3535,7 @@ window.PuzzleAsync={
     }
     commit(rows){this.committed={key:fingerprint(rows),rows};}
     cancel(){this.committed=null;this.forecast=null;}
-    update({rows,target,phases,pending=false,forecast=null}){
+    update({rows,target,phases,pending=false,forecast=null,selectedKey=null}){
       this.baseRows=rows;this.forecast=forecast;
       if(this.target!==target){this.target=target;this.drawSlots(target);}
       if(this.committed?.key===fingerprint(rows))this.committed=null;
@@ -3517,6 +3547,12 @@ window.PuzzleAsync={
       this.rows.forEach((row,id)=>{
         row.g.classList.toggle('will-change',!!forecast?.changed.includes(id)||!!this.committed&&fingerprint([rows[id]])!==fingerprint([visible[id]]));
         row.g.classList.toggle('aligned',phases[id].aligned);
+        row.g.dataset.gain=phases[id].gain??1;
+        row.period=phases[id].period;row.selected=!!selectedKey&&phases[id].controlKey===selectedKey;
+        row.cycles.style.display=row.selected?'':'none';
+        const count=row.selected&&row.period?Math.round(1/row.period):0;
+        if(count!==row.cycleTicks.length){row.cycles.replaceChildren();row.cycleTicks=Array.from({length:count},()=>node('line',{},row.cycles));}
+        row.g.dataset.cycleCount=count;
         row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${phases[id].aligned?'Совпадает с целью.':'Не совпадает с целью.'}`);
         if(phases[id].ticks!==undefined)row.g.dataset.phase=phases[id].ticks;else delete row.g.dataset.phase;
         if(forecast?.phases[id].ticks!==undefined)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
@@ -3528,6 +3564,11 @@ window.PuzzleAsync={
       this.svg.classList.toggle('is-playing',playing);
       const actual=playing&&!this.forecast&&!this.committed&&!this.motion;
       this.rows.forEach(row=>{
+        if(row.selected&&row.period&&row.positions.size){
+          const anchor=row.positions.values().next().value.start;
+          row.g.dataset.localPhase=mod((phase-anchor)/row.period);
+          row.cycleTicks.forEach((tick,k)=>{const a=point(row.r+4.5,anchor+k*row.period),b=point(row.r+8,anchor+k*row.period);set(tick,{x1:a[0],y1:a[1],x2:b[0],y2:b[1]});});
+        }else delete row.g.dataset.localPhase;
         for(const [id,item]of row.events){
           const e=row.positions.get(id),on=!!(actual&&e&&mod(phase-e.start)*this.periodSeconds<.12);
           if(item.sounding!==on){item.g.classList.toggle('sounding',on);item.sounding=on;}
@@ -3535,7 +3576,7 @@ window.PuzzleAsync={
       });
     }
   }
-  return{Score,arc,segments,point,delta,groups};
+  return{Score,arc,segments,point,delta,groups,level,brightness};
 });
 
 </script>
@@ -3818,6 +3859,7 @@ window.PuzzleControl = {
       clearHint(){focus.reset();},
       resetInteraction(){armed=null;focus.reset();feedback();},
       focusState:()=>focus.current,
+      selection:()=>hasSelection()?model.selected:null,
       focus:()=>presentation.element.focus({preventScroll:true}),
       destroy(){focus.reset();controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
       key(event){const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
@@ -4297,8 +4339,8 @@ TwiddlePuzzle.mount=context=>PuzzleControl.mount({...context,module:TwiddlePuzzl
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.FourierPuzzle=factory(root.FourierModel);})(globalThis,function(F){
-  return{id:'fourier',title:'Фурье: фаза и модуль',progressLabel:'гармоник\nна месте',create:()=>new F.Model(),
-    manifest:Object.freeze({schema:'music-puzzle/2',id:'fourier',version:3,projection:'fourier-time/3',fragments:6,goalPolicy:'single-reference',stateCount:F.stateCount,
+  return{id:'fourier',title:'Фаза и громкость',progressLabel:'рифов\nна месте',create:()=>new F.Model(),
+    manifest:Object.freeze({schema:'music-puzzle/2',id:'fourier',version:4,projection:'complex-riff/1',fragments:6,goalPolicy:'single-reference',stateCount:F.stateCount,
       parameters:{phases:8,magnitudes:F.levels},operations:{phase:{order:8},magnitude:{kind:'bounded-step',levels:3},drag:{kind:'coefficient-edit'}}})};
 });
 
@@ -4306,10 +4348,10 @@ TwiddlePuzzle.mount=context=>PuzzleControl.mount({...context,module:TwiddlePuzzl
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* One polar chart. Views preview edits; only the shared dispatcher commits them. */
-window.FourierView={create({scene,resources,model,tween,onEditPreview}){
+window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   const T=THREE,F=FourierModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.z=6;camera.lookAt(0,0,0);
-  const scale=1.15/.6,colors=[0x32746b,0xba703e,0x646ca1,0xa64f70],steps=40;
+  const scale=1.15/Math.max(...F.levels),colors=game.voices.map(v=>v.color),steps=40;
   function line(count,color,{dashed=false,opacity=1}={}){
     const g=resources.own(new T.BufferGeometry());g.setAttribute('position',new T.BufferAttribute(new Float32Array(count*3),3));
     const m=resources.own(dashed?new T.LineDashedMaterial({color,dashSize:.045,gapSize:.035,transparent:true,opacity}):new T.LineBasicMaterial({color,transparent:true,opacity}));
@@ -4376,7 +4418,8 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
       points.forEach((p,i)=>{
         p.marker.scale.setScalar(unit);p.halo.scale.setScalar(unit);p.hit.scale.setScalar(hit);
         p.legendLabel.scale.setScalar(unit);p.legendHalo.scale.setScalar(unit);p.legendHit.scale.setScalar(hit);
-        p.legend.position.set((i%2?1:-1)*edge,(i<2?1:-1)*edge,.15);
+        const angle=Math.PI/2-i*2*Math.PI/points.length;
+        p.legend.position.set(Math.cos(angle)*edge,Math.sin(angle)*edge,.15);
       });target.scale.setScalar(unit);
     },
     pickTargets:()=>points.flatMap(p=>[p.hit,p.legendHit]),
@@ -4399,7 +4442,7 @@ window.FourierView={create({scene,resources,model,tween,onEditPreview}){
     dragTo(world){
       if(!dragging||!world)return;
       const p=root.worldToLocal(world.clone()),i=F.keys.indexOf(dragging.key),length=Math.hypot(p.x,p.y);
-      const previous=display[i],angle=length>1e-6?Math.atan2(p.y,p.x):Math.atan2(previous[1],previous[0]),radius=Math.max(.2,Math.min(.6,length/scale));
+      const previous=display[i],angle=length>1e-6?Math.atan2(p.y,p.x):Math.atan2(previous[1],previous[0]),radius=Math.max(F.levels[0],Math.min(F.levels.at(-1),length/scale));
       const z=[radius*Math.cos(angle),radius*Math.sin(angle)],values=model.coefficients(dragging.before);values[i]=z;draw(values);
       const move=model.editMove(dragging.key,model.snap(z),dragging.before);
       if(JSON.stringify(move)!==JSON.stringify(dragging.move)){dragging.move=move;onEditPreview(move);}
@@ -4467,7 +4510,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/drag1';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/complex1';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -4509,7 +4552,7 @@ window.PhaseCubeCelebration=(()=>{
     if(!music||!model||!orbit)return;
     const state=heardState();rows=music.rows(state);
     const move=control?.focusState()?.move,forecast=move&&canMove()?music.predict(move,state,rows):null;
-    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast});
+    orbit.update({rows,target:game.targetRows,phases:music.phases(state),pending:!!transport.pending,forecast,selectedKey:control?.selection()});
   }
   function updateUI(){
     let won=false;

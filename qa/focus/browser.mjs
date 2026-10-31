@@ -35,17 +35,17 @@ try{
   await p.mouse.move(point.x,point.y);await p.waitForFunction(source=>phaseCubeApp.diagnostics().actionFocus?.source===source,puzzleId==='fourier'?'button-pointer':'field');
   assert.equal(await p.evaluate(()=>phaseCubeApp.diagnostics().actionFocus.move),move,'Focus chooses its actual click action');
   const button=await p.locator('.puzzle-action.action-focused').getAttribute('id');assert.equal(await p.locator('.puzzle-action.action-focused').count(),1);
-  const preview=await p.evaluate(()=>({move:phaseCubeApp.getEqualizer().forecast.move,positions:phaseCubeApp.getEqualizer().rows.map(r=>[...r.positions.values()].map(e=>[e.id,e.start])),heard:phaseCubeApp.getTransport().active.meta.state}));
+  const preview=await p.evaluate(()=>({move:phaseCubeApp.getEqualizer().forecast.move,positions:phaseCubeApp.getEqualizer().rows.map(r=>[...r.positions.values()].map(e=>[e.id,e.start,e.levels])),heard:phaseCubeApp.getTransport().active.meta.state}));
   assert.equal(preview.move,move);assert.deepEqual(await p.evaluate(()=>({state:phaseCubeApp.state(),moves:phaseCubeApp.getPuzzle().history.length})),snapshot,'Hover does not mutate game state');
   assert.deepEqual(preview.heard,snapshot.state,'Hover does not mutate audio state');
   assert.equal(await p.locator('.orbit-preview,.preview-event,.target-event,.orbit-target-rail').count(),0);
   assert(await p.locator('.target-slot').count()>0);assert.equal(await p.locator('.subdivision-line').count(),0);
   // The existing SVG event nodes move; no cloned forecast events are created.
   const motion=await p.evaluate(async()=>{
-   const score=phaseCubeApp.getEqualizer(),nodes=[...document.querySelectorAll('.score-event')],from=score.rows.map(r=>[...r.positions.values()].map(e=>e.start));
+   const score=phaseCubeApp.getEqualizer(),nodes=[...document.querySelectorAll('.score-event')],from=score.rows.map(r=>[...r.positions.values()].map(e=>[e.start,e.levels]));
    await new Promise(r=>setTimeout(r,350));
-   return{same:nodes.every((n,i)=>n===document.querySelectorAll('.score-event')[i])&&qaEventNodes.every((n,i)=>n===document.querySelectorAll('.score-event')[i]),from,to:score.rows.map(r=>[...r.positions.values()].map(e=>e.start)),pending:!!score.motion};
-  });assert(motion.same);assert(!motion.pending);assert.notDeepEqual(motion.from,motion.to,'The forecast animates a shift rather than only changing color');
+   return{same:nodes.every((n,i)=>n===document.querySelectorAll('.score-event')[i])&&qaEventNodes.every((n,i)=>n===document.querySelectorAll('.score-event')[i]),from,to:score.rows.map(r=>[...r.positions.values()].map(e=>[e.start,e.levels])),pending:!!score.motion};
+  });assert(motion.same);assert(!motion.pending);assert.notDeepEqual(motion.from,motion.to,'The forecast animates event phase or level');
   await p.screenshot({path:join(root,`qa/focus/${rt.engine}-${puzzleId}-hover.png`)});
   const expected=await p.evaluate(m=>phaseCubeApp.getPuzzle().applyTo(phaseCubeApp.state(),m),move);
   await p.mouse.click(point.x,point.y);await settled(p);

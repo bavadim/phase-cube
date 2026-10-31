@@ -7,6 +7,10 @@
   'use strict';
   const NS='http://www.w3.org/2000/svg',CENTER=380,INNER=250;
   const mod=n=>((n%1)+1)%1,delta=(a,b)=>mod(b-a+.5)-.5;
+  const level=e=>Math.max(0,Math.min(1,(e.volume??1)*(typeof e.value?.velocity==='number'?e.value.velocity:1)));
+  // Multiplying RGB channels changes HSV value while retaining hue/saturation.
+  // Width provides a second level cue on the light paper background.
+  const brightness=level=>.3+.7*Math.sqrt(Math.max(0,Math.min(1,level)));
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
     const a=point(radius,start),b=point(radius,end),span=end-start;
@@ -24,9 +28,12 @@
   function groups(events){
     const result=new Map();
     events.forEach((e,i)=>{const key=e.start+':'+e.duration;if(!result.has(key))result.set(key,[]);result.get(key).push({...e,id:e.id??String(i)});});
-    return [...result.values()].map(values=>({id:values.map(e=>e.id).sort().join('|'),start:values[0].start,duration:values[0].duration,layers:Math.min(3,values.length)}));
+    return [...result.values()].map(values=>{
+      values.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+      return{id:values.map(e=>e.id).join('|'),start:values[0].start,duration:values[0].duration,layers:Math.min(3,values.length),levels:values.slice(0,3).map(level)};
+    });
   }
-  const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration]).sort((a,b)=>a[0].localeCompare(b[0]))));
+  const fingerprint=rows=>JSON.stringify(rows.map(row=>groups(row).map(e=>[e.id,e.start,e.duration,e.levels]).sort((a,b)=>a[0].localeCompare(b[0]))));
   class Score{
     constructor(svg,voices,{periodBeats=16,periodSeconds=8}={}){
       Object.assign(this,{svg,voices,periodSeconds});this.rows=[];this.baseRows=[];this.destination=null;this.motion=null;this.committed=null;this.forecast=null;
@@ -43,7 +50,8 @@
         node('title',{},g).textContent=`${id+1}. ${v.name}`;
         node('circle',{cx:CENTER,cy:CENTER,r,'class':'orbit-bed'},g);
         const target=node('g',{'class':'orbit-target','aria-hidden':'true'},g),current=node('g',{'class':'orbit-current','aria-hidden':'true'},g);
-        this.rows.push({g,r,target,current,events:new Map(),positions:new Map()});
+        const cycles=node('g',{'class':'orbit-cycles','aria-hidden':'true'},g);
+        this.rows.push({g,r,target,current,cycles,cycleTicks:[],events:new Map(),positions:new Map()});
       });
       const sweep=node('g',{'id':'clock-hand','class':'orbit-sweep','aria-hidden':'true'},svg);
       node('line',{x1:CENTER,y1:CENTER-INNER+9,x2:CENTER,y2:CENTER-335},sweep);
@@ -55,7 +63,7 @@
         for(const e of groups(target[id]||[])){
           for(const [start,end]of segments(e.start,e.duration)){
             const inset=Math.min(.002,(end-start)/5);
-            node('path',{d:arc(row.r,start+inset,end-inset),'class':'target-slot'},row.target);
+            node('path',{d:arc(row.r,start+inset,end-inset),'class':'target-slot','stroke-width':3+4.5*Math.max(...e.levels)},row.target);
           }
           const a=point(row.r-4.5,e.start),b=point(row.r+4.5,e.start);
           node('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'target-stop'},row.target);
@@ -70,16 +78,20 @@
         const onset=node('line',{'class':'event-onset'},g),flash=node('circle',{'class':'event-flash',r:4.2},g);
         item={g,paths,onset,flash};row.events.set(e.id,item);
       }
-      if(item.start===e.start&&item.duration===e.duration)return;
+      const levelsKey=JSON.stringify(e.levels);
+      if(item.start===e.start&&item.duration===e.duration&&item.levelsKey===levelsKey)return;
       const spans=segments(e.start,e.duration);
       item.paths.forEach((paths,i)=>paths.forEach((path,k)=>{
         const span=spans[k];path.style.display=span?'':'none';if(!span)return;
         const inset=Math.min(.002,(span[1]-span[0])/5),r=row.r+(e.layers>1?(i-(e.layers-1)/2)*1.8:0);
-        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?1.5:5});
+        const intensity=e.levels[i]??e.levels[0];
+        set(path,{d:arc(r,span[0]+inset,span[1]-inset),'stroke-width':e.layers>1?.5+intensity:2+3.5*intensity});
+        path.style.filter='brightness('+brightness(intensity)+')';
       }));
       const a=point(row.r-3.5,e.start),b=point(row.r+3.5,e.start),p=point(row.r,e.start);
       set(item.onset,{x1:a[0],y1:a[1],x2:b[0],y2:b[1]});set(item.flash,{cx:p[0],cy:p[1]});
-      item.start=e.start;item.duration=e.duration;
+      item.onset.style.filter='brightness('+brightness(Math.max(...e.levels))+')';
+      item.start=e.start;item.duration=e.duration;item.levelsKey=levelsKey;
     }
     advance(now){
       if(!this.motion)return;
@@ -87,7 +99,8 @@
       this.rows.forEach((row,id)=>{
         for(const e of this.motion.to[id]){
           const from=this.motion.from[id].get(e.id)||e,start=mod(from.start+delta(from.start,e.start)*ease);
-          const value={...e,start};row.positions.set(e.id,value);this.renderEvent(row,value);
+          const levels=e.levels.map((v,i)=>(from.levels?.[i]??v)+(v-(from.levels?.[i]??v))*ease);
+          const value={...e,start,levels};row.positions.set(e.id,value);this.renderEvent(row,value);
         }
       });
       if(t===1)this.motion=null;
@@ -104,7 +117,7 @@
     }
     commit(rows){this.committed={key:fingerprint(rows),rows};}
     cancel(){this.committed=null;this.forecast=null;}
-    update({rows,target,phases,pending=false,forecast=null}){
+    update({rows,target,phases,pending=false,forecast=null,selectedKey=null}){
       this.baseRows=rows;this.forecast=forecast;
       if(this.target!==target){this.target=target;this.drawSlots(target);}
       if(this.committed?.key===fingerprint(rows))this.committed=null;
@@ -116,6 +129,12 @@
       this.rows.forEach((row,id)=>{
         row.g.classList.toggle('will-change',!!forecast?.changed.includes(id)||!!this.committed&&fingerprint([rows[id]])!==fingerprint([visible[id]]));
         row.g.classList.toggle('aligned',phases[id].aligned);
+        row.g.dataset.gain=phases[id].gain??1;
+        row.period=phases[id].period;row.selected=!!selectedKey&&phases[id].controlKey===selectedKey;
+        row.cycles.style.display=row.selected?'':'none';
+        const count=row.selected&&row.period?Math.round(1/row.period):0;
+        if(count!==row.cycleTicks.length){row.cycles.replaceChildren();row.cycleTicks=Array.from({length:count},()=>node('line',{},row.cycles));}
+        row.g.dataset.cycleCount=count;
         row.g.setAttribute('aria-label',`${id+1}. ${this.voices[id].name}. ${phases[id].aligned?'Совпадает с целью.':'Не совпадает с целью.'}`);
         if(phases[id].ticks!==undefined)row.g.dataset.phase=phases[id].ticks;else delete row.g.dataset.phase;
         if(forecast?.phases[id].ticks!==undefined)row.g.dataset.previewPhase=forecast.phases[id].ticks;else delete row.g.dataset.previewPhase;
@@ -127,6 +146,11 @@
       this.svg.classList.toggle('is-playing',playing);
       const actual=playing&&!this.forecast&&!this.committed&&!this.motion;
       this.rows.forEach(row=>{
+        if(row.selected&&row.period&&row.positions.size){
+          const anchor=row.positions.values().next().value.start;
+          row.g.dataset.localPhase=mod((phase-anchor)/row.period);
+          row.cycleTicks.forEach((tick,k)=>{const a=point(row.r+4.5,anchor+k*row.period),b=point(row.r+8,anchor+k*row.period);set(tick,{x1:a[0],y1:a[1],x2:b[0],y2:b[1]});});
+        }else delete row.g.dataset.localPhase;
         for(const [id,item]of row.events){
           const e=row.positions.get(id),on=!!(actual&&e&&mod(phase-e.start)*this.periodSeconds<.12);
           if(item.sounding!==on){item.g.classList.toggle('sounding',on);item.sounding=on;}
@@ -134,5 +158,5 @@
       });
     }
   }
-  return{Score,arc,segments,point,delta,groups};
+  return{Score,arc,segments,point,delta,groups,level,brightness};
 });

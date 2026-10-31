@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* C8 phases × bounded three-position radii, independently for each coefficient. */
+/* Six independent nonzero complex riff controls: C8 phase and powers-of-two gain. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../shuffle.js'),require('../actions.js'));else root.FourierModel=factory(root.PuzzleShuffle,root.PuzzleActions);})(globalThis,function(Shuffle,Actions){
   'use strict';
-  const keys=['A','B','C','D'],levels=[.2,.4,.6],homePhase=[0,3,6,1],homeLevel=[2,1,1,0],stateCount=24**4;
+  const keys=['A','B','C','D','E','F'],levels=[.25,.5,1],homePhase=[0,1,3,4,5,7],homeLevel=keys.map(()=>2),stateCount=24**keys.length;
   const mod=(n,d)=>((n%d)+d)%d,validState=s=>Number.isInteger(s)&&s>=0&&s<stateCount;
   const point=p=>p&&Number.isInteger(p.phase)&&p.phase>=0&&p.phase<8&&Number.isInteger(p.level)&&p.level>=0&&p.level<3;
   function parameters(state){
@@ -14,7 +14,7 @@
   const coefficients=state=>parameters(state).map(coefficient),reference=coefficients(0);
   const edit=move=>move&&typeof move==='object'&&move.kind==='coefficient'&&keys.includes(move.key)&&point(move.from)&&point(move.to);
   const match=(a,b)=>a.phase===b.phase&&a.level===b.level;
-  function target(move){if(typeof move==='string'&&/^[ABCD]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
+  function target(move){if(typeof move==='string'&&/^[ABCDEF]('|\+|-)?$/.test(move))return move[0];if(edit(move))return move.key;throw new Error('Неверное действие Фурье');}
   function applyTo(state,move){
     const values=parameters(state),i=keys.indexOf(target(move)),p=values[i];
     if(edit(move)){
@@ -42,7 +42,7 @@
     });
   }
   class Model{
-    constructor(){this.count=4;this.reset();}
+    constructor(){this.count=keys.length;this.reset();}
     snapshot(){return this.current;}
     initialState(){return 0;}
     parameters(state=this.current){return parameters(state);}
@@ -52,24 +52,24 @@
     inverse(move){return inverse(move);}
     validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
     moveTarget(move){return target(move);}
-    select(key){if(!keys.includes(key))throw new Error('Неверная гармоника');this.selected=key;}
+    select(key){if(!keys.includes(key))throw new Error('Неверный риф');this.selected=key;}
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
-    choices(){return keys.map((key,i)=>({key,label:'Гармоника '+(i+1)}));}
-    selectionLabel(){const i=keys.indexOf(this.selected),p=parameters(this.current)[i];return 'Гармоника '+(i+1)+' · '+p.phase*45+'° · '+levels[p.level].toFixed(1).replace('.',',');}
+    choices(){return keys.map((key,i)=>({key,label:'Риф '+(i+1)}));}
+    selectionLabel(){const i=keys.indexOf(this.selected),p=parameters(this.current)[i];return 'Риф '+(i+1)+' · '+p.phase*45+'° · '+Math.round(20*Math.log10(levels[p.level]))+' дБ';}
     actions(callbacks){
       const key=this.selected,n=keys.indexOf(key)+1;
       return [
-        {id:'turn-left',label:'Гармоника '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Угол',move:key+"'"},
-        {id:'turn-right',label:'Гармоника '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Угол',move:key},
-        {id:'magnitude-down',label:'Гармоника '+n+': уменьшить модуль',icon:{text:'−'},group:'Модуль',move:key+'-'},
-        {id:'magnitude-up',label:'Гармоника '+n+': увеличить модуль',icon:{text:'+'},group:'Модуль',move:key+'+'}
+        {id:'turn-left',label:'Риф '+n+': угол против часовой стрелки',icon:{text:'↶'},group:'Фаза',move:key+"'"},
+        {id:'turn-right',label:'Риф '+n+': угол по часовой стрелке',icon:{text:'↷'},group:'Фаза',move:key},
+        {id:'magnitude-down',label:'Риф '+n+': тише вдвое',icon:{text:'÷2'},group:'Громкость',move:key+'-'},
+        {id:'magnitude-up',label:'Риф '+n+': громче вдвое',icon:{text:'×2'},group:'Громкость',move:key+'+'}
       ].map(action=>Actions.move(this,callbacks,action));
     }
     editMove(key,to,state=this.current){
       if(!keys.includes(key)||!point(to))throw new Error('Неверные координаты коэффициента');
       const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{...to}};
     }
-    snap(z){return{phase:mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:Math.max(0,Math.min(2,Math.round((Math.hypot(...z)-levels[0])/.2)))};}
+    snap(z){const radius=Math.hypot(...z);return{phase:mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:levels.reduce((best,v,i)=>Math.abs(v-radius)<Math.abs(levels[best]-radius)?i:best,0)};}
     restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=state;}
     reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleStep=0;}
     shuffle(){
@@ -84,7 +84,7 @@
     undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=target(old.move);return inverse(old.move);}
     hint(){
       const p=parameters(this.current);
-      for(let i=0;i<4;i++){
+      for(let i=0;i<keys.length;i++){
         const delta=mod(homePhase[i]-p[i].phase,8);
         if(delta)return keys[i]+(delta<=4?"'":'');
         if(p[i].level!==homeLevel[i])return keys[i]+(p[i].level<homeLevel[i]?'+':'-');
@@ -95,11 +95,11 @@
     solved(state=this.current){return state===0;}
     correct(state=this.current){return parameters(state).filter((p,i)=>p.phase===homePhase[i]&&p.level===homeLevel[i]).length;}
     probeStates(){
-      const result=[0];for(let i=0;i<4;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<3;level++){
+      const result=[0];for(let i=0;i<keys.length;i++)for(let phase=0;phase<8;phase++)for(let level=0;level<3;level++){
         const p=parameters(0);p[i]={phase,level};result.push(encode(p));
       }
       return [...new Set(result)];
     }
   }
-  return{Model,coefficients,parameters,interpolate,reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
+  return{Model,coefficients,parameters,interpolate,homePhase:[...homePhase],reference:reference.map(c=>[...c]),keys,levels,stateCount,orders:Object.fromEntries(keys.map(k=>[k,8]))};
 });
