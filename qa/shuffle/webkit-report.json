@@ -5,7 +5,7 @@
   "cases": [
     {
       "id": "twiddle",
-      "introMs": 1124,
+      "introMs": 1093,
       "shownMoves": 3,
       "reference": true,
       "inputLocked": true,
@@ -17,7 +17,7 @@
     },
     {
       "id": "rubik",
-      "introMs": 1129,
+      "introMs": 1151,
       "shownMoves": 3,
       "reference": true,
       "inputLocked": true,
@@ -29,7 +29,7 @@
     },
     {
       "id": "fourier",
-      "introMs": 1155,
+      "introMs": 1112,
       "shownMoves": 3,
       "reference": true,
       "inputLocked": true,
@@ -46,10 +46,10 @@
   "offline": true,
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "11d47593b17c76712b15ca6fb649e280219d392789cdcef841fce270ed778c60",
-    "steel-shift-cube.html": "9743dbfdf0c0508547d6985e82482aca9287960c28d91fcb9cb7a1e570974ae2",
+    "index.html": "341c85e46fdfc683ce1f68b066ada03a0dff093ad11d25cb7156ee909206469c",
+    "steel-shift-cube.html": "24bd2930e56cda3b15a12794f46427a861e82dbceff2fd279bcf956585df0447",
     "style.css": "2482e2717acba00722bc820865b7cf9adf2f98e30e6e78cd19c8d53260fec676",
-    "controls/equalizer.css": "0a1919fb69657ae6e9de888f3adde848edc8757d5a17a42b505b76ea399d4d23",
+    "controls/equalizer.css": "3ecac7c2649f2568c96009e5c1085f96209e8dcc5e79ec30e7c93d9fb4bace5d",
     "controls/player.css": "1019519195a9525213d51c1e47ecf1dcc2bdf9417a0af9b6a40c641bae4c1a33",
     "vendor/three-0.160.1.min.js": "170c6789f43217c96b3170f4b42fafe135de7f7cd48497a4218f9757ee1d49fa",
     "vendor/cube-1.3.2.js": "450a53a9acf5033fde7ca23be8fd08ac37d30f04c58aac63f053a1c05a7f5802",
@@ -75,9 +75,9 @@
     "graphics/resources.js": "d6376f85aa611c39677b20bc70aa8c342c4a5549dd1ce662cf68d77a5a32b5a3",
     "graphics/pointer.js": "e58c7768dc2770b0b2ef73e15247ede60b372a149c6deeee5cca5e0f5afc7479",
     "graphics/stage.js": "3203a929a90862aa5beb1ec78396c3c873f70588700d1b7d086e6f29a08833f8",
-    "controls/puzzle.js": "32159ab094e0206dea5fade2f41a76019c224a4b6bd49a030e537d88d0abd98f",
+    "controls/puzzle.js": "597fc0417704df810f516690bdb08d3e4af95d278adac382b0a57a0cd0e585a7",
     "controls/action-focus.js": "8ffdbee174af38cca75133f468c4df12ba51d7e3bd2a5a5dcbf5ccca5cb1e84a",
-    "controls/action-controls.js": "0ed76f1ad4f222ce1228dc0e5c9372c50807036d623d208b2ba00e191236d14d",
+    "controls/action-controls.js": "17743773ae1c4f610b20dcb26f072d38e7d4c194ddcfc37460eeb60204949a14",
     "controls/hint.js": "7509954e43dcf81f3e95051a934072ffda64bb452da4847e9978502ac5effa9d",
     "controls/player.js": "c7aad09505944d76a6eeaf9f07d2cd764cdb91a9c9f5be01e1e0a280cedab7c2",
     "controls/dialogs.js": "292bff4bd9df4066c02f2a936c78f189cac2ce9f3a46c698937cbdd9bf904227",
@@ -88,9 +88,9 @@
     "puzzles/twiddle/module.js": "e837c7bc02410a925d207ca03ca62b814e29b07b50ed23de598c4f4777374c3a",
     "puzzles/twiddle/three-view.js": "f52e7fd89940964153a1d9bca55746aee6c931532c58aa25bd1da94a8370c987",
     "puzzles/fourier/module.js": "dc45c6ddd018e374d80283c0ad169ef8a6f6a9422965998aef0d90a64d771761",
-    "puzzles/fourier/three-view.js": "a033e2d9bfd39d9d97391124ca4f6883089aa3c08abe90f65f75cd35e95cb488",
+    "puzzles/fourier/three-view.js": "245141eeab7f2cc21e38a73d6982d7e0c07ff544143b5f022a73a2ce3d8ec1be",
     "puzzles/registry.js": "862fcf479a9f8dfeb75b5c588abff781cf1cdf42abc9bb2262833a91595392c5",
     "celebration.js": "6f941db21c30a110650220fcb8f098e92699f41a3a50cb26da9a77c539b0e0b5",
-    "app.js": "46ea3449a2fd73a5400a341bc82c0c490c073b80d57da6abfd844963325397bb"
+    "app.js": "7146896ece622c5deca77a241745f36e058b07a70328d0faf6d6c9539d7fe3cb"
   }
 }

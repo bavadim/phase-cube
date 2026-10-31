@@ -23,17 +23,17 @@ try{
   // The exact same move from the field must focus the same button and forecast.
   let point,move;
   if(puzzleId==='fourier'){
-   const data=await p.evaluate(()=>{
-    const m=phaseCubeApp.getPuzzle(),s=m.snapshot(),hint=phaseCubeApp.diagnostics().actionFocus.move,actions=m.actions();
+   const id=await p.evaluate(()=>{
+    const m=phaseCubeApp.getPuzzle(),hint=phaseCubeApp.diagnostics().actionFocus.move,actions=m.actions();
     const a=actions.find(a=>a.enabled&&a.move!==hint&&a.id.startsWith('magnitude-'))||actions.find(a=>a.enabled&&a.move!==hint);
-    const next=m.coefficients(m.applyTo(s,a.move))[FourierModel.keys.indexOf(m.selected)];
-    return{move:a.move,...phaseCubeApp.getPresentation().project(new THREE.Vector3(next[0]*1.15/.6,next[1]*1.15/.6,0))};
-   });point=data;move=data.move;
+    return{id:a.id,move:a.move};
+   });
+   const box=await p.locator('#'+id.id).boundingBox();point={x:box.x+box.width/2,y:box.y+box.height/2};move=id.move;
   }else{
    move=hint.key+(hint.move.endsWith("'")?'':"'");point=await actionPoint(p,hint.key,!move.endsWith("'")?false:true);
   }
-  await p.mouse.move(point.x,point.y);await p.waitForFunction(()=>phaseCubeApp.diagnostics().actionFocus?.source==='field');
-  assert.equal(await p.evaluate(()=>phaseCubeApp.diagnostics().actionFocus.move),move,'Field chooses its actual click action');
+  await p.mouse.move(point.x,point.y);await p.waitForFunction(source=>phaseCubeApp.diagnostics().actionFocus?.source===source,puzzleId==='fourier'?'button-pointer':'field');
+  assert.equal(await p.evaluate(()=>phaseCubeApp.diagnostics().actionFocus.move),move,'Focus chooses its actual click action');
   const button=await p.locator('.puzzle-action.action-focused').getAttribute('id');assert.equal(await p.locator('.puzzle-action.action-focused').count(),1);
   const preview=await p.evaluate(()=>({move:phaseCubeApp.getEqualizer().forecast.move,positions:phaseCubeApp.getEqualizer().rows.map(r=>[...r.positions.values()].map(e=>[e.id,e.start])),heard:phaseCubeApp.getTransport().active.meta.state}));
   assert.equal(preview.move,move);assert.deepEqual(await p.evaluate(()=>({state:phaseCubeApp.state(),moves:phaseCubeApp.getPuzzle().history.length})),snapshot,'Hover does not mutate game state');
@@ -63,7 +63,7 @@ try{
   });assert.equal(highlight.whole,0);assert(highlight.local>0&&highlight.local<highlight.total,'Only simultaneous attacks flash, not the whole voice');
   await p.locator('#pause').click();assert.equal(await p.locator('.puzzle-action.action-focused').count(),0);assert.equal(await p.evaluate(()=>phaseCubeApp.diagnostics().actionFocus),null);
   assert.equal(await p.locator('#orbit-score').evaluate(e=>e.classList.contains('has-move-preview')),false);
-  report.cases.push({puzzleId,hint:true,fieldAndButtonFocus:true,clickMatchesPreview:true,hoverIsSilent:true,persistentEventNodes:true,oneEventFlash:true,pauseClearsFocus:true});
+  report.cases.push({puzzleId,hint:true,focusSource:puzzleId==='fourier'?'button-pointer':'field',clickMatchesPreview:true,hoverIsSilent:true,persistentEventNodes:true,oneEventFlash:true,pauseClearsFocus:true});
  }
  // Touch keeps first-tap selection / second-tap rotation, without arming on pointerdown.
  await p.setViewportSize({width:390,height:844});
@@ -87,6 +87,7 @@ try{
   }finally{svg.remove();}
  });assert.deepEqual(wells,{filled:'hidden',preview:'visible'});report.correctTrackDestinations=true;
  await p.emulateMedia({reducedMotion:'reduce'});await p.evaluate(()=>phaseCubeApp.choosePuzzle('fourier'));await p.locator('#start').click();await settled(p);
+ await p.locator('#hint').click();
  const enabled=await p.locator('.puzzle-action:enabled').first();await enabled.hover();assert.equal(await p.evaluate(()=>!!phaseCubeApp.getEqualizer().motion),false);
  await p.mouse.move(0,0);assert.equal(await p.evaluate(()=>!!phaseCubeApp.getEqualizer().motion),false);
  report.reducedMotion=true;await ctx.close();assert.deepEqual(report.errors,[]);report.status='PASS';

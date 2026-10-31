@@ -3,7 +3,9 @@
 window.PuzzleControl = {
   mount({presentation,module,commands,model,game,canInteract,onMove,onPreview,onSelect,createView}){
     let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
-    const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:model.selected,move:focus.current?.move||null,focus:focus.current});};
+    const hasSelection=()=>!view?.requiresSelection||armed!=null;
+    const updateControls=()=>controls?.update(disabled||!hasSelection(),{label:hasSelection()?model.selectionLabel?.()||'':view.selectionPrompt||'Выберите объект'});
+    const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:hasSelection()?model.selected:null,move:focus.current?.move||null,focus:focus.current});};
     const focus=new PuzzleActionFocus({
       resolve:value=>{
         if(!model.choices().some(c=>c.key===value.key))return null;
@@ -12,7 +14,7 @@ window.PuzzleControl = {
       },
       onChange:value=>{
         if(value){model.select(value.key);if(value.source==='hint'||value.source==='field'&&value.move!=null)armed=value.key;}
-        controls?.setFocus(value);controls?.update(disabled);feedback();onPreview(value?.move||null,value);
+        controls?.setFocus(value);updateControls();feedback();onPreview(value?.move||null,value);
       }
     });
     const intent=(move,extra={})=>({key:model.moveTarget(move),move,...extra});
@@ -24,6 +26,7 @@ window.PuzzleControl = {
     view=presentation.mount(createView,{module,model,game,onMove,
       onEditPreview:move=>{if(move)focus.set('edit',intent(move));else focus.clear('edit');},
       onHover:(hit,event={})=>{
+        if(view?.hoverActions===false){focus.clear('field');return;}
         if(event.pointerType==='touch')return;
         if(hit&&canInteract())focus.set('field',{key:hit.key,move:fromHit(hit)});else focus.clear('field');
       },
@@ -39,7 +42,7 @@ window.PuzzleControl = {
     return {
       update(value){
         disabled=value;if(disabled&&!demonstrating)focus.reset();else focus.refresh();
-        controls.setFocus(focus.current);controls.update(disabled);presentation.update(disabled);feedback();
+        controls.setFocus(focus.current);updateControls();presentation.update(disabled);feedback();
       },
       async animate(move,before,options={}){
         armed=model.moveTarget(move);demonstrating=!!options.demonstration;

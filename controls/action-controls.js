@@ -10,11 +10,11 @@ window.PuzzleActionControls=class{
     this.left=side('left');this.hintSlot=document.createElement('span');this.hintSlot.className='hint-slot';this.hintSlot.append(hint);host.append(this.hintSlot);this.right=side('right');
     this.update(true);
   }
-  update(disabled){
+  update(disabled,{label=this.model.selectionLabel?.()||''}={}){
     const actions=PuzzleActions.validate(this.model.actions(this.callbacks)),split=Math.ceil(actions.length/2),seen=new Set();
     this.host.dataset.actionCount=actions.length;this.host.classList.toggle('many-actions',actions.length>2);
     this.host.style.setProperty('--left-grow',Math.max(1,split)+'fr');this.host.style.setProperty('--right-grow',Math.max(1,actions.length-split)+'fr');
-    const label=this.model.selectionLabel?.()||'';this.caption.hidden=!label;if(this.caption.textContent!==label)this.caption.textContent=label;
+    this.caption.hidden=!label;if(this.caption.textContent!==label)this.caption.textContent=label;
     const groups=[actions.slice(0,split),actions.slice(split)];
     [this.left,this.right].forEach((side,i)=>{
       const labels=new Set(groups[i].map(a=>a.group||'')),title=labels.size===1?[...labels][0]:'';
