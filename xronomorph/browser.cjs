@@ -9,7 +9,7 @@ const assert=require('node:assert/strict'),{mkdirSync,writeFileSync,readFileSync
   for(const [width,height] of [[1280,900],[390,844],[844,390]]){
    const context=await r.browser.newContext({viewport:{width,height},hasTouch:width!==1280,isMobile:width!==1280});page=await context.newPage();page.setDefaultTimeout(12000);
    page.on('pageerror',e=>report.errors.push(e.message));await page.goto(r.url+'/xronomorph/index.html');
-   await page.waitForFunction(()=>window.xronoLab);await page.waitForTimeout(100);
+   await page.waitForFunction(()=>window.xronoLab);await page.locator('[data-mode="pb"]').click();await page.waitForTimeout(100);
    const rows=()=>page.evaluate(()=>xronoLab.rows());
    const before=await rows();assert.equal(before.length,3);assert(Math.abs(await page.evaluate(()=>XronoModel.balance(xronoLab.rows().flatMap(p=>p.points)))-1)<1e-10);
    const locator=page.locator('[data-event="0:0"] circle').nth(1),b=await locator.boundingBox();

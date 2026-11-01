@@ -6,8 +6,12 @@
   'use strict';
   const clone=v=>JSON.parse(JSON.stringify(v)),maxDepth=2,owner=n=>Number.isInteger(n)&&n>=0&&n<6;
   const initial=()=>({roots:[{owner:0},{owner:0},{owner:0},{owner:4}]});
+  const fromPattern=starts=>({starts:[...starts],roots:starts.map(()=>({owner:0}))});
   function validate(tree){
-    if(!tree||!Array.isArray(tree.roots)||tree.roots.length!==4)throw Error('Неверные корни ритма');
+    if(!tree||!Array.isArray(tree.roots))throw Error('Неверные корни ритма');
+    if(tree.starts){
+      if(!Array.isArray(tree.starts)||tree.starts.length!==tree.roots.length||tree.starts.length<2||tree.starts.length>29||tree.starts[0]!==0||tree.starts.some((t,i)=>!Number.isFinite(t)||t<0||t>=1||i&&t<=tree.starts[i-1]))throw Error('Неверные интервалы фигуры');
+    }else if(tree.roots.length!==4)throw Error('Неверные корни ритма');
     function visit(n,depth){
       if(!n||typeof n!=='object'||Array.isArray(n))throw Error('Неверный узел ритма');
       if(n.children){
@@ -24,13 +28,15 @@
       if(n.children){branches.push(item);visit(n.children[0],key+'L',start,length/2,depth+1);visit(n.children[1],key+'R',start+length/2,length/2,depth+1);}
       else leaves.push({...item,owner:n.owner,canSplit:depth<maxDepth});
     }
-    tree.roots.forEach((n,i)=>visit(n,String(i),i/4,1/4,0));return{leaves,branches};
+    const starts=tree.starts||[0,.25,.5,.75];
+    tree.roots.forEach((n,i)=>visit(n,String(i),starts[i],(starts[i+1]??1)-starts[i],0));return{leaves,branches};
   }
   function locate(tree,key){
-    if(typeof key!=='string'||!/^([0-3])([LR]{0,2})$/.test(key))throw Error('Неверный адрес ветки');
-    let parent=tree.roots,index=+key[0],node=parent[index];
-    for(const c of key.slice(1)){if(!node.children)throw Error('Ветка уже изменилась');parent=node.children;index=c==='L'?0:1;node=parent[index];}
-    return{node,parent,index,depth:key.length-1};
+    const match=typeof key==='string'&&/^(0|[1-9]\d?)([LR]{0,2})$/.exec(key);
+    if(!match||+match[1]>=tree.roots.length)throw Error('Неверный адрес ветки');
+    let parent=tree.roots,index=+match[1],node=parent[index];
+    for(const c of match[2]){if(!node.children)throw Error('Ветка уже изменилась');parent=node.children;index=c==='L'?0:1;node=parent[index];}
+    return{node,parent,index,depth:match[2].length};
   }
   function apply(tree,action){
     validate(tree);if(!action||!['split','merge','paint'].includes(action.kind))throw Error('Неверное действие с ритмом');
@@ -47,5 +53,5 @@
     }
     validate(out);return out;
   }
-  return{initial,validate,geometry,apply,maxDepth};
+  return{initial,fromPattern,validate,geometry,apply,maxDepth};
 });

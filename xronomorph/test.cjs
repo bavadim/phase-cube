@@ -45,6 +45,41 @@ test('WF complements interlock, shared rotation preserves hierarchy, degeneracie
   for(const ratio of [1,1.5,2,3]){s.wf.ratio=ratio;M.project(s).forEach(p=>assert(p.points.every(Number.isFinite)));}
   s.wf.ratio=2;const terminal=M.project(s);assert(terminal.at(-1).points.length===0,'C is silent after the hierarchy reaches the full equal grid');
 });
+test('WF boundary inverse follows the pointer continuously for every base word and direction',()=>{
+  for(let longs=1;longs<=8;longs++)for(let shorts=1;shorts<=8;shorts++)for(const reversed of [false,true]){
+    const w={longs,shorts,ratio:1.618,reverse:[reversed]};
+    const handles=M.wfBoundaries(w);assert.equal(handles.length,longs+shorts);assert.equal(handles[0].movable,false);
+    handles.forEach((h,i)=>assert(Math.abs(h.time-M.hierarchy(w)[0].points[i])<1e-12));
+    for(const h of handles.filter(h=>h.movable))for(const ratio of [1,1.0001,1.25,1.9999,2,2.0001,3.79123,8]){
+      const time=(h.a*ratio+h.b)/(longs*ratio+shorts),actual=M.ratioAtBoundary(w,h.index,time);
+      assert(Math.abs(actual-ratio)<1e-10);
+      const point=M.wfBoundaries({...w,ratio:actual})[h.index];assert(Math.abs(point.time-time)<1e-12);
+    }
+    for(const h of handles.filter(h=>h.movable)){
+      assert([1,8].some(r=>Math.abs(M.ratioAtBoundary(w,h.index,-5)-r)<1e-10));
+      assert([1,8].some(r=>Math.abs(M.ratioAtBoundary(w,h.index,5)-r)<1e-10));
+    }
+    assert.throws(()=>M.ratioAtBoundary(w,0,.4));assert.throws(()=>M.ratioAtBoundary(w,1,NaN));
+  }
+});
+test('free splitting and rotation compose independently for each instrument, including irregular figures',()=>{
+  let s=M.initial();const original=M.project(s),saved=M.clone(s);
+  s=M.rotate(s,0,.13729);s=M.divide(s,0,{kind:'split',key:'0'});
+  let rows=M.project(s);assert.equal(rows[0].points.length,5);assert(contains(rows[0].points,.125+.13729));assert.deepEqual(rows.slice(1),original.slice(1));
+  assert.equal(rows[0].balanced,false,'free local splitting need not preserve strict PB');
+  const score=M.score(s);s=M.rotate(s,0,.23729);rows=M.project(s);
+  score.filter(e=>e.part===0).forEach(e=>assert(contains(rows[0].points,e.start+.1)));
+  s=M.divide(s,0,{kind:'split',key:'0R'});assert.equal(M.project(s)[0].points.length,6);
+  s=M.divide(s,0,{kind:'merge',key:'0'});assert.equal(M.project(s)[0].points.length,4);assert.equal(s.pb[0].phase,.23729);
+  assert.deepEqual(saved,M.initial(),'all operations leave their input intact');
+  s.pb[0].shape='regular-29';delete s.pb[0].rhythm;s=M.divide(s,0,{kind:'split',key:'28'});assert.equal(M.project(s)[0].points.length,30);
+  s=M.divide(s,0,{kind:'merge',key:'28'});assert.equal(M.project(s)[0].points.length,29);
+  for(const shape of M.shapes.filter(p=>p.kind==='irregular')){
+    s=M.initial();s.pb[0].shape=shape.id;const geometry=M.patternGeometry(s.pb[0]),last=geometry.leaves.at(-1);
+    const split=M.divide(s,0,{kind:'split',key:last.key});assert(contains(M.project(split)[0].points,last.start+last.length/2));
+    assert.deepEqual(M.project(M.divide(split,0,{kind:'merge',key:last.key})),M.project(s));
+  }
+});
 test('state validation rejects invalid domains and gate duration is independent of rhythm',()=>{
   const s=M.initial();M.validate(s);const a=M.score(s);s.rpm=90;assert.deepEqual(M.score(s),a);
   for(const mutate of [s=>s.wf.ratio=NaN,s=>s.wf.longs=0,s=>s.pb[0].note=500,s=>s.pb[0].phase=Infinity,s=>s.pb.push(...Array(9).fill(s.pb[0])),s=>s.selected=20]){

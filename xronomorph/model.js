@@ -34,11 +34,16 @@
   function migrate(input){const s=clone(input);if(s?.schema==='xronomorph-lab/1'){s.schema='xronomorph-lab/2';s.tree=initialTree();}return validate(s);}
   function validate(s){
     const finite=(x,a,b)=>Number.isFinite(x)&&x>=a&&x<=b;
-    const validLayer=p=>p&&shapes.some(x=>x.id===p.shape)&&finite(p.phase,0,1)&&typeof p.enabled==='boolean'&&instruments.some(x=>x.id===p.instrument)&&Number.isInteger(p.note)&&finite(p.note,24,96)&&finite(p.velocity,0,1)&&finite(p.gateMs,20,800)&&typeof p.complement==='boolean';
+    const validLayer=p=>{
+      const shape=p&&shapes.find(x=>x.id===p.shape);
+      if(!shape||!finite(p.phase,0,1)||typeof p.enabled!=='boolean'||!instruments.some(x=>x.id===p.instrument)||!Number.isInteger(p.note)||!finite(p.note,24,96)||!finite(p.velocity,0,1)||!finite(p.gateMs,20,800)||typeof p.complement!=='boolean')return false;
+      if(p.rhythm){Tree.validate(p.rhythm);if(JSON.stringify(p.rhythm.starts)!==JSON.stringify(shape.points))return false;}
+      return true;
+    };
     if(s?.schema!=='xronomorph-lab/2'||!['pb','wf','tree'].includes(s.mode)||!finite(s.rpm,8,90)||!finite(s.volume,0,1)||![0,12,16,24,30].includes(s.snap)||!Array.isArray(s.pb)||s.pb.length<1||s.pb.length>8||!s.pb.every(validLayer))throw new Error('Неверные параметры лаборатории');
     const w=s.wf;
     if(!w||![w.longs,w.shorts].every(n=>Number.isInteger(n)&&n>=1&&n<=8)||!finite(w.ratio,1,8)||!finite(w.phase,0,1)||!Array.isArray(w.reverse)||w.reverse.length!==6||w.reverse.some(x=>typeof x!=='boolean')||!Array.isArray(w.layers)||w.layers.length!==6||!w.layers.every(validLayer))throw new Error('Неверные параметры иерархии');
-    Tree.validate(s.tree);
+    Tree.validate(s.tree);if(s.tree.starts)throw new Error('У дерева ритма четыре фиксированных интервала');
     if(!Array.isArray(s.tree.layers)||s.tree.layers.length!==6||!s.tree.layers.every(validLayer))throw new Error('Неверные инструменты дерева ритма');
     if(!Number.isInteger(s.selected)||s.selected<0||s.selected>=(s.mode==='pb'?s.pb.length:6))throw new Error('Неверный выбранный слой');
     return s;
@@ -49,6 +54,31 @@
   function word(longs,shorts){
     const total=longs+shorts,letters=Array.from({length:total},(_,i)=>Math.floor((i+1)*longs/total)-Math.floor(i*longs/total)?'L':'s');
     const first=letters.indexOf('L');return letters.slice(first).concat(letters.slice(0,first));
+  }
+  // A base boundary is (a*r+b)/(longs*r+shorts). Inverting this
+  // expression keeps the grabbed point under the pointer, without rotation,
+  // snapping, numeric search or following unstable higher-level vertex ids.
+  function wfBoundaries(w){
+    const letters=word(w.longs,w.shorts);if(w.reverse[0])letters.reverse();
+    let a=0,b=0;
+    return letters.map((letter,index)=>{
+      const at=r=>(a*r+b)/(w.longs*r+w.shorts),time=at(w.ratio),ends=[at(1),at(8)];
+      const boundary={index,letter,a,b,time,movable:a*w.shorts!==b*w.longs,min:Math.min(...ends),max:Math.max(...ends)};
+      if(letter==='L')a++;else b++;return boundary;
+    });
+  }
+  function ratioAtBoundary(w,index,time){
+    const h=wfBoundaries(w)[index];
+    if(!h?.movable||!Number.isFinite(time))throw Error('Эта граница интервалов неподвижна');
+    const t=Math.max(h.min,Math.min(h.max,time)),r=(h.b-t*w.shorts)/(t*w.longs-h.a);
+    return Math.max(1,Math.min(8,r));
+  }
+  function patternGeometry(p){return Tree.geometry(p.rhythm||Tree.fromPattern(shapes.find(x=>x.id===p.shape).points));}
+  function divide(s,index,action){
+    if(s.mode!=='pb'||!s.pb[index]||!['split','merge'].includes(action?.kind))throw Error('Выберите фигуру для деления');
+    const out=clone(s),p=out.pb[index];p.rhythm=Tree.apply(p.rhythm||Tree.fromPattern(shapes.find(x=>x.id===p.shape).points),{...action,owner:0});
+    if(!p.rhythm.roots.some(n=>n.children))delete p.rhythm;
+    return validate(out);
   }
   function hierarchy(w){
     let letters=word(w.longs,w.shorts);if(w.reverse[0])letters.reverse();
@@ -74,8 +104,8 @@
       return s.tree.layers.map((p,id)=>{const points=leaves.filter(n=>n.owner===id).map(n=>n.start);return{...p,id,points,allPoints:points,label:instruments.find(v=>v.id===p.instrument).label};});
     }
     if(s.mode==='pb')return s.pb.map((p,i)=>{
-      const shape=shapes.find(x=>x.id===p.shape),points=shape.points.map(t=>wrap(t+p.phase)).sort((a,b)=>a-b);
-      return{...p,id:i,points,allPoints:points,label:shape.label,balanced:true};
+      const shape=shapes.find(x=>x.id===p.shape),points=patternGeometry(p).leaves.map(n=>wrap(n.start+p.phase)).sort((a,b)=>a-b);
+      return{...p,id:i,points,allPoints:points,label:shape.label,balanced:Math.abs(balance(points)-1)<EPS};
     });
     const levels=hierarchy(s.wf);
     return levels.map((v,i)=>{
@@ -93,5 +123,5 @@
     return out;
   }
   function score(s){return project(s).filter(p=>p.enabled).flatMap(p=>p.points.map((t,j)=>({id:p.id+':'+j,part:p.id,start:t,gateSeconds:p.gateMs/1000,instrument:p.instrument,note:p.note,velocity:p.velocity})));}
-  return{TAU,EPS,wrap,shapes,instruments,initial,initialTree,migrate,validate,clone,balance,evenness,word,hierarchy,project,rotate,score};
+  return{TAU,EPS,wrap,shapes,instruments,initial,initialTree,migrate,validate,clone,balance,evenness,word,wfBoundaries,ratioAtBoundary,hierarchy,patternGeometry,divide,project,rotate,score};
 });

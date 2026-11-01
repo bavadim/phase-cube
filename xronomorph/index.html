@@ -6,18 +6,18 @@
   <meta name="color-scheme" content="light dark">
   <title>XronoMorph · лаборатория ритма</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css?v=xrono3">
+  <link rel="stylesheet" href="style.css?v=xrono4">
 </head>
 <body>
-<main id="xrono-lab" data-build="xronomorph/tree1">
+<main id="xrono-lab" data-build="xronomorph/wf-drag1">
   <header class="topbar">
     <div><a class="back" href="../">← Головоломки</a><h1>XronoMorph</h1></div>
     <div class="transport"><span id="audio-state" role="status">Готов к прослушиванию</span><button type="button" id="play" class="primary" aria-pressed="false">Слушать</button></div>
   </header>
   <nav class="mode-tabs" aria-label="Математическая модель">
+    <button type="button" data-mode="wf" aria-pressed="true">Интервалы · WF</button>
+    <button type="button" data-mode="pb" aria-pressed="false">Вращение + деление</button>
     <button type="button" data-mode="tree" aria-pressed="false">Деление ритма</button>
-    <button type="button" data-mode="pb" aria-pressed="true">Баланс · PB</button>
-    <button type="button" data-mode="wf" aria-pressed="false">Интервалы · WF</button>
   </nav>
   <div class="global-controls">
     <label>Скорость цикла <span><input id="rpm" type="range" min="8" max="90" step=".1" value="30"><output id="rpm-value" for="rpm">30 об/мин · 2 с</output></span></label>
@@ -46,7 +46,7 @@
       <section class="selected-editor" aria-labelledby="selected-title">
         <h2 id="selected-title">Слой 1</h2>
         <label id="shape-label">Фигура <select id="shape"></select></label>
-        <label><span id="phase-label">Поворот фигуры</span><span><input id="phase" type="range" min="0" max="359.9" step=".1"><output id="phase-value" for="phase">0°</output></span></label>
+        <label id="phase-control"><span id="phase-label">Поворот фигуры</span><span><input id="phase" type="range" min="0" max="359.9" step=".1"><output id="phase-value" for="phase">0°</output></span></label>
         <label id="snap-label">Привязка вращения <select id="snap"><option value="0">Свободно</option><option value="12">12 позиций</option><option value="16">16 позиций</option><option value="24">24 позиции</option><option value="30">30 позиций</option></select></label>
         <div id="hierarchy-options" class="hierarchy-options" hidden>
           <label><input type="checkbox" id="complement"> Только новые удары · C</label>
@@ -65,10 +65,10 @@
   <footer>Модели PB/WF: <a href="https://research-management.mq.edu.au/ws/portalfiles/portal/90170882/Publisher_version.pdf" target="_blank" rel="noreferrer">Milne и соавторы, XronoMorph, 2016</a> · деление ритма: отдельный эксперимент · звук: Strudel.</footer>
 </main>
 <script src="../vendor/strudel-web-1.3.0.js"></script>
-<script src="tree.js?v=xrono3"></script>
-<script src="model.js?v=xrono3"></script>
-<script src="transport.js?v=xrono3"></script>
-<script src="view.js?v=xrono3"></script>
-<script src="app.js?v=xrono3"></script>
+<script src="tree.js?v=xrono4"></script>
+<script src="model.js?v=xrono4"></script>
+<script src="transport.js?v=xrono4"></script>
+<script src="view.js?v=xrono4"></script>
+<script src="app.js?v=xrono4"></script>
 </body>
 </html>

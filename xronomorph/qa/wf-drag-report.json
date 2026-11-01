@@ -1,0 +1,99 @@
+{
+  "schema": "wf-direct-control/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "audioOutput": "native-null-sink",
+  "cases": [
+    {
+      "width": 1280,
+      "height": 900,
+      "input": "mouse",
+      "ratioFollowsPointer": true,
+      "continuousUpdates": 12,
+      "phaseAnchored": true,
+      "cancelRestoresState": true,
+      "keyboard": true,
+      "reversedMultiIntervalWord": true,
+      "persistence": true,
+      "nativeOnsets": 10,
+      "editingPreservesClock": true,
+      "splitRotateMergeUndo": true,
+      "independentInstruments": true,
+      "layout": {
+        "viewport": 1280,
+        "scrollWidth": 1280
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "input": "native CDP touch",
+      "ratioFollowsPointer": true,
+      "continuousUpdates": 12,
+      "phaseAnchored": true,
+      "cancelRestoresState": true,
+      "keyboard": true,
+      "reversedMultiIntervalWord": true,
+      "persistence": true,
+      "nativeOnsets": 10,
+      "editingPreservesClock": true,
+      "splitRotateMergeUndo": true,
+      "independentInstruments": true,
+      "layout": {
+        "viewport": 390,
+        "scrollWidth": 390
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native CDP touch",
+      "ratioFollowsPointer": true,
+      "continuousUpdates": 12,
+      "phaseAnchored": true,
+      "cancelRestoresState": true,
+      "keyboard": true,
+      "reversedMultiIntervalWord": true,
+      "persistence": true,
+      "nativeOnsets": 10,
+      "editingPreservesClock": true,
+      "splitRotateMergeUndo": true,
+      "independentInstruments": true,
+      "layout": {
+        "viewport": 844,
+        "scrollWidth": 844
+      }
+    },
+    {
+      "width": 320,
+      "height": 740,
+      "input": "native CDP touch",
+      "ratioFollowsPointer": true,
+      "continuousUpdates": 12,
+      "phaseAnchored": true,
+      "cancelRestoresState": true,
+      "keyboard": true,
+      "reversedMultiIntervalWord": true,
+      "persistence": true,
+      "nativeOnsets": 10,
+      "editingPreservesClock": true,
+      "splitRotateMergeUndo": true,
+      "independentInstruments": true,
+      "layout": {
+        "viewport": 320,
+        "scrollWidth": 320
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "tree.js": "18b6c3d425ce57f22ca52f098994a1460284c503c91b050ab7f68a236dea50a6",
+    "model.js": "a2616da614f9aeff4694ba9fede481416b1ad4e79f9b145a7298aacbdf2b55f5",
+    "transport.js": "07cec42efb45135dae796d93e0b35d618735c147b9d494aac1bd4ef5b149a117",
+    "view.js": "c1366164af8e25ccc2993ae2e76bee516365324453e662f5ee2e766ded158fab",
+    "app.js": "ca3153838953a7354a5dce6ed1eec9935804002825e4e0f63d43b79ff84037e2",
+    "index.html": "867e9773041d08d8c2e850bec720830172c4e14fc34bddde32ce9cb49890aa4d",
+    "style.css": "b575570e26ba232926a6e2e58e8050e785ae3c19dc940b241f96aaba77f71a48"
+  }
+}

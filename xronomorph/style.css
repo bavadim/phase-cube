@@ -6,6 +6,8 @@ label{min-width:0}output{flex:0 0 auto}.ratio-control>span>input[type=number]{ma
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 .tree-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0}
 .tree-target{cursor:pointer;-webkit-tap-highlight-color:transparent}.tree-target:focus-visible{outline:none}.tree-target:focus-visible>circle:nth-of-type(2){stroke:var(--ink);stroke-width:3}
+.wf-target{cursor:grab;-webkit-tap-highlight-color:transparent}.wf-target:active{cursor:grabbing}.wf-target:focus-visible{outline:none}.wf-target:focus-visible>circle:nth-of-type(2){stroke-width:4}
+#diagram .wf-interval{font-weight:700;fill:var(--ink)}#diagram .wf-readout{font-size:15px;fill:var(--ink);font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round}
 body[data-xrono-mode=tree] .layers{grid-template-columns:1fr 1fr;gap:7px}
 body[data-xrono-mode=tree] .layer-row{grid-template-columns:minmax(0,1fr)}
 body[data-xrono-mode=tree] .layer-row>button{gap:6px;padding:.55rem .65rem}
