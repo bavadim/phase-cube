@@ -1,0 +1,45 @@
+{
+  "sourceSha256": {
+    "model.js": "940cf17b4f0c3f810d36efdb4770f12cc2a0d3d4acf5bf0555ebc55337f1d56e",
+    "../transport.js": "c0be4a60c997ea03780fe1dd9a698c928e4199f1d762df8c71798f85d947f716"
+  },
+  "schema": "rhythm-methods-audio-levels/1",
+  "engine": "native-Strudel-1.3.0",
+  "sink": "none",
+  "listeningAcceptance": false,
+  "levels": [
+    {
+      "sound": "click",
+      "peak": 0.02970142289996147,
+      "maxRms": 0.00424732568889142,
+      "frames": 134,
+      "events": 10
+    },
+    {
+      "sound": "clap",
+      "peak": 0.03617369011044502,
+      "maxRms": 0.004247039227400933,
+      "frames": 134,
+      "events": 19
+    },
+    {
+      "sound": "kick",
+      "peak": 0.036173682659864426,
+      "maxRms": 0.007494112925645694,
+      "frames": 134,
+      "events": 28
+    },
+    {
+      "sound": "bell",
+      "peak": 0.027089698240160942,
+      "maxRms": 0.007518280454275605,
+      "frames": 134,
+      "events": 36
+    },
+    {
+      "sound": "click-eight-coincident-max-strength",
+      "peak": 0.47522270679473877
+    }
+  ],
+  "status": "PASS"
+}

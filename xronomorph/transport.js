@@ -4,10 +4,10 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.XronoAudio=factory(root.XronoModel);})(globalThis,function(M){
   'use strict';
   const samples={xrono_kick:'kick/0.wav',xrono_hat:'biba_closed_hat/0.wav',xrono_clap:'biba_clap/0.wav',xrono_click:'biba_claves/0.wav'};
-  function pattern(S,state){
+  function pattern(S,state,projection=M){
     const seconds=60/state.rpm,fraction=x=>S.Fraction([Math.round(x*1e9),1e9]);
-    const source=M.score(state).map(e=>({start:fraction(e.start),duration:fraction(e.gateSeconds/seconds),value:{
-      s:M.instruments.find(v=>v.id===e.instrument).sound,note:e.note,velocity:e.velocity,gain:.22,
+    const source=projection.score(state).map(e=>({start:fraction(e.start),duration:fraction(e.gateSeconds/seconds),value:{
+      s:projection.instruments.find(v=>v.id===e.instrument).sound,note:e.note,velocity:e.velocity,gain:e.gain??.22,
       attack:.003,decay:.05,sustain:.25,release:.035,_xronoPart:e.part
     }}));
     const maxGate=Math.max(0,...source.map(e=>Number(e.duration)));
@@ -22,9 +22,9 @@
   }
   const timeout=(p,ms,label)=>{let t;return Promise.race([p,new Promise((_,reject)=>{t=setTimeout(()=>reject(new Error(label)),ms);})]).finally(()=>clearTimeout(t));};
   class Transport{
-    constructor(S,{onChange=()=>{},onError=console.error}={}){this.S=S;this.onChange=onChange;this.onError=onError;this.running=false;this.starting=false;this.epoch=0;this.events=[];this.cursor=0;}
+    constructor(S,{onChange=()=>{},onError=console.error,projection=M,sampleBase=new URL('../assets/samples/',document.baseURI).href}={}){this.S=S;this.projection=projection;this.sampleBase=sampleBase;this.onChange=onChange;this.onError=onError;this.running=false;this.starting=false;this.epoch=0;this.events=[];this.cursor=0;}
     update(state){
-      this.state=M.clone(state);this.current=pattern(this.S,state);
+      this.state=this.projection.clone(state);this.current=pattern(this.S,state,this.projection);
       if(this.repl&&this.running)this.repl.scheduler.setCps(state.rpm/60);
       if(this.master)this.master.gain.setTargetAtTime(state.volume,this.S.getAudioContext().currentTime,.015);
     }
@@ -33,7 +33,7 @@
       const S=this.S;
       this.ready=timeout(S.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),
         prebake:async()=>{
-          await S.samples(Object.fromEntries(Object.entries(samples).map(([name,file])=>[name,[new URL('../assets/samples/'+file,document.baseURI).href]])));
+          await S.samples(Object.fromEntries(Object.entries(samples).map(([name,file])=>[name,[new URL(file,this.sampleBase).href]])));
         },defaultOutput:(...args)=>this.output(...args),onUpdateState:s=>{if(s.error)this.onError(s.error);}
       }),12000,'Звуковой движок не загрузился').then(async repl=>{
         this.repl=repl;
