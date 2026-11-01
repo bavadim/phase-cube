@@ -1,0 +1,131 @@
+{
+  "schema": "rhythm-arcs-browser/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "audioOutput": "native-null-sink",
+  "cases": [
+    {
+      "width": 1280,
+      "height": 900,
+      "input": "mouse",
+      "zeroOneTwoThree": true,
+      "startsSilentThenSounds": true,
+      "customFirstNote": true,
+      "nonMidpointSplit": true,
+      "independentRotation": true,
+      "cancelLeavesNoEdit": true,
+      "joiningToZero": true,
+      "undo": true,
+      "keyboard": true,
+      "tempoSurvivesUndo": true,
+      "persistence": true,
+      "nativeEvents": 5,
+      "nativePCM": {
+        "observedPeakRms": 0.004827374979331968,
+        "events": 4
+      },
+      "editingPreservesClock": true,
+      "noOldModes": true,
+      "denseInteractiveNotes": 12,
+      "layout": {
+        "viewport": 1280,
+        "width": 1280
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "input": "native CDP touch",
+      "zeroOneTwoThree": true,
+      "startsSilentThenSounds": true,
+      "customFirstNote": true,
+      "nonMidpointSplit": true,
+      "independentRotation": true,
+      "cancelLeavesNoEdit": true,
+      "joiningToZero": true,
+      "undo": true,
+      "keyboard": true,
+      "tempoSurvivesUndo": true,
+      "persistence": true,
+      "nativeEvents": 5,
+      "nativePCM": {
+        "observedPeakRms": 0.004827374979331968,
+        "events": 6
+      },
+      "editingPreservesClock": true,
+      "noOldModes": true,
+      "denseInteractiveNotes": 12,
+      "layout": {
+        "viewport": 390,
+        "width": 390
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native CDP touch",
+      "zeroOneTwoThree": true,
+      "startsSilentThenSounds": true,
+      "customFirstNote": true,
+      "nonMidpointSplit": true,
+      "independentRotation": true,
+      "cancelLeavesNoEdit": true,
+      "joiningToZero": true,
+      "undo": true,
+      "keyboard": true,
+      "tempoSurvivesUndo": true,
+      "persistence": true,
+      "nativeEvents": 5,
+      "nativePCM": {
+        "observedPeakRms": 0.005192311147244194,
+        "events": 5
+      },
+      "editingPreservesClock": true,
+      "noOldModes": true,
+      "denseInteractiveNotes": 12,
+      "layout": {
+        "viewport": 844,
+        "width": 844
+      }
+    },
+    {
+      "width": 320,
+      "height": 740,
+      "input": "native CDP touch",
+      "zeroOneTwoThree": true,
+      "startsSilentThenSounds": true,
+      "customFirstNote": true,
+      "nonMidpointSplit": true,
+      "independentRotation": true,
+      "cancelLeavesNoEdit": true,
+      "joiningToZero": true,
+      "undo": true,
+      "keyboard": true,
+      "tempoSurvivesUndo": true,
+      "persistence": true,
+      "nativeEvents": 5,
+      "nativePCM": {
+        "observedPeakRms": 0.004827374979331968,
+        "events": 5
+      },
+      "editingPreservesClock": true,
+      "noOldModes": true,
+      "denseInteractiveNotes": 12,
+      "layout": {
+        "viewport": 320,
+        "width": 320
+      }
+    }
+  ],
+  "errors": [],
+  "legacyMigrationPreservesOldEntry": true,
+  "status": "PASS",
+  "sourceSha256": {
+    "model.js": "3a85bcd575521d949abf9baf3132c5989e6860b2ca5946aaeb3f21fe1190329d",
+    "transport.js": "07cec42efb45135dae796d93e0b35d618735c147b9d494aac1bd4ef5b149a117",
+    "view.js": "91013f0dc82ea398cc6a3e015fd420320994afa1c29f87903d60dc85c1f80776",
+    "app.js": "4e87c30627c211a4d7ac5ad89556953a83994f58dc0c29b4a5ecb2fe2a53e77f",
+    "index.html": "42ec4cd74eb8581ea31e72c614a51452e5c5d8488217b590e6e13e297e6a1052",
+    "style.css": "1216c6a447c42ff5e9d7d1e3de3ec68bc1a02e2b7b9a7e171844e352b72d2bc6"
+  }
+}

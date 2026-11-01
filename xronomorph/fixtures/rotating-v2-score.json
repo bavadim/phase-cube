@@ -1,0 +1,162 @@
+[
+  {
+    "part": 0,
+    "start": 0.012289999999999912,
+    "gateSeconds": 0.065,
+    "instrument": "kick",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 0,
+    "start": 0.07478999999999991,
+    "gateSeconds": 0.065,
+    "instrument": "kick",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 0,
+    "start": 0.1372899999999999,
+    "gateSeconds": 0.065,
+    "instrument": "kick",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 0,
+    "start": 0.38729000000000013,
+    "gateSeconds": 0.065,
+    "instrument": "kick",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 0,
+    "start": 0.6372900000000001,
+    "gateSeconds": 0.065,
+    "instrument": "kick",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 0,
+    "start": 0.8872900000000001,
+    "gateSeconds": 0.065,
+    "instrument": "kick",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.1433333333333333,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.16000000000000014,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.17666666666666675,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.3766666666666667,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.51,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.5766666666666667,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.71,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.9100000000000001,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 1,
+    "start": 0.9433333333333334,
+    "gateSeconds": 0.065,
+    "instrument": "hat",
+    "note": 60,
+    "velocity": 0.7
+  },
+  {
+    "part": 2,
+    "start": 0.03499999999999992,
+    "gateSeconds": 0.11,
+    "instrument": "bass",
+    "note": 48,
+    "velocity": 0.7
+  },
+  {
+    "part": 2,
+    "start": 0.2350000000000001,
+    "gateSeconds": 0.11,
+    "instrument": "bass",
+    "note": 48,
+    "velocity": 0.7
+  },
+  {
+    "part": 2,
+    "start": 0.43500000000000005,
+    "gateSeconds": 0.11,
+    "instrument": "bass",
+    "note": 48,
+    "velocity": 0.7
+  },
+  {
+    "part": 2,
+    "start": 0.635,
+    "gateSeconds": 0.11,
+    "instrument": "bass",
+    "note": 48,
+    "velocity": 0.7
+  },
+  {
+    "part": 2,
+    "start": 0.835,
+    "gateSeconds": 0.11,
+    "instrument": "bass",
+    "note": 48,
+    "velocity": 0.7
+  }
+]

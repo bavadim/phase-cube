@@ -8,7 +8,7 @@ const root=new URL('./',import.meta.url),html=await readFile(new URL('index.html
 const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>m[1].split('?')[0]);
 assert(scripts.length>0);
 const {files}=await import('./composition-loader.js').then(m=>m.default);
-for(const file of [...scripts,'check.mjs','export.mjs',...['tree','model','transport','view','app'].map(id=>`xronomorph/${id}.js`),...files.map(id=>`compositions/${id}.strudel.mjs`)]){
+for(const file of [...scripts,'check.mjs','export.mjs',...['model','transport','view','app'].map(id=>`xronomorph/${id}.js`),...files.map(id=>`compositions/${id}.strudel.mjs`)]){
   assert(!file.includes('..')&&!file.includes('://'));
   const check=spawnSync(process.execPath,['--check',fileURLToPath(new URL(file,root))],{encoding:'utf8'});
   assert.equal(check.status,0,check.stderr);

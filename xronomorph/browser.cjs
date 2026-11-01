@@ -1,59 +1,54 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-const assert=require('node:assert/strict'),{mkdirSync,writeFileSync,readFileSync}=require('node:fs'),{join}=require('node:path'),{createHash}=require('node:crypto');
+const assert=require('node:assert/strict'),fs=require('node:fs'),{join}=require('node:path'),{createHash}=require('node:crypto');
 (async()=>{
- const {openBrowser,root}=await import('../qa/modules/browser.mjs'),r=await openBrowser();
- const output=join(root,'xronomorph/qa');mkdirSync(output,{recursive:true});
- const report={schema:'xronomorph-browser/1',engine:r.engine,physicalDevice:false,audioOutput:'native-null-sink',cases:[],errors:[]};
- let page;
+ const {openBrowser,root}=await import('../qa/modules/browser.mjs'),r=await openBrowser(),out=join(root,'xronomorph/qa');
+ const report={schema:'rhythm-arcs-browser/1',engine:r.engine,physicalDevice:false,audioOutput:'native-null-sink',cases:[],errors:[]};let page;
  try{
-  for(const [width,height] of [[1280,900],[390,844],[844,390]]){
-   const context=await r.browser.newContext({viewport:{width,height},hasTouch:width!==1280,isMobile:width!==1280});page=await context.newPage();page.setDefaultTimeout(12000);
-   page.on('pageerror',e=>report.errors.push(e.message));await page.goto(r.url+'/xronomorph/index.html');
-   await page.waitForFunction(()=>window.xronoLab);await page.locator('[data-mode="pb"]').click();await page.waitForTimeout(100);
-   const rows=()=>page.evaluate(()=>xronoLab.rows());
-   const before=await rows();assert.equal(before.length,3);assert(Math.abs(await page.evaluate(()=>XronoModel.balance(xronoLab.rows().flatMap(p=>p.points)))-1)<1e-10);
-   const locator=page.locator('[data-event="0:0"] circle').nth(1),b=await locator.boundingBox();
-   const target=await page.evaluate(()=>{const s=document.querySelector('#diagram'),b=s.getBoundingClientRect(),v=xronoLab.view;return{x:b.x+v.cx+v.radius,y:b.y+v.cy};});
-   const touch=width!==1280,cdp=touch&&r.engine==='chromium'?await context.newCDPSession(page):null;
-   const start={x:b.x+b.width/2,y:b.y+b.height/2};
-   if(cdp){
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,...start}]});
-    for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:start.x+(target.x-start.x)*step/8,y:start.y+(target.y-start.y)*step/8}]});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-   }else{await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(target.x,target.y,{steps:8});await page.mouse.up();}
-   const after=await rows();assert(Math.abs(after[0].phase-.25)<.003);assert.deepEqual(after.slice(1),before.slice(1));
-   await page.selectOption('#shape','irregular-4');assert.equal((await rows())[0].points.length,8);assert(Math.abs(await page.evaluate(()=>XronoModel.balance(xronoLab.rows()[0].points))-1)<1e-10);
-   // Fractional free rotation is preserved: no hidden quantization to 1/8.
-   await page.evaluate(()=>{const s=xronoLab.state();s.pb[0].phase=.13729;xronoLab.set(s);});
-   await page.locator('#phase').focus();await page.locator('#phase').press('ArrowRight');
-   const fractional=await page.evaluate(()=>xronoLab.state().pb[0].phase);assert(Math.abs(fractional*8-Math.round(fractional*8))>.01);
-   await page.locator('[data-mode="wf"]').click();assert.equal((await rows()).length,6);
-   const wfBefore=await rows();await page.locator('#ratio-number').fill('1.5');await page.locator('#ratio-number').press('Tab');
-   assert.equal(await page.evaluate(()=>xronoLab.state().wf.ratio),1.5);assert.notDeepEqual(await rows(),wfBefore);
-   await page.locator('[data-ratio="phi"]').click();await page.locator('#layers .layer-row button').nth(2).click();
-   await page.locator('#complement').check();const complementary=await rows();assert(complementary[2].points.length<complementary[2].allPoints.length);
-   await page.locator('#reverse').check();const reversed=await rows();assert.deepEqual(reversed.slice(0,2),complementary.slice(0,2));assert.notDeepEqual(reversed[2].allPoints,complementary[2].allPoints);
-   // One shared phase leaves all hierarchy intervals intact.
-   await page.evaluate(()=>{const s=xronoLab.state();s.wf.phase=.23;xronoLab.set(s);});
-   const shifted=await rows();assert(Math.abs(shifted[0].points[0]-.23)<1e-9);
-   await page.reload();await page.waitForFunction(()=>window.xronoLab);assert.equal(await page.evaluate(()=>xronoLab.state().wf.phase),.23);
-   if(r.engine==='chromium')await page.evaluate(()=>strudel.getAudioContext().setSinkId({type:'none'}));
-   await page.locator('#play').click();await page.waitForFunction(()=>xronoLab.audio.running||document.querySelector('#error').textContent);assert(await page.evaluate(()=>xronoLab.audio.running));
-   await page.waitForFunction(()=>{window.__xronoPeakRms=Math.max(window.__xronoPeakRms||0,xronoLab.audio.rms());return xronoLab.audio.events.length>3&&window.__xronoPeakRms>.00005;});
-   const clock=await page.evaluate(()=>xronoLab.audio.clock());
-   await page.locator('#ratio-number').fill('1.7');await page.locator('#ratio-number').press('Tab');
-   await page.waitForTimeout(120);assert((await page.evaluate(()=>xronoLab.audio.clock()))>clock,'editing must not reset transport');
-   const pcm=await page.evaluate(()=>({observedPeakRms:window.__xronoPeakRms,events:xronoLab.audio.events.length}));
-   await page.locator('#play').click();assert.equal(await page.evaluate(()=>xronoLab.audio.running),false);
-   await page.waitForTimeout(1100);
-   const silent=await page.evaluate(()=>xronoLab.audio.rms());assert(silent<.0001,'stop must silence retained voices');
-   assert.equal(await page.evaluate(()=>Object.keys(strudel.getSuperdoughAudioController().nodes).filter(k=>+k>=2000).length),0,'stopped sessions must release cached mixer buses');
-   const layout=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,field:document.querySelector('#diagram').getBoundingClientRect().width}));assert(layout.width<=width);assert(layout.viewport<=width);
-   await page.screenshot({path:join(output,r.engine+'-'+width+'.png'),fullPage:true});
-   report.cases.push({width,height,input:cdp?'native CDP touch':'mouse',independentRotation:true,irregular:true,continuousPhase:fractional,wfHierarchy:true,complement:true,reverse:true,persistence:true,nativePCM:pcm,editingPreservesClock:true,stopRms:silent,layout});
-   await context.close();
+  for(const [width,height]of [[1280,900],[390,844],[844,390],[320,740]]){
+   const touch=width!==1280,context=await r.browser.newContext({viewport:{width,height},hasTouch:touch,isMobile:touch});page=await context.newPage();page.setDefaultTimeout(12000);page.on('pageerror',e=>report.errors.push(e.message));
+   await page.goto(r.url+'/xronomorph/index.html?mode=wf');await page.waitForFunction(()=>window.xronoLab);assert.equal(await page.locator('[data-mode],#shape,#ratio,#snap,#add-layer').count(),0);assert.equal(await page.locator('#layers button').count(),6);assert.equal(await page.evaluate(()=>XronoModel.score(xronoLab.state()).length),0);
+   await page.evaluate(()=>{window.__touchEnds=0;for(const type of ['touchend','touchcancel'])document.addEventListener(type,()=>++window.__touchEnds,{capture:true});});
+   const cdp=touch&&r.engine==='chromium'?await context.newCDPSession(page):null,click=async l=>{await l.scrollIntoViewIfNeeded();if(await l.evaluate(n=>!!n.closest('#diagram'))){const b=await l.boundingBox();await page[touch?'touchscreen':'mouse'][touch?'tap':'click'](b.x+b.width/2,b.y+b.height/2);}else await l[touch?'tap':'click']();},control=(kind,index=0)=>page.locator(`[data-action="${kind}"][data-index="${index}"]`);
+   const state=()=>page.evaluate(()=>xronoLab.state()),count=async i=>(await state()).parts[i].points.length;
+   const pointer=async({start,end},cancel=false)=>{
+    // The large landscape diagram can exceed viewport height. Bring the
+    // actual gesture segment into view, rather than centring the whole SVG.
+    const shift=await page.evaluate(({start,end})=>{const before=scrollY,low=Math.min(start.y,end.y),high=Math.max(start.y,end.y);scrollBy(0,low<95?low-95:high>innerHeight-30?high-innerHeight+30:0);return scrollY-before;},{start,end});
+    start={x:start.x,y:start.y-shift};end={x:end.x,y:end.y-shift};
+    if(cdp){const completed=await page.evaluate(()=>__touchEnds);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,...start}]});for(let i=1;i<=12;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:start.x+(end.x-start.x)*i/12,y:start.y+(end.y-start.y)*i/12}]});await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await page.waitForFunction(n=>__touchEnds>n,completed);}
+    else{await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:12});if(cancel)await page.evaluate(()=>window.dispatchEvent(new Event('blur')));await page.mouse.up();}
+   };
+   const dragSplit=async(index,time,cancel=false)=>{await page.locator('#diagram').scrollIntoViewIfNeeded();const points=await page.evaluate(({index,time})=>{const v=xronoLab.view,s=xronoLab.state(),p=s.parts[s.selected],a=XronoModel.arcs(p)[index],b=v.svg.getBoundingClientRect(),start=v.point((a.empty?0:a.start+a.length/2)+p.phase,v.radius*.82),end=v.point(time+p.phase,v.radius*.82);return{start:{x:start.x+b.x,y:start.y+b.y},end:{x:end.x+b.x,y:end.y+b.y}};},{index,time});await pointer(points,cancel);};
+   const rotate=async(delta,cancel=false)=>{await page.locator('#diagram').scrollIntoViewIfNeeded();const points=await page.evaluate(delta=>{const v=xronoLab.view,s=xronoLab.state(),row=xronoLab.rows()[s.selected],t=row.points[0],b=v.svg.getBoundingClientRect(),a=v.point(t),z=v.point(t+delta);return{start:{x:a.x+b.x,y:a.y+b.y},end:{x:z.x+b.x,y:z.y+b.y}};},delta);await pointer(points,cancel);};
+   await page.screenshot({path:join(out,'arcs-empty-'+r.engine+'-'+width+'.png'),fullPage:true});
+   if(r.engine==='chromium')await page.evaluate(()=>strudel.getAudioContext().setSinkId({type:'none'}));await click(page.locator('#play'));await page.waitForFunction(()=>xronoLab.audio.running||document.querySelector('#error').textContent);assert(await page.evaluate(()=>xronoLab.audio.running));await page.waitForFunction(()=>xronoLab.audio.clock()>.05);assert.equal(await page.evaluate(()=>xronoLab.audio.current.queryArc(0,1).length),0);
+   await click(control('split'));assert.equal(await count(0),1);assert.equal(await page.locator('[data-action="split"]').count(),1);assert.equal(await page.locator('[data-action="merge"]').count(),1);
+   await page.waitForFunction(()=>{window.__arcsRms=Math.max(window.__arcsRms||0,xronoLab.audio.rms());return __arcsRms>.0001;});
+   if(width===390){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(out,'arcs-one-'+r.engine+'-'+width+'.png'),fullPage:true});}
+   await click(control('split'));assert.equal(await count(0),2);await click(control('split'));assert.equal(await count(0),3);const before=await state(),clock=await page.evaluate(()=>xronoLab.audio.clock());
+   await rotate(.12);let s=await state();assert(Math.abs(s.parts[0].phase-.12)<.004);assert.equal(s.parts[0].points.length,3);assert.deepEqual(s.parts.slice(1),before.parts.slice(1));
+   await click(page.locator('#layers input').nth(1));assert.equal((await state()).parts[1].enabled,false);assert.equal(await page.locator('#layers input').nth(1).isChecked(),false);await click(page.locator('#layers input').nth(1));assert.equal((await state()).parts[1].enabled,true);
+   await click(page.locator('#layers button').nth(1));await page.waitForFunction(()=>xronoLab.state().selected===1);await dragSplit(0,.13);s=await state();assert.equal(s.parts[1].points.length,1);assert(Math.abs(s.parts[1].points[0]-.13)<.003);assert.equal(s.parts[1].phase,0);
+   await dragSplit(0,.53);s=await state();assert.equal(s.parts[1].points.length,2);assert(Math.abs(s.parts[1].points[1]-.53)<.004);assert(Math.abs(s.parts[1].points[1]-(s.parts[1].points[0]+.5))>.05);
+   const saved=MClone(s),history=await page.evaluate(()=>xronoLab.history());await dragSplit(0,.2,true);assert.deepEqual((await state()).parts,saved.parts);assert.equal(await page.evaluate(()=>xronoLab.history()),history);
+   await rotate(.3,true);assert.deepEqual((await state()).parts,saved.parts);assert.equal(await page.evaluate(()=>xronoLab.view.drag),null);
+   await click(control('merge'));assert.equal(await count(1),1);await click(control('merge'));assert.equal(await count(1),0);await click(page.locator('#undo'));assert.equal(await count(1),1);
+   await control('split').focus();await control('split').press('Enter');assert.equal(await count(1),2);
+   const note=page.locator('[data-note="0"][data-part="1"]');await note.focus();await note.press('ArrowRight');assert(Math.abs((await state()).parts[1].phase-1/360)<1e-10);assert.equal(await page.evaluate(()=>document.activeElement.dataset.note),'0');
+   await page.locator('#rpm').focus();await page.locator('#rpm').press('ArrowRight');const rpm=(await state()).rpm;await click(page.locator('#layers input').nth(0));await click(page.locator('#undo'));assert.equal((await state()).parts[1].phase,0);assert.equal((await state()).rpm,rpm);assert.equal((await state()).parts[0].enabled,false);await click(page.locator('#layers input').nth(0));
+   assert((await page.evaluate(()=>xronoLab.audio.clock()))>clock);const native=await page.evaluate(()=>xronoLab.audio.current.queryArc(0,1).filter(h=>h.hasOnset()).map(h=>({part:h.value._xronoPart,start:h.whole.begin.valueOf()}))),score=await page.evaluate(()=>XronoModel.score(xronoLab.state()).map(e=>({part:e.part,start:e.start})));
+   native.sort((a,b)=>a.part-b.part||a.start-b.start);score.sort((a,b)=>a.part-b.part||a.start-b.start);assert.equal(native.length,score.length);native.forEach((e,i)=>{assert.equal(e.part,score[i].part);assert(Math.abs(e.start-score[i].start)<1e-8);});
+   const pcm=await page.evaluate(()=>({observedPeakRms:__arcsRms,events:xronoLab.audio.events.length}));await click(page.locator('#play'));assert(!await page.evaluate(()=>xronoLab.audio.running));
+   const persisted=await state();await page.reload();await page.waitForFunction(()=>window.xronoLab);assert.deepEqual(await state(),persisted);assert.equal(await page.locator('[data-mode]').count(),0);
+   await click(page.locator('#layers button').nth(3));while(await count(3)<12){const longest=await page.evaluate(()=>XronoModel.arcs(xronoLab.state().parts[3]).sort((a,b)=>b.length-a.length)[0].index);await click(control('split',longest));}assert.equal(await count(3),12);
+   await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(150);await page.screenshot({path:join(out,'arcs-'+r.engine+'-'+width+'.png'),fullPage:true});const layout=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth}));assert(layout.viewport<=width);assert(layout.width<=width);
+   report.cases.push({width,height,input:cdp?'native CDP touch':'mouse',zeroOneTwoThree:true,startsSilentThenSounds:true,customFirstNote:true,nonMidpointSplit:true,independentRotation:true,cancelLeavesNoEdit:true,joiningToZero:true,undo:true,keyboard:true,tempoSurvivesUndo:true,persistence:true,nativeEvents:score.length,nativePCM:pcm,editingPreservesClock:true,noOldModes:true,denseInteractiveNotes:12,layout});await context.close();
   }
+  const legacy=JSON.parse(fs.readFileSync(join(root,'xronomorph/fixtures/rotating-v2.json'),'utf8')),context=await r.browser.newContext();page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));
+  await page.addInitScript(s=>localStorage.setItem('biba-xronomorph/1',JSON.stringify(s)),legacy);await page.goto(r.url+'/xronomorph/index.html?mode=pb');await page.waitForFunction(()=>window.xronoLab);
+  assert.deepEqual(await page.evaluate(()=>xronoLab.state()),await page.evaluate(s=>XronoModel.migrate(s),legacy));assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('biba-xronomorph/1')).schema),'xronomorph-lab/2');assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('biba-rhythm-arcs/1')).schema),'rhythm-arcs/1');report.legacyMigrationPreservesOldEntry=true;await context.close();
   assert.deepEqual(report.errors,[]);report.status='PASS';
- }catch(e){report.status='FAIL';report.failure=e.stack;try{await page.screenshot({path:join(output,'failure.png'),fullPage:true});report.debug=await page.evaluate(()=>({state:xronoLab.state(),running:xronoLab.audio.running,starting:xronoLab.audio.starting,context:strudel.getAudioContext().state,error:document.querySelector('#error').textContent,stack:xronoLab.audio.error?.stack,sound:strudel.getSound('xrono_kick'),events:xronoLab.audio.events.slice(-8)}));}catch{}throw e;}
- finally{report.sourceSha256=Object.fromEntries(['tree.js','model.js','transport.js','view.js','app.js','index.html','style.css'].map(f=>[f,createHash('sha256').update(readFileSync(join(root,'xronomorph',f))).digest('hex')]));writeFileSync(join(output,'report.json'),JSON.stringify(report,null,2)+'\n');await r.close();console.log(JSON.stringify(report));}
+ }catch(e){report.status='FAIL';report.failure=e.stack;try{await page.screenshot({path:join(out,'arcs-failure.png'),fullPage:true});report.debug=await page.evaluate(()=>({state:xronoLab.state(),drag:xronoLab.view.drag,error:document.querySelector('#error').textContent}));}catch{}throw e;}
+ finally{report.sourceSha256=Object.fromEntries(['model.js','transport.js','view.js','app.js','index.html','style.css'].map(f=>[f,createHash('sha256').update(fs.readFileSync(join(root,'xronomorph',f))).digest('hex')]));fs.writeFileSync(join(out,'arcs-report.json'),JSON.stringify(report,null,2)+'\n');await r.close();console.log(JSON.stringify(report));}
+ function MClone(s){return JSON.parse(JSON.stringify(s));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

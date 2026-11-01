@@ -1,117 +1,50 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
-const M=require('./model.js');
-const Tree=require('./tree.js');
-const delta=(a,b)=>Math.abs(M.wrap(a-b+.5)-.5),contains=(row,t)=>row.some(a=>delta(a,t)<1e-8);
-test('PB catalogue reproduces all six exact minimal irregular rotation classes',()=>{
-  const exact=JSON.parse(execFileSync('python3',[require('node:path').join(__dirname,'verify-irregular.py')],{encoding:'utf8'}));
-  const irregular=M.shapes.filter(p=>p.kind==='irregular');assert.equal(irregular.length,6);
-  assert.deepEqual(irregular.map(p=>p.points.map(t=>Math.round(t*30))),exact);
-  for(const shape of M.shapes){assert(Math.abs(M.balance(shape.points)-1)<1e-12);assert.equal(new Set(shape.points).size,shape.points.length);}
-  for(const shape of irregular)for(let mask=1;mask<2**shape.points.length-1;mask++){
-    const subset=shape.points.filter((_,i)=>(mask>>i)&1);assert(M.balance(subset)<1-1e-8,'irregular pattern must be minimal');
-  }
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),M=require('./model.js');
+const near=(a,b)=>assert(Math.abs(a-b)<1e-8,`${a} != ${b}`),add=(s,arc=0,at)=>M.apply(s,0,{kind:'split',arc,at});
+test('all six instruments start empty; 0 → 1 → 2 → 3 attacks retain a full cyclic partition',()=>{
+ let s=M.initial();assert.equal(s.parts.length,6);assert.equal(new Set(s.parts.map(p=>p.instrument)).size,6);assert.deepEqual(M.score(s),[]);assert(M.arcs(s.parts[0])[0].empty);
+ for(let n=1;n<=3;n++){s=add(s);assert.equal(s.parts[0].points.length,n);const arcs=M.arcs(s.parts[0]);near(arcs.reduce((t,a)=>t+a.length,0),1);assert(arcs.every(a=>a.length>0));assert.equal(M.score(s).length,n);}
+ assert.deepEqual(s.parts[0].points,[0,.25,.5]);
 });
-test('independent rotations preserve PB, intervals, other layers and event multiplicity',()=>{
-  const s=M.initial();s.pb[0].shape='irregular-2';const before=M.project(s),rotated=M.rotate(s,0,.123456789),after=M.project(rotated);
-  assert.deepEqual(after.slice(1),before.slice(1));
-  before[0].points.forEach(t=>assert(contains(after[0].points,t+.123456789)));
-  assert(Math.abs(M.balance(after.filter(p=>p.enabled).flatMap(p=>p.points))-1)<1e-12);
-  assert.deepEqual(M.rotate(M.rotate(s,0,.75),0,1),s);
-  s.pb[1].shape='regular-4';s.pb[1].phase=0;s.pb[2].enabled=false;
-  s.pb[0].shape='regular-4';const score=M.score(s);assert.equal(score.length,8);assert.equal(score.filter(e=>e.start===0).length,2);
-  s.snap=16;assert.equal(M.rotate(s,0,.11).pb[0].phase,2/16);
+test('a split uses arc length, including one-note circles and arcs across zero',()=>{
+ let s=add(M.initial(),0,.8);near(M.arcs(s.parts[0])[0].length,1);s=add(s);near(s.parts[0].points[0],.3);near(s.parts[0].points[1],.8);
+ s=add(s,1,1.1);near(s.parts[0].points[0],.1);assert.equal(s.parts[0].points.length,3);near(M.arcs(s.parts[0]).reduce((a,b)=>a+b.length,0),1);
 });
-test('WF initialization and all six nested levels follow long/short interval rules',()=>{
-  assert.equal(M.word(3,2).join(''),'LsLLs');
-  for(const longs of [1,2,3,5,8])for(const shorts of [1,2,3,5,8])for(const ratio of [1,1.001,1.5,(1+Math.sqrt(5))/2,2,2.0001,3,8]){
-    const w={longs,shorts,ratio,reverse:[false,true,false,true,false,true]},levels=M.hierarchy(w);
-    levels.forEach((row,i)=>{
-      assert(Math.abs(row.intervals.reduce((s,x)=>s+x,0)-1)<1e-10);
-      assert(row.intervals.every(n=>n>0));
-      const sizes=[];row.intervals.forEach(n=>{if(!sizes.some(x=>Math.abs(x-n)<1e-8))sizes.push(n);});assert(sizes.length<=2);
-      if(i)levels[i-1].points.forEach(t=>assert(contains(row.points,t),'every lower event remains in the next raw level'));
-    });
-  }
-  const w={longs:3,shorts:2,ratio:2,reverse:Array(6).fill(false)};
-  assert.deepEqual(M.hierarchy(w)[0].points,[0,.25,.375,.625,.875]);
+test('arbitrary split positions construct exact triplets and non-dyadic rhythms',()=>{
+ let s=add(M.initial());s=add(s,0,1/3);s=add(s,1);s.parts[0].points.forEach((t,i)=>near(t,i/3));
+ const times=[.017,.113,Math.SQRT2/5,.63,.8701,.999];s=add(M.initial(),0,times[0]);
+ for(const t of times.slice(1)){const arc=M.arcs(s.parts[0]).find(a=>t>a.start&&t<a.start+a.length);s=add(s,arc.index,t);}
+ s.parts[0].points.forEach((t,i)=>near(t,times[i]));
 });
-test('WF complements interlock, shared rotation preserves hierarchy, degeneracies stay finite',()=>{
-  const s=M.initial();s.mode='wf';s.wf.layers.forEach(p=>{p.enabled=true;p.complement=true;});
-  const rows=M.project(s);
-  rows.forEach((row,i)=>row.points.forEach(t=>rows.slice(0,i).forEach(lower=>assert(!contains(lower.points,t)))));
-  const after=M.project(M.rotate(s,3,.1875));
-  rows.forEach((row,i)=>row.points.forEach(t=>assert(contains(after[i].points,t+.1875))));
-  for(const ratio of [1,1.5,2,3]){s.wf.ratio=ratio;M.project(s).forEach(p=>assert(p.points.every(Number.isFinite)));}
-  s.wf.ratio=2;const terminal=M.project(s);assert(terminal.at(-1).points.length===0,'C is silent after the hierarchy reaches the full equal grid');
+test('rotation preserves all interval lengths and other instruments for 0, 1, 2 and dense figures',()=>{
+ for(const count of [0,1,2,3,16,128]){
+  const s=M.initial();s.parts[0].points=Array.from({length:count},(_,i)=>i/count);s.parts[1].points=[.2,.8];const original=M.clone(s);
+  const rotated=M.rotate(s,0,10.13729);assert.deepEqual(rotated.parts.slice(1),s.parts.slice(1));assert.deepEqual(M.arcs(rotated.parts[0]),M.arcs(s.parts[0]));
+  M.project(rotated)[0].points.forEach(t=>assert(M.project(s)[0].points.some(a=>Math.abs(M.wrap(a+.13729)-t)<1e-8)));
+  assert.deepEqual(s,original);
+ }
 });
-test('WF boundary inverse follows the pointer continuously for every base word and direction',()=>{
-  for(let longs=1;longs<=8;longs++)for(let shorts=1;shorts<=8;shorts++)for(const reversed of [false,true]){
-    const w={longs,shorts,ratio:1.618,reverse:[reversed]};
-    const handles=M.wfBoundaries(w);assert.equal(handles.length,longs+shorts);assert.equal(handles[0].movable,false);
-    handles.forEach((h,i)=>assert(Math.abs(h.time-M.hierarchy(w)[0].points[i])<1e-12));
-    for(const h of handles.filter(h=>h.movable))for(const ratio of [1,1.0001,1.25,1.9999,2,2.0001,3.79123,8]){
-      const time=(h.a*ratio+h.b)/(longs*ratio+shorts),actual=M.ratioAtBoundary(w,h.index,time);
-      assert(Math.abs(actual-ratio)<1e-10);
-      const point=M.wfBoundaries({...w,ratio:actual})[h.index];assert(Math.abs(point.time-time)<1e-12);
-    }
-    for(const h of handles.filter(h=>h.movable)){
-      assert([1,8].some(r=>Math.abs(M.ratioAtBoundary(w,h.index,-5)-r)<1e-10));
-      assert([1,8].some(r=>Math.abs(M.ratioAtBoundary(w,h.index,5)-r)<1e-10));
-    }
-    assert.throws(()=>M.ratioAtBoundary(w,0,.4));assert.throws(()=>M.ratioAtBoundary(w,1,NaN));
-  }
+test('joining can remove any attack, including the first and last; insertion and rotation stay independent',()=>{
+ let s=add(M.initial());s=add(s);s=add(s,1);s=M.rotate(s,0,.21);const after=s.parts[0].phase;
+ s=M.apply(s,0,{kind:'merge',event:0});assert.equal(s.parts[0].points.length,2);near(s.parts[0].phase,after);
+ while(s.parts[0].points.length)s=M.apply(s,0,{kind:'merge',event:0});assert.equal(M.score(s).length,0);
+ s=add(s);assert.equal(M.score(s).length,1);near(M.score(s)[0].start,after);
 });
-test('free splitting and rotation compose independently for each instrument, including irregular figures',()=>{
-  let s=M.initial();const original=M.project(s),saved=M.clone(s);
-  s=M.rotate(s,0,.13729);s=M.divide(s,0,{kind:'split',key:'0'});
-  let rows=M.project(s);assert.equal(rows[0].points.length,5);assert(contains(rows[0].points,.125+.13729));assert.deepEqual(rows.slice(1),original.slice(1));
-  assert.equal(rows[0].balanced,false,'free local splitting need not preserve strict PB');
-  const score=M.score(s);s=M.rotate(s,0,.23729);rows=M.project(s);
-  score.filter(e=>e.part===0).forEach(e=>assert(contains(rows[0].points,e.start+.1)));
-  s=M.divide(s,0,{kind:'split',key:'0R'});assert.equal(M.project(s)[0].points.length,6);
-  s=M.divide(s,0,{kind:'merge',key:'0'});assert.equal(M.project(s)[0].points.length,4);assert.equal(s.pb[0].phase,.23729);
-  assert.deepEqual(saved,M.initial(),'all operations leave their input intact');
-  s.pb[0].shape='regular-29';delete s.pb[0].rhythm;s=M.divide(s,0,{kind:'split',key:'28'});assert.equal(M.project(s)[0].points.length,30);
-  s=M.divide(s,0,{kind:'merge',key:'28'});assert.equal(M.project(s)[0].points.length,29);
-  for(const shape of M.shapes.filter(p=>p.kind==='irregular')){
-    s=M.initial();s.pb[0].shape=shape.id;const geometry=M.patternGeometry(s.pb[0]),last=geometry.leaves.at(-1);
-    const split=M.divide(s,0,{kind:'split',key:last.key});assert(contains(M.project(split)[0].points,last.start+last.length/2));
-    assert.deepEqual(M.project(M.divide(split,0,{kind:'merge',key:last.key})),M.project(s));
-  }
+test('invalid or duplicate attacks, stale addresses and practical density limits are rejected',()=>{
+ const s=add(M.initial());
+ for(const action of [{kind:'split',arc:0,at:0},{kind:'split',arc:0,at:1},{kind:'split',arc:0,at:NaN},{kind:'split',arc:4},{kind:'merge',event:1},{kind:'merge',event:-1},{kind:'paint'}])assert.throws(()=>M.apply(s,0,action));
+ for(const points of [[.3,.2],[0,0],[NaN],[1],[0,1-1e-9],Array.from({length:129},(_,i)=>i/129)]){const bad=M.initial();bad.parts[0].points=points;assert.throws(()=>M.validate(bad));}
+ const full=M.initial();full.parts[0].points=Array.from({length:128},(_,i)=>i/128);M.validate(full);assert.throws(()=>add(full));assert.throws(()=>M.rotate(s,0,NaN));assert.throws(()=>M.apply(s,100,{kind:'split',arc:0}));
 });
-test('state validation rejects invalid domains and gate duration is independent of rhythm',()=>{
-  const s=M.initial();M.validate(s);const a=M.score(s);s.rpm=90;assert.deepEqual(M.score(s),a);
-  for(const mutate of [s=>s.wf.ratio=NaN,s=>s.wf.longs=0,s=>s.pb[0].note=500,s=>s.pb[0].phase=Infinity,s=>s.pb.push(...Array(9).fill(s.pb[0])),s=>s.selected=20]){
-    const bad=M.initial();mutate(bad);assert.throws(()=>M.validate(bad));
-  }
+test('old rotating figures migrate with exactly the previous release onset times and sound settings',()=>{
+ const read=f=>JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures',f),'utf8')),old=read('rotating-v2.json'),before=M.clone(old),expected=read('rotating-v2-score.json');
+ const s=M.migrate(old),score=M.score(s);assert.equal(s.schema,'rhythm-arcs/1');assert.equal(s.parts.length,6);assert.equal(s.selected,1);assert.equal(s.rpm,43);assert.equal(s.volume,.8);assert.deepEqual(old,before);
+ const sort=a=>a.sort((x,y)=>x.part-y.part||x.start-y.start);sort(score);sort(expected);assert.equal(score.length,expected.length);
+ score.forEach((e,i)=>{const {id,start,...rest}=e,{start:at,...want}=expected[i];assert.deepEqual(rest,want);near(start,at);});
+ assert(s.parts.slice(3).every(p=>!p.points.length));assert.deepEqual(M.migrate(s),s);
+ const v1=M.clone(old);v1.schema='xronomorph-lab/1';v1.pb.forEach(p=>delete p.rhythm);assert(M.migrate(v1).parts.length===6);
 });
-test('tree split adds a real onset, painting transfers it without duplication, merge preserves the left onset',()=>{
-  const s=M.initial();s.mode='tree';const base=M.score(s);assert.equal(base.length,4);
-  s.tree=Tree.apply(s.tree,{kind:'split',key:'0',owner:1});
-  let score=M.score(s);assert.equal(score.length,5);assert(score.some(e=>e.start===.125&&e.part===1));
-  base.forEach(e=>assert(score.some(n=>n.start===e.start&&n.part===e.part)));
-  const beforePaint=score.map(e=>e.start).sort();s.tree=Tree.apply(s.tree,{kind:'paint',key:'0R',owner:3});
-  score=M.score(s);assert.deepEqual(score.map(e=>e.start).sort(),beforePaint);assert.equal(score.filter(e=>e.start===.125).length,1);assert(score.some(e=>e.start===.125&&e.part===3));
-  s.tree=Tree.apply(s.tree,{kind:'paint',key:'0L',owner:2});
-  s.tree=Tree.apply(s.tree,{kind:'split',key:'0R',owner:5});assert.equal(M.score(s).length,6);
-  s.tree=Tree.apply(s.tree,{kind:'merge',key:'0'});score=M.score(s);assert.equal(score.length,4);assert(score.some(e=>e.start===0&&e.part===2));
-  assert.throws(()=>M.rotate(s,0,.25));
-});
-test('fully subdivided tree partitions the cycle exactly, bounds density and rejects stale branch actions',()=>{
-  let tree=Tree.initial();
-  while(Tree.geometry(tree).leaves.some(n=>n.canSplit)){
-    const leaf=Tree.geometry(tree).leaves.find(n=>n.canSplit);tree=Tree.apply(tree,{kind:'split',key:leaf.key,owner:leaf.key.length%6});
-  }
-  const {leaves}=Tree.geometry(tree);assert.equal(leaves.length,16);
-  leaves.forEach((n,i)=>{assert.equal(n.start,i/16);assert.equal(n.length,1/16);});
-  assert.throws(()=>Tree.apply(tree,{kind:'split',key:'0LL',owner:0}));
-  assert.throws(()=>Tree.apply(tree,{kind:'paint',key:'0',owner:1}));
-  const saved=JSON.stringify(tree);const merged=Tree.apply(tree,{kind:'merge',key:'0'});assert.equal(Tree.geometry(merged).leaves.length,13);assert.equal(JSON.stringify(tree),saved);
-  assert.throws(()=>Tree.apply(merged,{kind:'paint',key:'0LR',owner:0}));
-  assert.throws(()=>Tree.apply(tree,{kind:'paint',key:'1LR',owner:20}));
-});
-test('saved PB/WF settings migrate without losing the existing music configuration',()=>{
-  const old=M.initial();old.schema='xronomorph-lab/1';delete old.tree;old.mode='wf';old.rpm=43;old.wf.phase=.19;old.pb[0].shape='irregular-4';
-  const restored=M.migrate(old);assert.equal(restored.schema,'xronomorph-lab/2');assert.deepEqual(restored.wf,old.wf);assert.deepEqual(restored.pb,old.pb);assert.equal(restored.rpm,43);assert.equal(Tree.geometry(restored.tree).leaves.length,4);
+test('the Strudel event contract preserves simultaneous instruments, mutes, gates and tempo independence',()=>{
+ let s=add(M.initial());s=M.apply(s,1,{kind:'split',arc:0});let score=M.score(s);assert.equal(score.length,2);assert(score.every(e=>e.start===0));assert.notEqual(score[0].part,score[1].part);
+ const before=M.clone(score);s.rpm=80;assert.deepEqual(M.score(s),before);s.parts[0].enabled=false;assert.equal(M.score(s).length,1);s.parts[1].gateMs=123;near(M.score(s)[0].gateSeconds,.123);
 });
