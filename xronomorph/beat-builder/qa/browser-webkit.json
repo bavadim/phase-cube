@@ -1,0 +1,111 @@
+{
+  "schema": "beat-builder-browser/1",
+  "engine": "webkit",
+  "physicalDevice": false,
+  "listeningAcceptance": false,
+  "cases": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "input": "mouse",
+      "previewCommitUndo": true,
+      "allTasks": true,
+      "otherPartsPreserved": true,
+      "ABChain": true,
+      "dragAndCancel": true,
+      "keyboard": true,
+      "continuousTiming": true,
+      "nativeEvents": true,
+      "exportNativeMatches": true,
+      "persistenceImport": true,
+      "levels": {
+        "peak": 0.195606529712677,
+        "maxRms": 0.03824294174969465
+      },
+      "layout": {
+        "width": 1440,
+        "scrollWidth": 1440
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "input": "mouse",
+      "previewCommitUndo": true,
+      "allTasks": true,
+      "otherPartsPreserved": true,
+      "ABChain": true,
+      "dragAndCancel": true,
+      "keyboard": true,
+      "continuousTiming": true,
+      "nativeEvents": true,
+      "exportNativeMatches": true,
+      "persistenceImport": true,
+      "levels": {
+        "peak": 0.17934457957744598,
+        "maxRms": 0.03846792672781378
+      },
+      "layout": {
+        "width": 390,
+        "scrollWidth": 390
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "mouse",
+      "previewCommitUndo": true,
+      "allTasks": true,
+      "otherPartsPreserved": true,
+      "ABChain": true,
+      "dragAndCancel": true,
+      "keyboard": true,
+      "continuousTiming": true,
+      "nativeEvents": true,
+      "exportNativeMatches": true,
+      "persistenceImport": true,
+      "levels": {
+        "peak": 0.1649400144815445,
+        "maxRms": 0.038037306985036164
+      },
+      "layout": {
+        "width": 844,
+        "scrollWidth": 844
+      }
+    },
+    {
+      "width": 320,
+      "height": 740,
+      "input": "mouse",
+      "previewCommitUndo": true,
+      "allTasks": true,
+      "otherPartsPreserved": true,
+      "ABChain": true,
+      "dragAndCancel": true,
+      "keyboard": true,
+      "continuousTiming": true,
+      "nativeEvents": true,
+      "exportNativeMatches": true,
+      "persistenceImport": true,
+      "levels": {
+        "peak": 0.19816192984580994,
+        "maxRms": 0.03848719380437591
+      },
+      "layout": {
+        "width": 320,
+        "scrollWidth": 320
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "3ceee78b0e1a52646caba7696cf64891e63598f4ebc2a86bc0d95f2170fc73ac",
+    "style.css": "5f9fcea20e8de5b209436cecd7e9b8f23ccd7135717ba32bfa650f9702915b11",
+    "model.js": "b85344d2eab201869def81320debd15578166610170b73cba8b20747eb7ba34f",
+    "view.js": "f9f83ced57bd24feebc231bdce1807da6fdfbfef2d7a1698e74600bddee35b7d",
+    "app.js": "8869f2c4e8ccb65461dbb630afb8544fa890ef77fbf4864a8f32379e94c86618",
+    "../transport.js": "c0be4a60c997ea03780fe1dd9a698c928e4199f1d762df8c71798f85d947f716",
+    "../algorithms/model.js": "940cf17b4f0c3f810d36efdb4770f12cc2a0d3d4acf5bf0555ebc55337f1d56e"
+  }
+}
