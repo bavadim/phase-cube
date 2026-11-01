@@ -11,6 +11,15 @@ test('rotation forms a finite cycle on the grid; swing preserves anchor and iden
  const y=B.swing(es,1);assert.equal(y.length,es.length);[0,2,4].forEach(i=>near(y[i].time,es[i].time));near(y[1].time-es[1].time,1/32);assert.deepEqual(B.swing(es,0),es);
  const z=B.accent(es,1);near(z[0].velocity,es[0].velocity);assert(z[1].velocity<es[1].velocity);
 });
+test('selected points transform together while the rest retain exact time and force',()=>{
+ const es=B.events([0,2,7,13]),moved=B.move(es,[0,2],3/16,.1);
+ for(const i of [0,2]){near(B.wrap(moved[i].time-es[i].time),3/16);near(moved[i].velocity-es[i].velocity,.1);}
+ for(const i of [1,3])assert.deepEqual(moved[i],es[i]);
+ near(B.wrap(moved[2].time-moved[0].time),B.wrap(es[2].time-es[0].time));
+ const both=B.subset(es,[1,3],part=>B.accent(B.swing(part,1),.5));assert.deepEqual(both[0],es[0]);assert.deepEqual(both[2],es[2]);
+ assert.deepEqual(B.move(es,[],1),es);assert.deepEqual(es,B.events([0,2,7,13]));assert.throws(()=>B.subset(es,[0],()=>[]));
+ assert.deepEqual(B.indices(es,[2,2,-1,999]),[2]);
+});
 test('mirroring preserves total strength and becomes exactly symmetric',()=>{
  const es=B.events([0,3,7,12]),x=B.mirror(es,3,1),grid=B.grid({events:x});near(x.reduce((s,e)=>s+e.velocity,0),es.reduce((s,e)=>s+e.velocity,0));near(R.mirrorError(grid,3),0);assert.throws(()=>B.mirror([...B.events([0],1),...B.events([0],1)],0,1));
 });

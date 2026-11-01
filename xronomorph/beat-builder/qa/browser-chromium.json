@@ -1,5 +1,5 @@
 {
-  "schema": "beat-builder-browser/1",
+  "schema": "beat-builder-ring-browser/2",
   "engine": "chromium",
   "physicalDevice": false,
   "listeningAcceptance": false,
@@ -8,57 +8,107 @@
       "width": 1440,
       "height": 1000,
       "input": "mouse",
+      "singleEditor": true,
+      "multiSelection": true,
+      "groupDrag": true,
+      "scopedActions": true,
+      "wholeRimRotation": true,
+      "dragAndCancel": true,
+      "manualCreationDeletion": true,
       "previewCommitUndo": true,
       "allTasks": true,
       "otherPartsPreserved": true,
       "ABChain": true,
-      "dragAndCancel": true,
       "keyboard": true,
       "continuousTiming": true,
       "nativeEvents": true,
       "exportNativeMatches": true,
       "persistenceImport": true,
       "levels": {
-        "peak": 0.18969514966011047,
-        "maxRms": 0.040133481141285406
+        "peak": 0.18969522416591644,
+        "maxRms": 0.03998742390577468
       },
       "layout": {
         "width": 1440,
-        "scrollWidth": 1440
+        "scrollWidth": 1440,
+        "circleWidth": 500
       }
     },
     {
       "width": 390,
       "height": 844,
       "input": "native-CDP-touch",
+      "singleEditor": true,
+      "multiSelection": true,
+      "groupDrag": true,
+      "scopedActions": true,
+      "wholeRimRotation": true,
+      "dragAndCancel": true,
+      "manualCreationDeletion": true,
       "previewCommitUndo": true,
       "allTasks": true,
       "otherPartsPreserved": true,
       "ABChain": true,
-      "dragAndCancel": true,
       "keyboard": true,
       "continuousTiming": true,
       "nativeEvents": true,
       "exportNativeMatches": true,
       "persistenceImport": true,
       "levels": {
-        "peak": 0.18520694971084595,
-        "maxRms": 0.04020278955718215
+        "peak": 0.184514582157135,
+        "maxRms": 0.04020278961617863
       },
       "layout": {
         "width": 390,
-        "scrollWidth": 390
+        "scrollWidth": 390,
+        "circleWidth": 340
       }
     },
     {
       "width": 844,
       "height": 390,
       "input": "native-CDP-touch",
+      "singleEditor": true,
+      "multiSelection": true,
+      "groupDrag": true,
+      "scopedActions": true,
+      "wholeRimRotation": true,
+      "dragAndCancel": true,
+      "manualCreationDeletion": true,
       "previewCommitUndo": true,
       "allTasks": true,
       "otherPartsPreserved": true,
       "ABChain": true,
+      "keyboard": true,
+      "continuousTiming": true,
+      "nativeEvents": true,
+      "exportNativeMatches": true,
+      "persistenceImport": true,
+      "levels": {
+        "peak": 0.18969520926475525,
+        "maxRms": 0.04013418026163187
+      },
+      "layout": {
+        "width": 844,
+        "scrollWidth": 844,
+        "circleWidth": 396
+      }
+    },
+    {
+      "width": 320,
+      "height": 740,
+      "input": "native-CDP-touch",
+      "singleEditor": true,
+      "multiSelection": true,
+      "groupDrag": true,
+      "scopedActions": true,
+      "wholeRimRotation": true,
       "dragAndCancel": true,
+      "manualCreationDeletion": true,
+      "previewCommitUndo": true,
+      "allTasks": true,
+      "otherPartsPreserved": true,
+      "ABChain": true,
       "keyboard": true,
       "continuousTiming": true,
       "nativeEvents": true,
@@ -66,45 +116,23 @@
       "persistenceImport": true,
       "levels": {
         "peak": 0.15329481661319733,
-        "maxRms": 0.03994931034521857
-      },
-      "layout": {
-        "width": 844,
-        "scrollWidth": 844
-      }
-    },
-    {
-      "width": 320,
-      "height": 740,
-      "input": "native-CDP-touch",
-      "previewCommitUndo": true,
-      "allTasks": true,
-      "otherPartsPreserved": true,
-      "ABChain": true,
-      "dragAndCancel": true,
-      "keyboard": true,
-      "continuousTiming": true,
-      "nativeEvents": true,
-      "exportNativeMatches": true,
-      "persistenceImport": true,
-      "levels": {
-        "peak": 0.17224657535552979,
-        "maxRms": 0.03994806182250839
+        "maxRms": 0.03994931026534651
       },
       "layout": {
         "width": 320,
-        "scrollWidth": 320
+        "scrollWidth": 320,
+        "circleWidth": 282
       }
     }
   ],
   "errors": [],
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "3ceee78b0e1a52646caba7696cf64891e63598f4ebc2a86bc0d95f2170fc73ac",
-    "style.css": "5f9fcea20e8de5b209436cecd7e9b8f23ccd7135717ba32bfa650f9702915b11",
-    "model.js": "b85344d2eab201869def81320debd15578166610170b73cba8b20747eb7ba34f",
-    "view.js": "f9f83ced57bd24feebc231bdce1807da6fdfbfef2d7a1698e74600bddee35b7d",
-    "app.js": "8869f2c4e8ccb65461dbb630afb8544fa890ef77fbf4864a8f32379e94c86618",
+    "index.html": "48da82d761847079925a6918e32da4922ed4f7838ef83996a0824ec7c723f68a",
+    "style.css": "6e3b3f7e0a8fb70a7cdaab69db9283d200d9572bb4b112e7fecbf736725b3033",
+    "model.js": "b324b7a7740f556661ea98b5f734bad0d17bfc16180d6f07466575ee3ee5fcde",
+    "view.js": "77ee470cdc154dbafd0a23f3256e9be215bee31929f88a0cb7c2727cb48f6ee9",
+    "app.js": "bbee0748aa830ae78ae8c3f3f304a8ecf2ffaddbcd1c62e801a4a2cdde099df7",
     "../transport.js": "c0be4a60c997ea03780fe1dd9a698c928e4199f1d762df8c71798f85d947f716",
     "../algorithms/model.js": "940cf17b4f0c3f810d36efdb4770f12cc2a0d3d4acf5bf0555ebc55337f1d56e"
   }

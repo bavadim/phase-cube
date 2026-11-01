@@ -35,6 +35,11 @@ function grid(track){const x=Array(N).fill(0);for(const e of track.events)x[R.mo
 function isGrid(track){return track.events.every(e=>Math.abs(e.time*N-Math.round(e.time*N))<1e-6);}
 function fromGrid(x){return x.flatMap((v,i)=>v>EPS?[{time:i/N,velocity:Math.min(1,v)}]:[]);}
 function rotate(es,amount){return es.map(e=>({...e,time:wrap(e.time+amount)}));}
+// Empty selection denotes the complete figure. Pointwise transforms retain
+// event order/identity and leave every unselected event byte-for-byte intact.
+function indices(es,selection=[]){return selection.length?[...new Set(selection)].filter(i=>Number.isInteger(i)&&i>=0&&i<es.length).sort((a,b)=>a-b):es.map((_,i)=>i);}
+function subset(es,selection,transform){const ids=indices(es,selection),result=transform(ids.map(i=>clone(es[i])));if(result.length!==ids.length)throw Error('Это преобразование должно сохранять события');const out=clone(es);ids.forEach((id,j)=>{out[id]=result[j];});return out;}
+function move(es,selection,timeDelta,velocityDelta=0){return subset(es,selection,part=>part.map(e=>({...e,time:wrap(e.time+timeDelta),velocity:Math.max(0,Math.min(1,e.velocity+velocityDelta))})));}
 function swing(es,amount){return es.map(e=>({...e,time:wrap(e.time+(Math.floor(e.time*N+1e-7)%2?amount/(2*N):0))}));}
 function accent(es,amount){return es.map(e=>({...e,velocity:e.velocity*(1-amount*(Math.abs(e.time*4-Math.round(e.time*4))<1e-6?0:.7))}));}
 function mirror(es,axis,amount){const x=grid({events:es});if(x.some(v=>v>1+EPS))throw Error('Для зеркала оставьте не более одного полного удара на клетку.');return fromGrid(R.mirror(x,axis,amount));}
@@ -92,5 +97,5 @@ function exportStrudel(p,sampleBase){
  }
  lines.push(`cat(${p.chain.join(', ')})`);return lines.join('\n')+'\n';
 }
-return{N,TAU,EPS,clone,wrap,voices,presets,events,initial,validate,grid,isGrid,fromGrid,rotate,swing,accent,mirror,complement,canon,fill,scratch,analysis,score,exportStrudel};
+return{N,TAU,EPS,clone,wrap,voices,presets,events,initial,validate,grid,isGrid,fromGrid,rotate,indices,subset,move,swing,accent,mirror,complement,canon,fill,scratch,analysis,score,exportStrudel};
 });
