@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 (() => {
   'use strict';
-  const M=XronoModel,$=id=>document.getElementById(id),storage='biba-rhythm-arcs/1',history=[];
+  const M=XronoModel,$=id=>document.getElementById(id),storage='biba-balanced-rhythm/1',history=[];
   let state=M.initial(),rows=[],rotationBefore=null,error=null;
-  try{const saved=localStorage.getItem(storage)||localStorage.getItem('biba-xronomorph/1');if(saved)state=M.migrate(JSON.parse(saved));}catch{}
+  try{const saved=localStorage.getItem(storage)||localStorage.getItem('biba-rhythm-arcs/1')||localStorage.getItem('biba-xronomorph/1');if(saved)state=M.migrate(JSON.parse(saved));}catch{}
   const save=()=>{try{localStorage.setItem(storage,JSON.stringify(state));}catch{}};
   const fail=e=>{error=String(e.message||e);$('error').textContent=error;$('error').hidden=false;updateTransport();};
   const audio=new XronoAudio.Transport(strudel,{onChange:updateTransport,onError:fail});
@@ -21,8 +21,9 @@
   const remember=before=>{if(JSON.stringify(before.parts)===JSON.stringify(state.parts))return;history.push(before);if(history.length>48)history.shift();};
   const noteCount=n=>n+' '+(n%10===1&&n%100!==11?'нота':n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?'ноты':'нот');
   const view=new XronoView($('diagram'),{
-    onSelect:id=>{state.selected=id;render();save();},
-    onAction:action=>{try{const before=M.clone(state);state=M.apply(state,state.selected,action);remember(before);render();save();}catch(e){fail(e);}},
+    onPreview:text=>{$('preview-status').textContent=text;},
+    onSelect:id=>{state={...state,selected:id};view.removeGroup=null;render();save();},
+    onAction:action=>{try{const before=M.clone(state);state=M.apply(state,state.selected,action);error=null;$('error').hidden=true;view.removeGroup=null;remember(before);render();save();}catch(e){fail(e);}},
     onRotateStart:()=>{rotationBefore=M.clone(state);},
     onRotate:(id,phase)=>{state=M.rotate(state,id,phase);render();},
     onRotateEnd:cancel=>{if(!rotationBefore)return;if(cancel)state=rotationBefore;else remember(rotationBefore);rotationBefore=null;render();save();},
@@ -35,7 +36,7 @@
     const button=document.createElement('button');button.type='button';button.style.setProperty('--part',view.color(p));
     const swatch=document.createElement('span');swatch.className='swatch';swatch.setAttribute('aria-hidden','true');
     const name=document.createElement('span');name.className='name';name.textContent=M.instruments.find(i=>i.id===p.instrument).label;
-    const count=document.createElement('small');button.append(swatch,name,count);activate(button,()=>{view.end(null,true);state.selected=id;render();save();});
+    const count=document.createElement('small');button.append(swatch,name,count);activate(button,()=>{view.end(null,true);state={...state,selected:id};view.removeGroup=null;render();save();});
     div.append(enabled,button);$('layers').append(div);return{enabled,button,count};
   });
   function updateTransport(){
@@ -48,12 +49,38 @@
     for(const id of ['rpm','volume'])if($(id).value!==String(state[id]))$(id).value=state[id];
     $('rpm-value').textContent=Number(state.rpm.toFixed(1))+' об/мин · '+Number((60/state.rpm).toFixed(2))+' с';$('volume-value').textContent=Math.round(state.volume*100)+'%';
     const row=rows[state.selected];$('geometry-status').textContent=row.label+' · '+noteCount(row.points.length)+' · '+Math.round(row.phase*360)+'°';
-    $('gesture-help').textContent=row.points.length?'Тяните ноту — вращается весь инструмент. Нажмите «+», чтобы разделить дугу пополам, или потяните «+» к нужному месту. «−» объединяет соседние дуги.':'У инструмента пока нет нот. Нажмите «+», чтобы добавить первую, или потяните «+» по кругу, выбирая её время.';
+    $('gesture-help').textContent=row.points.length?'Тяните ноту — вращается весь инструмент. Тяните «+» внутри дуги — все связанные точки перемещаются вместе. «−» в дереве удаляет целую ветвь.':'Выберите пару или тройку. Нажмите «+» или потяните его по кругу: все связанные ноты появятся одновременно.';
+    document.querySelectorAll('[data-order]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.order===state.arity)));
+    renderTree();
     $('undo').disabled=!history.length;updateTransport();
+  }
+  function renderTree(){
+    const p=state.parts[state.selected],tree=$('group-tree'),focused=document.activeElement?.closest?.('[data-remove-group]')?.dataset.removeGroup;
+    tree.replaceChildren();$('tree-empty').hidden=!!p.groups.length;
+    const info=new Map(M.inspect(p).map(g=>[g.id,g]));
+    const branch=(nodes,parent)=>{for(const n of nodes){
+      const li=document.createElement('li'),row=document.createElement('div');row.className='branch';
+      const label=document.createElement('span');label.textContent=(n.kind==='fixed'?'Импорт':n.order===2?'Пара':'Тройка')+' · '+noteCount(info.get(n.id).points.length);
+      const remove=document.createElement('button');remove.type='button';remove.textContent='−';remove.dataset.removeGroup=n.id;remove.setAttribute('aria-label','Удалить ветвь: '+noteCount(info.get(n.id).count));
+      const highlight=()=>view.removal(n.id),clear=()=>view.removal(null);
+      remove.addEventListener('pointerenter',highlight);remove.addEventListener('pointerleave',clear);remove.addEventListener('focus',highlight);remove.addEventListener('blur',clear);
+      activate(remove,()=>{view.end(null,true);const before=M.clone(state);state=M.apply(state,state.selected,{kind:'merge',group:n.id});view.removeGroup=null;remember(before);render();save();});
+      row.append(label,remove);li.append(row);parent.append(li);
+      if(n.children.length){const list=document.createElement('ol');li.append(list);branch(n.children,list);}
+    }};
+    branch(p.groups,tree);if(focused)tree.querySelector(`[data-remove-group="${focused}"]`)?.focus({preventScroll:true});
+  }
+  document.querySelectorAll('[data-order]').forEach(button=>activate(button,()=>{view.end(null,true);state.arity=+button.dataset.order;view.hover=null;render();save();}));
+  const migration=state.migration;
+  if(migration?.skipped?.length){
+    $('migration').hidden=false;
+    $('migration-text').textContent='В прежнем рисунке '+migration.skipped.length+' '+(migration.skipped.length===1?'партия нарушала':'партии нарушали')+' баланс. Эти партии здесь пусты; исходное сохранение оставлено отдельно. Остальные партии перенесены.';
+    const key=migration.sourceSchema==='rhythm-arcs/1'?'biba-rhythm-arcs/1':'biba-xronomorph/1';
+    activate($('download-legacy'),()=>{const raw=localStorage.getItem(key);if(!raw)return fail('Исходное сохранение недоступно в этом браузере');const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='rhythm-before-balance.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   }
   activate($('play'),()=>{error=null;$('error').hidden=true;if(audio.running)audio.stop();else audio.start(state);});
   for(const id of ['rpm','volume'])$(id).addEventListener('input',()=>{const value=+$(id).value;view.end(null,true);state[id]=value;render();save();});
-  activate($('undo'),()=>{view.end(null,true);if(!history.length)return;const before=history.pop();state.parts=before.parts.map((p,i)=>({...p,enabled:state.parts[i].enabled}));state.selected=before.selected;render();save();});
+  activate($('undo'),()=>{view.end(null,true);if(!history.length)return;const before=history.pop();state.parts=before.parts.map((p,i)=>({...p,enabled:state.parts[i].enabled}));state={...state,selected:before.selected};view.removeGroup=null;view.hover=null;render();save();});
   function tick(){view.tick(audio.clock(),audio.running,audio.events,strudel.getAudioContext().currentTime);requestAnimationFrame(tick);}
   document.addEventListener('visibilitychange',()=>{if(document.hidden){view.end(null,true);audio.stop();}});window.addEventListener('pagehide',()=>{view.end(null,true);audio.stop();});
   render();save();tick();
