@@ -39,6 +39,15 @@ test('nested and crossing branches use the actual lowest common ancestor',()=>{
  s.parts[0].groups.push({id:4,kind:'orbit',order:2,at:.125,children:[]});s.parts[0].nextId=5;M.validate(s);
  s=add(s,3,0,.05);assert.equal(M.inspect(s.parts[0]).find(g=>g.id===5).parent,null);balanced(s);
 });
+test('collapsing successive leaf packets recovers every previous musical state',()=>{
+ let s=M.rotate(M.initial(),0,.1937),trace=[M.clone(s)];
+ for(let n=0;n<20;n++){s=add(s,n%2?2:3);trace.push(M.clone(s));}
+ for(let n=20;n>0;n--){
+  const added=trace[n-1].parts[0].nextId,leaf=M.inspect(s.parts[0]).find(g=>g.id===added);assert.equal(leaf.node.children.length,0);
+  s=M.apply(s,0,{kind:'merge',group:added});assert.deepEqual(M.score(s),M.score(trace[n-1]));assert.deepEqual(s.parts[0].groups,trace[n-1].parts[0].groups);balanced(s);
+ }
+ assert.equal(count(s.parts[0]),0);
+});
 test('rotation preserves exact local intervals, provenance and independent instruments',()=>{
  let s=add(M.initial(),3);s=add(s,2);s=M.apply(s,1,{kind:'split',arc:0,order:2,at:.23});const before=M.clone(s),rotated=M.rotate(s,0,100.13729);
  near(rotated.parts[0].phase,.13729);assert.deepEqual(rotated.parts[0].groups,s.parts[0].groups);assert.deepEqual(rotated.parts.slice(1),s.parts.slice(1));assert.deepEqual(M.arcs(rotated.parts[0]),M.arcs(s.parts[0]));assert.deepEqual(s,before);balanced(rotated);

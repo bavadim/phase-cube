@@ -7,8 +7,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),{join}=require(
   for(const [width,height]of [[1280,900],[390,844],[844,390],[320,740]]){
    const touch=width!==1280,context=await r.browser.newContext({viewport:{width,height},hasTouch:touch,isMobile:touch});page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>report.errors.push(e.message));
    await page.goto(r.url+'/xronomorph/index.html?mode=wf');await page.waitForFunction(()=>window.xronoLab);assert.equal(await page.locator('[data-mode],#shape,#ratio,#snap,#add-layer').count(),0);assert.equal(await page.locator('#layers button').count(),6);assert.equal(await page.evaluate(()=>XronoModel.score(xronoLab.state()).length),0);
-   await page.evaluate(()=>{window.__touchEnds=0;for(const type of ['touchend','touchcancel'])document.addEventListener(type,()=>++window.__touchEnds,{capture:true});});
-   const cdp=touch&&r.engine==='chromium'?await context.newCDPSession(page):null,click=async l=>{await l.scrollIntoViewIfNeeded();if(await l.evaluate(n=>!!n.closest('#diagram'))){const b=await l.boundingBox();await page[touch?'touchscreen':'mouse'][touch?'tap':'click'](b.x+b.width/2,b.y+b.height/2);}else await l[touch?'tap':'click']();},control=(index=0)=>page.locator(`[data-action="split"][data-index="${index}"]`);
+   const watchTouch=()=>{window.__touchEnds=0;for(const type of ['touchend','touchcancel'])document.addEventListener(type,()=>++window.__touchEnds,{capture:true});};await page.addInitScript(watchTouch);await page.evaluate(watchTouch);
+   const cdp=touch&&r.engine==='chromium'?await context.newCDPSession(page):null,click=async l=>{await l.scrollIntoViewIfNeeded();if(await l.evaluate(n=>!!n.closest('#diagram'))){let b=await l.boundingBox();await page.evaluate(b=>{const top=document.querySelector('.topbar').getBoundingClientRect().bottom+24,y=b.y+b.height/2;if(y<top)scrollBy(0,y-top);},b);b=await l.boundingBox();await page[touch?'touchscreen':'mouse'][touch?'tap':'click'](b.x+b.width/2,b.y+b.height/2);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));}else await l[touch?'tap':'click']();},control=(index=0)=>page.locator(`[data-action="split"][data-index="${index}"]`);
    const state=()=>page.evaluate(()=>xronoLab.state()),count=async i=>page.evaluate(i=>XronoModel.events(xronoLab.state().parts[i]).length,i);
    const invariant=async()=>{const values=await page.evaluate(()=>xronoLab.rows().map(p=>({n:p.points.length,b:p.balance.residual})));for(const x of values){assert(x.b<1e-8);assert.notEqual(x.n,1);}};
    const pointer=async({start,end},cancel=false,inspect)=>{
@@ -42,7 +42,22 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),{join}=require(
    const persisted=await state();await page.reload();await page.waitForFunction(()=>window.xronoLab);assert.deepEqual(await state(),persisted);
    await click(page.locator('#layers button').nth(3));while(await count(3)<12){const longest=await page.evaluate(()=>XronoModel.arcs(xronoLab.state().parts[3]).sort((a,b)=>b.length-a.length)[0].index);await click(control(longest));}assert.equal(await count(3),12);await invariant();
    await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(150);await page.screenshot({path:join(out,'balanced-'+r.engine+'-'+width+'.png'),fullPage:true});const layout=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth}));assert(layout.viewport<=width);assert(layout.width<=width);
-   report.cases.push({width,height,input:cdp?'native CDP touch':'mouse',zeroToPairAndTriple:true,linkedPacketPreview:true,collisionRejectedAtomically:true,balanceDuringEveryMove:true,independentRotation:true,cancelLeavesNoEdit:true,branchDeleteAndUndo:true,keyboard:true,tempoSurvivesUndo:true,persistence:true,nativeEvents:score.length,nativePCM:pcm,editingPreservesClock:true,noOldModes:true,denseInteractiveNotes:12,layout});await context.close();
+   // Collapse is available on the figure, from leaf packets back to silence.
+   await click(page.locator('#collapse-mode'));assert.equal(await page.locator('[data-action="split"]').count(),0);
+   const denseBefore=await state(),leafCount=await page.evaluate(()=>XronoModel.inspect(xronoLab.state().parts[3]).filter(g=>!g.node.children.length).length);
+   assert.equal(await page.locator('[data-action="merge"]').count(),leafCount);assert(leafCount>0);
+   const minus=()=>page.locator('[data-action="merge"]').first();
+   await minus().scrollIntoViewIfNeeded();let box=await minus().boundingBox();
+   await pointer({start:{x:box.x+box.width/2,y:box.y+box.height/2},end:{x:box.x+box.width/2+30,y:box.y+box.height/2}},true);
+   assert.deepEqual(await state(),denseBefore);
+   await minus().focus();assert.match(await page.locator('#preview-status').textContent(),/Схлопнуть группу/);
+   await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(150);await page.screenshot({path:join(out,'collapse-'+r.engine+'-'+width+'.png'),fullPage:true});
+   await minus().press('Enter');assert.equal(await count(3),10);await invariant();await click(page.locator('#undo'));assert.equal(await count(3),12);
+   const others=(await state()).parts.filter((_,i)=>i!==3);
+   let collapsed=0;while(await count(3)){const n=await count(3);await click(minus());assert.equal(await count(3),n-2);await invariant();collapsed++;}
+   assert.equal(collapsed,6);assert.equal(await page.locator('[data-action="merge"]').count(),0);assert.deepEqual((await state()).parts.filter((_,i)=>i!==3),others);
+   await click(page.locator('[data-order="3"]'));await click(control());assert.equal(await count(3),3);await click(page.locator('#collapse-mode'));await click(minus());assert.equal(await count(3),0);await invariant();
+   report.cases.push({width,height,input:cdp?'native CDP touch':'mouse',zeroToPairAndTriple:true,linkedPacketPreview:true,collisionRejectedAtomically:true,balanceDuringEveryMove:true,independentRotation:true,cancelLeavesNoEdit:true,branchDeleteAndUndo:true,figureCollapse:true,collapseToZero:true,collapseCancelAndKeyboard:true,keyboard:true,tempoSurvivesUndo:true,persistence:true,nativeEvents:score.length,nativePCM:pcm,editingPreservesClock:true,noOldModes:true,denseInteractiveNotes:12,layout});await context.close();
   }
   const legacy=JSON.parse(fs.readFileSync(join(root,'xronomorph/fixtures/rotating-v2.json'),'utf8')),context=await r.browser.newContext({acceptDownloads:true});page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));
   await page.addInitScript(s=>localStorage.setItem('biba-xronomorph/1',JSON.stringify(s)),legacy);await page.goto(r.url+'/xronomorph/index.html?mode=pb');await page.waitForFunction(()=>window.xronoLab);

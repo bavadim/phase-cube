@@ -15,6 +15,9 @@
       "independentRotation": true,
       "cancelLeavesNoEdit": true,
       "branchDeleteAndUndo": true,
+      "figureCollapse": true,
+      "collapseToZero": true,
+      "collapseCancelAndKeyboard": true,
       "keyboard": true,
       "tempoSurvivesUndo": true,
       "persistence": true,
@@ -42,6 +45,9 @@
       "independentRotation": true,
       "cancelLeavesNoEdit": true,
       "branchDeleteAndUndo": true,
+      "figureCollapse": true,
+      "collapseToZero": true,
+      "collapseCancelAndKeyboard": true,
       "keyboard": true,
       "tempoSurvivesUndo": true,
       "persistence": true,
@@ -69,13 +75,16 @@
       "independentRotation": true,
       "cancelLeavesNoEdit": true,
       "branchDeleteAndUndo": true,
+      "figureCollapse": true,
+      "collapseToZero": true,
+      "collapseCancelAndKeyboard": true,
       "keyboard": true,
       "tempoSurvivesUndo": true,
       "persistence": true,
       "nativeEvents": 12,
       "nativePCM": {
         "observedPeakRms": 0.02279706111049336,
-        "events": 10
+        "events": 9
       },
       "editingPreservesClock": true,
       "noOldModes": true,
@@ -96,6 +105,9 @@
       "independentRotation": true,
       "cancelLeavesNoEdit": true,
       "branchDeleteAndUndo": true,
+      "figureCollapse": true,
+      "collapseToZero": true,
+      "collapseCancelAndKeyboard": true,
       "keyboard": true,
       "tempoSurvivesUndo": true,
       "persistence": true,
@@ -119,9 +131,9 @@
   "sourceSha256": {
     "model.js": "a633402ab661b8d1cc0117c207c609feeeda2acc302eed5b2deab6cc2430e739",
     "transport.js": "07cec42efb45135dae796d93e0b35d618735c147b9d494aac1bd4ef5b149a117",
-    "view.js": "9831585bcba6f7957399de280f18db488b7b54d3336cf7325d702a9113f71c55",
-    "app.js": "abea5425dd1f73e9a81e33a7e5aaace85e34b86205e2f0aca1fa8286611147a4",
-    "index.html": "94ca60fb749e5724c39405b972f7d724af7fdac43c6952342d60aea6f7ce602f",
+    "view.js": "fddc618fa1bba51f502d45b336d01693024f7ec7ed19f4519776fc9f49f8b42e",
+    "app.js": "b22921f3ceb5a85c3577ca029c1860e06429f4732920637da59a574d31fecad4",
+    "index.html": "36802fa59e695cf19bfb8d63fc74204d7d74166c7704a43432b59964e452a9d0",
     "style.css": "f2f2bec3988707555549149f910f12aec30dd7b991a7f76c65fdd7c040b3c760"
   }
 }

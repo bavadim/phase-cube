@@ -9,16 +9,16 @@ window.XronoView=class{
     for(const type of ['pointerup','pointercancel','lostpointercapture'])svg.addEventListener(type,e=>this.end(e,type!=='pointerup'));
     svg.addEventListener('keydown',e=>{
       const action=e.target.closest('[data-action]'),note=e.target.closest('[data-note]');
-      if(action&&['Enter',' '].includes(e.key)){e.preventDefault();this.onAction({kind:'split',arc:+action.dataset.index,at:+action.dataset.at});}
+      if(action&&['Enter',' '].includes(e.key)){e.preventDefault();this.onAction(action.dataset.action==='merge'?{kind:'merge',group:+action.dataset.index}:{kind:'split',arc:+action.dataset.index,at:+action.dataset.at});}
       else if(note&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();this.onNudge(+note.dataset.part,(e.key==='ArrowRight'?1:-1)*(e.shiftKey?10:1)/360);}
     });
-    svg.addEventListener('focusin',e=>{const a=e.target.closest('[data-action]');if(a&&!this.drag&&this.hover?.index!==+a.dataset.index){this.hover={kind:'split',index:+a.dataset.index};this.draw();}});
-    svg.addEventListener('focusout',e=>{if(!svg.contains(e.relatedTarget)&&!this.drag&&this.hover){this.hover=null;this.draw();}});
+    svg.addEventListener('focusin',e=>{if(this.drawing)return;const a=e.target.closest('[data-action]');if(a&&!this.drag&&(this.hover?.kind!==a.dataset.action||this.hover?.index!==+a.dataset.index)){this.hover={kind:a.dataset.action,index:+a.dataset.index};this.draw();}});
+    svg.addEventListener('focusout',e=>{if(this.drawing)return;if(!svg.contains(e.relatedTarget)&&!this.drag&&this.hover){this.hover=null;this.draw();}});
     window.addEventListener('keydown',e=>{if(e.key==='Escape')this.end(null,true);});window.addEventListener('blur',()=>this.end(null,true));
     this.resize=new ResizeObserver(()=>{if(Math.abs(svg.getBoundingClientRect().width-(this.width||0))>1)this.draw();});this.resize.observe(svg);
   }
   color(p){return this.colors[XronoModel.instruments.findIndex(i=>i.id===p.instrument)];}
-  set(state,rows){if(this.selected!==state.selected)this.hover=null;this.selected=state.selected;this.state=state;this.rows=rows;this.draw();}
+  set(state,rows,mode='split'){if(this.selected!==state.selected||this.mode!==mode)this.hover=null;this.selected=state.selected;this.mode=mode;this.state=state;this.rows=rows;this.draw();}
   removal(id){this.removeGroup=id;this.draw();}
   node(name,attrs={},parent=this.svg){const n=document.createElementNS(this.NS,name);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,String(v));parent.append(n);return n;}
   point(t,r=this.radius){const a=t*Math.PI*2-Math.PI/2;return{x:this.cx+r*Math.cos(a),y:this.cy+r*Math.sin(a)};}
@@ -45,7 +45,7 @@ window.XronoView=class{
     const M=XronoModel,focused=this.svg.contains(document.activeElement)?document.activeElement.closest?.('[data-action],[data-note]'):null,focus=focused?{...focused.dataset}:null;
     const w=Math.max(260,this.svg.getBoundingClientRect().width),h=Math.min(660,w+8);this.width=w;this.cx=w/2;this.cy=h/2;this.radius=Math.min(w/2-35,h/2-36);
     this.svg.setAttribute('viewBox',`0 0 ${w} ${h}`);this.svg.style.height=h+'px';this.svg.replaceChildren();this.targets=[];
-    this.node('title').textContent='Один круг — один цикл. Нота вращает весь инструмент. Плюс добавляет связанную пару или тройку. Дерево справа позволяет удалить целую ветвь.';
+    this.node('title').textContent='Один круг — один цикл. Нота вращает весь инструмент. Плюс добавляет связанную пару или тройку. Режим «Схлопнуть» убирает связанную группу. Дерево позволяет удалить целую ветвь.';
     this.node('circle',{cx:this.cx,cy:this.cy,r:this.radius,fill:'none',stroke:'var(--line)','stroke-width':1.5});
     for(let i=0;i<16;i++){const a=this.point(i/16,this.radius+7),b=this.point(i/16,this.radius+12);this.node('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'var(--line)'});}
     for(const[t,label]of[[0,'0'],[.25,'¼'],[.5,'½'],[.75,'¾']]){const p=this.point(t,this.radius+25);this.node('text',{x:p.x,y:p.y+5,'text-anchor':'middle'}).textContent=label;}
@@ -53,7 +53,7 @@ window.XronoView=class{
     let preview=null;
     if(d?.kind==='split')preview=this.packetPreview(d.arc.index,d.at);
     else if(this.hover?.kind==='split'&&arcs[this.hover.index])preview=this.packetPreview(this.hover.index);
-    const removing=M.inspect(part).find(g=>g.id===this.removeGroup)?.subtreeIds||[];
+    const collapseId=d?.kind==='merge'?d.index:this.hover?.kind==='merge'?this.hover.index:this.removeGroup,collapse=M.inspect(part).find(g=>g.id===collapseId),removing=collapse?.subtreeIds||[];
     const order=this.rows.filter(p=>p.enabled&&p.id!==selected).concat(this.rows[selected]);
     for(const row of order){
       const c=this.color(row),active=row.id===selected,group=this.node('g',{'data-layer':row.id,opacity:row.enabled?1:.3});
@@ -65,11 +65,15 @@ window.XronoView=class{
         this.node('circle',{cx:p.x,cy:p.y,r:active?7:5,fill:c,opacity:active&&removing.includes(event.group)?.25:1},mark);
       });
     }
-    for(const arc of arcs){
+    if(this.mode==='split')for(const arc of arcs){
       const affected=preview?.valid&&preview.affected.includes(arc.index);
       this.arc(arc.start+part.phase,arc.length,this.radius*.94,{stroke:color,'stroke-width':affected?4:2,'stroke-opacity':affected?.85:.25,'stroke-dasharray':arc.empty?'4 6':'none'});
       const option=M.splitOptions(part,this.state.arity,arc,domains),at=d?.kind==='split'&&d.arc.index===arc.index?d.at:option.at;
-      if(at!=null)this.button(arc.index,at,this.point(at+part.phase,this.radius*.80),'+'+this.state.arity,arc.empty?'Добавить первую '+(this.state.arity===2?'пару':'тройку'):'Добавить '+this.state.arity+' связанные ноты: нажмите или потяните плюс',color);
+      if(at!=null)this.button('split',arc.index,at,this.point(at+part.phase,this.radius*.80),'+'+this.state.arity,arc.empty?'Добавить первую '+(this.state.arity===2?'пару':'тройку'):'Добавить '+this.state.arity+' связанные ноты: нажмите или потяните плюс',color);
+    }
+    if(this.mode==='merge')for(const g of M.inspect(part).filter(g=>!g.node.children.length)){
+      const at=g.points[0],label='Схлопнуть группу: убрать '+g.count+' нот';
+      this.button('merge',g.id,at,this.point(at+part.phase,this.radius*.72),'−'+g.count,label,color);
     }
     if(preview){
       const c=preview.valid?color:'var(--invalid)',times=preview.points.map(t=>M.wrap(t+part.phase));
@@ -81,14 +85,14 @@ window.XronoView=class{
     this.node('circle',{cx:this.cx+b.y*this.radius,cy:this.cy-b.x*this.radius,r:4,fill:color,'data-balance':b.residual,'data-empty':b.empty});
     this.node('text',{x:this.cx,y:this.cy+27,'text-anchor':'middle',class:'balance-label'}).textContent=b.empty?'Нет нот':'Баланс';
     this.locator=this.node('line',{x1:this.cx,y1:this.cy,x2:this.cx,y2:this.cy-this.radius,stroke:'var(--ink)','stroke-width':1.2,opacity:0});
-    this.onPreview?.(preview?(preview.valid?`${preview.order===2?'Пара':'Тройка'}: ${preview.order} связанные ноты · баланс сохранён`:preview.reason):removing.length?'Удаляется целая ветвь со всеми потомками':'');
-    if(focus){const selector=focus.action?`[data-action="split"][data-index="${focus.index}"]`:`[data-note="${focus.note}"][data-part="${focus.part}"]`;const target=this.svg.querySelector(selector)||this.svg.querySelector('[data-action="split"]');target?.focus?.({preventScroll:true});}
+    this.onPreview?.(preview?(preview.valid?`${preview.order===2?'Пара':'Тройка'}: ${preview.order} связанные ноты · баланс сохранён`:preview.reason):removing.length?(collapse.node.children.length?'Удаляется целая ветвь со всеми потомками':'Схлопнуть группу: −'+collapse.count+' нот · баланс сохранён'):'');
+    if(focus){const selector=focus.action?`[data-action="${focus.action}"][data-index="${focus.index}"]`:`[data-note="${focus.note}"][data-part="${focus.part}"]`;const exact=this.svg.querySelector(selector),target=exact||this.svg.querySelector('[data-action]');target?.focus?.({preventScroll:true});if(!exact&&target?.dataset.action){this.hover={kind:target.dataset.action,index:+target.dataset.index};queueMicrotask(()=>this.draw());}}
     }finally{this.drawing=false;}
   }
-  button(index,at,p,symbol,label,color){
-    const g=this.node('g',{'data-action':'split','data-index':index,'data-at':at,role:'button',tabindex:0,'aria-label':label,class:'arc-target'});
+  button(kind,index,at,p,symbol,label,color){
+    const g=this.node('g',{'data-action':kind,'data-index':index,'data-at':at,role:'button',tabindex:0,'aria-label':label,class:'arc-target'});
     this.node('title',{},g).textContent=label;this.node('circle',{cx:p.x,cy:p.y,r:22,fill:'transparent'},g);this.node('circle',{cx:p.x,cy:p.y,r:15,fill:'var(--surface)',stroke:color,'stroke-width':1.6},g);
-    this.node('text',{x:p.x,y:p.y+4,'text-anchor':'middle'},g).textContent=symbol;this.targets.push({kind:'split',index,at,...p});
+    this.node('text',{x:p.x,y:p.y+4,'text-anchor':'middle'},g).textContent=symbol;this.targets.push({kind,index,at,...p});
   }
   local(e){const b=this.svg.getBoundingClientRect();return{x:e.clientX-b.x,y:e.clientY-b.y};}
   angle(p){return XronoModel.wrap((Math.atan2(p.y-this.cy,p.x-this.cx)+Math.PI/2)/(2*Math.PI));}
@@ -101,13 +105,16 @@ window.XronoView=class{
     if(this.drag||e.button!==0)return;const M=XronoModel,p=this.local(e),hit=this.hit(p);if(!hit)return;this.hover=null;
     if(hit.kind==='rotate'){
       this.onSelect(hit.id);this.onRotateStart();this.drag={kind:'rotate',pointer:e.pointerId,id:hit.id,phase:this.state.parts[hit.id].phase,last:this.angle(p),delta:0};
+    }else if(hit.kind==='merge'){
+      this.drag={kind:'merge',pointer:e.pointerId,index:hit.index,start:p,moved:false};
     }else{
       const part=this.state.parts[this.state.selected],arc=M.arcs(part)[hit.index],at=hit.at;this.drag={kind:'split',pointer:e.pointerId,arc,at,initialAt:at,last:this.angle(p),delta:0,start:p,moved:false};
     }
     this.svg.setPointerCapture(e.pointerId);e.preventDefault();this.draw();
   }
   move(e){
-    const d=this.drag,p=this.local(e);if(!d){const hit=this.hit(p),next=hit?.kind==='split'?{kind:'split',index:hit.index}:null;this.svg.style.cursor=hit?'grab':'default';if(this.hover?.index!==next?.index){this.hover=next;this.draw();}return;}if(d.pointer!==e.pointerId)return;e.preventDefault();
+    const d=this.drag,p=this.local(e);if(!d){const hit=this.hit(p),next=hit&&hit.kind!=='rotate'?{kind:hit.kind,index:hit.index}:null;this.svg.style.cursor=hit?(hit.kind==='merge'?'pointer':'grab'):'default';if(this.hover?.kind!==next?.kind||this.hover?.index!==next?.index){this.hover=next;this.draw();}return;}if(d.pointer!==e.pointerId)return;e.preventDefault();
+    if(d.kind==='merge'){if(Math.hypot(p.x-d.start.x,p.y-d.start.y)>12)d.moved=true;return;}
     if(Math.hypot(p.x-this.cx,p.y-this.cy)<this.radius*.25)return;
     const M=XronoModel,angle=this.angle(p);d.delta+=M.wrap(angle-d.last+.5)-.5;d.last=angle;
     if(d.kind==='rotate'){this.onRotate(d.id,d.phase+d.delta);return;}
@@ -117,6 +124,7 @@ window.XronoView=class{
   end(e,cancel){
     const d=this.drag;if(!d||e&&e.pointerId!==d.pointer)return;this.drag=null;this.hover=null;if(this.svg.hasPointerCapture(d.pointer))this.svg.releasePointerCapture(d.pointer);
     if(d.kind==='rotate')this.onRotateEnd(cancel);
+    else if(d.kind==='merge'){if(!cancel&&!d.moved)this.onAction({kind:'merge',group:d.index});}
     else if(!cancel&&this.packetPreview(d.arc.index,d.at).valid)this.onAction({kind:'split',arc:d.arc.index,at:d.at});
     this.draw();
   }

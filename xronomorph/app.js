@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const M=XronoModel,$=id=>document.getElementById(id),storage='biba-balanced-rhythm/1',history=[];
-  let state=M.initial(),rows=[],rotationBefore=null,error=null;
+  let state=M.initial(),rows=[],rotationBefore=null,error=null,editMode='split';
   try{const saved=localStorage.getItem(storage)||localStorage.getItem('biba-rhythm-arcs/1')||localStorage.getItem('biba-xronomorph/1');if(saved)state=M.migrate(JSON.parse(saved));}catch{}
   const save=()=>{try{localStorage.setItem(storage,JSON.stringify(state));}catch{}};
   const fail=e=>{error=String(e.message||e);$('error').textContent=error;$('error').hidden=false;updateTransport();};
@@ -44,13 +44,14 @@
     $('audio-state').textContent=audio.starting?'Готовим звук…':audio.running?'Играет':error?'Можно повторить запуск':'Готов к прослушиванию';
   }
   function render(){
-    rows=M.project(state);audio.update(state);view.set(state,rows);
+    rows=M.project(state);audio.update(state);view.set(state,rows,editMode);
     rows.forEach((row,i)=>{const b=buttons[i];b.enabled.checked=row.enabled;b.button.setAttribute('aria-pressed',String(i===state.selected));b.count.textContent=noteCount(row.points.length);});
     for(const id of ['rpm','volume'])if($(id).value!==String(state[id]))$(id).value=state[id];
     $('rpm-value').textContent=Number(state.rpm.toFixed(1))+' об/мин · '+Number((60/state.rpm).toFixed(2))+' с';$('volume-value').textContent=Math.round(state.volume*100)+'%';
     const row=rows[state.selected];$('geometry-status').textContent=row.label+' · '+noteCount(row.points.length)+' · '+Math.round(row.phase*360)+'°';
-    $('gesture-help').textContent=row.points.length?'Тяните ноту — вращается весь инструмент. Тяните «+» внутри дуги — все связанные точки перемещаются вместе. «−» в дереве удаляет целую ветвь.':'Выберите пару или тройку. Нажмите «+» или потяните его по кругу: все связанные ноты появятся одновременно.';
-    document.querySelectorAll('[data-order]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.order===state.arity)));
+    $('gesture-help').textContent=editMode==='merge'?(row.points.length?'Нажмите «−» на фигуре: исчезнут все ноты одной связанной группы. Сначала схлопываются дочерние группы, затем родительские. Тянуть ноты для вращения можно по-прежнему.':'Инструмент пуст. Выберите пару или тройку, чтобы снова добавить ноты.'):row.points.length?'Тяните ноту — вращается весь инструмент. Тяните «+» внутри дуги — все связанные точки перемещаются вместе. «−» в дереве удаляет целую ветвь.':'Выберите пару или тройку. Нажмите «+» или потяните его по кругу: все связанные ноты появятся одновременно.';
+    document.querySelectorAll('[data-order]').forEach(b=>b.setAttribute('aria-pressed',String(editMode==='split'&&+b.dataset.order===state.arity)));
+    $('collapse-mode').setAttribute('aria-pressed',String(editMode==='merge'));
     renderTree();
     $('undo').disabled=!history.length;updateTransport();
   }
@@ -70,7 +71,8 @@
     }};
     branch(p.groups,tree);if(focused)tree.querySelector(`[data-remove-group="${focused}"]`)?.focus({preventScroll:true});
   }
-  document.querySelectorAll('[data-order]').forEach(button=>activate(button,()=>{view.end(null,true);state.arity=+button.dataset.order;view.hover=null;render();save();}));
+  document.querySelectorAll('[data-order]').forEach(button=>activate(button,()=>{view.end(null,true);state.arity=+button.dataset.order;editMode='split';view.hover=null;view.removeGroup=null;render();save();}));
+  activate($('collapse-mode'),()=>{view.end(null,true);editMode='merge';view.hover=null;view.removeGroup=null;render();});
   const migration=state.migration;
   if(migration?.skipped?.length){
     $('migration').hidden=false;
