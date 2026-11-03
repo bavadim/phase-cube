@@ -50,7 +50,7 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   function sync(){if(!disposed&&!animating&&!dragging&&!committed)draw(model.parameters());}
   const snapshotBySource=values=>values.slice().sort((a,b)=>a.source-b.source);
   function phaseOf(move){return typeof move==='object'?move.turns:move.endsWith("'")?-1:1;}
-  const view={camera,ready,hoverActions:false,requiresSelection:true,selectionPrompt:'Выберите кусочек картинки',sync,
+  const view={camera,ready,sync,
     dispose(){disposed=true;image.onload=image.onerror=null;dragging=null;resolveReady(false);},
     resize(aspect){const extent=Math.max(2.2,2.2/aspect);camera.top=extent;camera.bottom=-extent;camera.left=-extent*aspect;camera.right=extent*aspect;},
     pickTargets:()=>pieces.map(p=>p.mesh),

@@ -101,7 +101,7 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   }
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));
   function sync(){if(!animating&&!dragging&&!committed&&!disposed)draw(valuesAt(model.snapshot()));}
-  const view={camera,hoverActions:false,requiresSelection:true,selectionPrompt:'Выберите сотрудника',sync,
+  const view={camera,sync,
     dispose(){disposed=true;dragging=null;},
     resize(aspect){
       const extent=Math.max(2.75,2.5/aspect);camera.left=-extent*aspect;camera.right=extent*aspect;camera.top=extent;camera.bottom=-extent;
@@ -140,7 +140,7 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
       // A small detent at the reference gain makes the exact target reachable.
       const finalGain=Math.abs(gain-1)<.025?1:Math.round(gain*1e6)/1e6;
       const values=valuesAt(d.before);values[d.index]={phase,gain};draw(values);
-      d.move=model.editMove(d.key,{phase:Math.round(phase),level:finalGain*4},d.before);
+      d.move=model.editPoint(d.key,{phase,gain:finalGain},d.before);
       onEditPreview(d.move,{key:d.key,phase,gain});
     },
     endDrag(cancelled){

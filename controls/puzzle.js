@@ -3,8 +3,9 @@
 window.PuzzleControl = {
   mount({presentation,module,commands,model,game,binding,canInteract,onMove,onPreview,onSelect,createView}){
     let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
-    const hasSelection=()=>!view?.requiresSelection||armed!=null;
-    const updateControls=()=>controls?.update(disabled||!hasSelection(),{canSelect:!disabled&&model.choices().length>0,label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
+    const interaction=PuzzleContract.interaction(module);
+    const hasSelection=()=>!interaction.requiresSelection||armed!=null;
+    const updateControls=()=>controls?.update(disabled||!hasSelection(),{canSelect:!disabled&&model.choices().length>0,label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':interaction.selectionPrompt});
     const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:hasSelection()?model.selected:null,move:focus.current?.move||null,focus:focus.current});};
     const focus=new PuzzleActionFocus({
       resolve:value=>{
@@ -26,19 +27,19 @@ window.PuzzleControl = {
       const choices=model.choices(),index=hasSelection()?choices.findIndex(c=>c.key===model.selected):-1;
       if(choices.length){select(choices[(index+1)%choices.length].key);view.focus?.(model.selected);}
     },onFocus:(action,source,active)=>{
-      if(active&&view?.buttonPreview!==false&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
+      if(active&&interaction.buttonPreview&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
       else focus.clear(source,action.id);
     }});
     view=presentation.mount(createView,{module,model,game,binding,onMove,
       onEditPreview:(move,point)=>{if(point)focus.set('edit',{key:point.key,move,point});else if(move)focus.set('edit',intent(move));else focus.clear('edit');},
       onHover:(hit,event={})=>{
-        if(view?.hoverActions===false){focus.clear('field');return;}
+        if(!interaction.hoverActions){focus.clear('field');return;}
         if(event.pointerType==='touch')return;
         if(hit&&canInteract())focus.set('field',{key:hit.key,move:fromHit(hit)});else focus.clear('field');
       },
       onSelect:(hit,event={})=>{
         if(!canInteract())return;
-        if(hit.clearSelection){if(view.allowDeselect){armed=null;focus.reset();onSelect();feedback();}return;}
+        if(hit.clearSelection){if(interaction.allowDeselect){armed=null;focus.reset();onSelect();feedback();}return;}
         const move=fromHit(hit);
         if(!hit.selectOnly&&move&&model.validMove(move)&&(event.pointerType!=='touch'||armed===model.selected&&hit.key===armed)){
           onMove(move);return;
@@ -66,7 +67,7 @@ window.PuzzleControl = {
       selection:()=>hasSelection()?model.selected:null,
       focus:()=>presentation.element.focus({preventScroll:true}),
       destroy(){focus.reset();controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
-      key(event){if(event.code==='Escape'&&view.allowDeselect){armed=null;focus.reset();onSelect();feedback();return true;}const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
+      key(event){if(event.code==='Escape'&&interaction.allowDeselect){armed=null;focus.reset();onSelect();feedback();return true;}const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
     };
   }
 };

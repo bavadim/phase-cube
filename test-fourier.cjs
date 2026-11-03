@@ -35,7 +35,6 @@ test('drag is one replayable guarded move; undo returns both coordinates and rej
  const inverse=m.undo();assert.equal(m.snapshot(),before);assert.equal(m.applyTo(next,inverse),before);assert.equal(m.history.length,0);
  assert.equal(m.editMove('A',m.parameters()[0]),null);assert.throws(()=>m.applyTo(before,{...edit,from:{phase:2,level:1}}));
  assert.equal(m.editMove('A',{phase:8,level:4}),null);assert.throws(()=>m.applyTo(before,{kind:'coefficient',key:'A',from:{phase:0,level:0},to:{phase:0,level:1}}));
- for(const z of [[.01,0],[.3,.4],[-10,20],[0,-.6]]){const p=m.snap(z);assert(p.phase>=0&&p.phase<8&&p.level>=0&&p.level<F.levels.length);}
 });
 
 test('all existing scores: polar projection preserves notes/gates and native Strudel emits its event times',async()=>{
@@ -120,7 +119,7 @@ test('thirds and sixths retain their true period and wrapped events stay inside 
 test('phase aliases wrap before comparing, zero retains phase, and continuous preview stays outside model history',()=>{
  const m=new F.Model(),row=[{id:'0:0',start:.2,duration:.05,pitch:60,value:{s:'sine',note:60}}],game={targetRows:Array(6).fill(row)},binding={periods:Array(6).fill(1)};
  for(const turns of [-3,-1,0,1,4])for(const key of F.keys){const i=F.keys.indexOf(key);assert.equal(m.editMove(key,{phase:F.homePhase[i]+8*turns,level:4}),null);}
- const silence=m.editMove('A',{phase:3,level:0});m.apply(silence);assert.deepEqual(m.snap([0,0],3),{phase:3,level:0});assert.equal(Binding.project(binding,null,m.snapshot(),game).rows[0][0].value.postgain,0);m.undo();
+ const silence=m.editMove('A',{phase:3,level:0});m.apply(silence);assert.equal(m.editPoint('A',{phase:3.1,gain:0}),null);assert.equal(Binding.project(binding,null,m.snapshot(),game).rows[0][0].value.postgain,0);m.undo();
  const a=Binding.preview(binding,null,0,game,{key:'A',phase:.1,gain:1.01}),b=Binding.preview(binding,null,0,game,{key:'A',phase:.2,gain:1.02});
  assert.notEqual(a.rows[0][0].start,b.rows[0][0].start);assert.notEqual(a.rows[0][0].value.postgain,b.rows[0][0].value.postgain);assert.equal(a.rows[1],row);assert.equal(m.snapshot(),0);assert.equal(m.history.length,0);
  const hidden=m.applyTo(0,"C'");assert.equal(m.solved(hidden),false,'Different note order does not become a valid goal just because attacks line up');

@@ -2,11 +2,25 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./puzzles/actions.js'));else root.PuzzleContract=factory(root.PuzzleActions);})(globalThis,function(Actions){
   'use strict';
   const key=state=>JSON.stringify(state);
+  const interactionDefaults=Object.freeze({requiresSelection:false,allowDeselect:false,hoverActions:true,buttonPreview:true,selectionPrompt:'Выберите объект'});
+  function interaction(puzzle){
+    const input=puzzle.manifest.interaction||{};
+    for(const [name,value]of Object.entries(input))if(!Object.hasOwn(interactionDefaults,name)||typeof value!==typeof interactionDefaults[name])throw new Error('Неверный контракт управления: '+name);
+    return Object.freeze({...interactionDefaults,...input});
+  }
+  function inspectView(view){
+    if(!view?.camera?.isCamera)throw new Error('Представлению головоломки нужна камера');
+    for(const name of ['resize','sync','pickTargets','hit','locations','feedback','animate'])if(typeof view[name]!=='function')throw new Error('Отсутствует метод представления: '+name);
+    for(const name of Object.keys(interactionDefaults))if(name in view)throw new Error('Управление задаётся в manifest.interaction: '+name);
+    if(view.beginDrag&&['beginDrag','dragTo','endDrag'].some(name=>typeof view[name]!=='function'))throw new Error('Неполный контракт жеста редактирования');
+    return view;
+  }
   function inspect(puzzle){
     const spec=puzzle.manifest,model=puzzle.create();
     if(spec?.schema!=='music-puzzle/3'||!Number.isInteger(spec.version)||spec.version<1)throw new Error('Неподдерживаемый контракт головоломки');
     if(spec.id!==puzzle.id)throw new Error('id манифеста не совпадает с модулем головоломки');
-    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved','actions'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    for(const name of ['initialState','snapshot','reset','shuffle','legalMoves','applyTo','inverse','solved','correct','apply','undo','hint','choices','select','moveFor','moveTarget','validMove','actions'])if(typeof model[name]!=='function')throw new Error('Отсутствует метод головоломки: '+name);
+    interaction(puzzle);
     Actions.validate(model.actions());
     const initial=model.initialState();
     if(!model.solved(initial))throw new Error('Исходная цель не собрана');
@@ -14,6 +28,7 @@
     if(!['pose-phase/1','complex-riff/3','spectral-riff/2'].includes(spec.projection)||!Number.isInteger(spec.fragments)||spec.fragments<1)throw new Error('Неподдерживаемая проекция головоломки');
     if(!Number.isInteger(spec.controls)||spec.controls<1||model.choices().length!==spec.controls)throw new Error('Число органов управления не совпадает с манифестом');
     if(!['single-reference','all-solved-to-reference'].includes(spec.goalPolicy))throw new Error('Не задана политика музыкальной цели');
+    if(spec.projection==='complex-riff/3'&&typeof model.editPoint!=='function')throw new Error('Отсутствует метод головоломки: editPoint');
     if(spec.projection!=='pose-phase/1'){
       if(spec.goalPolicy!=='single-reference'||model.count!==spec.controls||spec.controls!==spec.fragments)throw new Error('Независимым рифам нужен один орган управления на фрагмент');
       return{manifest:spec,model};
@@ -65,5 +80,5 @@
     const entries=[...states].map(([id,state])=>({id,state,...(puzzle.manifest.projection==='pose-phase/1'?{placements:project(puzzle,state)}:{}),solved:model.solved(state)}));
     return {states:entries,edges:[...edges.values()],coverage:exact?'complete':'sampled'};
   }
-  return {inspect,project,probes};
+  return {inspect,project,probes,interaction,inspectView};
 });

@@ -22,16 +22,22 @@ test('holding uses the unwrapped audio clock, freezes geometry and snaps to the 
   else {m.apply(move);assert.equal(m.history.length,1);m.undo();assert.deepEqual(m.snapshot(),before);}
  }
 });
-test('slot matching distinguishes pitch, gates and gain despite equal onset patterns',()=>{
- const row=[{start:0,duration:.1,value:{note:60,velocity:.8}},{start:.5,duration:.2,value:{note:64,velocity:.8}}];
- const events=B.attacks(row);assert(events.every(e=>B.matched(e,events,1)));
- assert(events.every(e=>!B.matched(e,B.shift(events,4),1)));
- assert(events.every(e=>!B.matched(e,events,1.01)));
- const gates=B.attacks(row.map(e=>({...e,duration:.3})));assert(events.every(e=>!B.matched(e,gates,1)));
- assert.notEqual(B.color(events[0]),B.color(events[1]));
- assert.notEqual(B.tokenWidth(events[0]),B.tokenWidth(events[1]));
+test('note markers retain pitches and duration; repeated local events are folded without losing their signature',()=>{
+ const row=[{start:0,duration:.1,value:{note:60,velocity:.8}},{start:.5,duration:.2,value:{note:64,velocity:.8}}],events=B.attacks(row);
+ assert.notEqual(B.color(events[0]),B.color(events[1]));assert.notEqual(B.tokenWidth(events[0]),B.tokenWidth(events[1]));
  const repeated=B.attacks([...row,...row.map(e=>({...e,start:e.start+1}))],1);assert.equal(repeated.length,2);
  assert.deepEqual(repeated.map(e=>e.signature),events.map(e=>e.signature));assert.throws(()=>B.attacks([],0));
+});
+test('shared edit contract snaps each release to its nearest C8 seat without changing another riff',()=>{
+ for(const phase of [-800.51,-8.5,-8.49,-.51,-.5,-.49,0,.49,.5,.51,7.49,7.5,7.99,8,83.63]){
+  const m=Module.create();m.apply('B');const before=m.snapshot(),point={phase,gain:1.137},move=m.editPoint('A',point,before);
+  assert(move);const state=m.applyTo(before,move),params=m.parameters(state),expected=((Math.round(phase)%8)+8)%8;
+  assert.equal(params[0].phase,expected);close(params[0].level/4,point.gain);
+  const distance=Math.abs(B.delta(phase/8,expected/8));assert(distance<=1/16+1e-9);
+  assert.deepEqual(params.slice(1),m.parameters(before).slice(1));assert.deepEqual(m.applyTo(state,m.inverse(move)),before);
+ }
+ const m=Module.create();assert.equal(m.editPoint('A',{phase:16.1,gain:1}),null);
+ for(const point of [{phase:NaN,gain:1},{phase:0,gain:Infinity},{phase:0,gain:-1}])assert.throws(()=>m.editPoint('A',point));
 });
 test('gear model retains exact undo, independent riff moves and solvable hints',()=>{
  const m=Module.create();assert(m.solved());for(let i=0;i<Module.shuffleSteps;i++)m.shuffle();assert(!m.solved());

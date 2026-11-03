@@ -87,7 +87,11 @@
       if(!keys.includes(key)||!point(to))throw new Error('Неверные координаты коэффициента');
       const from=parameters(state)[keys.indexOf(key)];return match(from,to)?null:{kind:'coefficient',key,from,to:{phase:mod(to.phase,8),level:round(to.level)}};
     }
-    snap(z,fallbackPhase=0){const radius=Math.hypot(...z);return{phase:radius<1e-8?mod(Math.round(fallbackPhase),8):mod(Math.round(Math.atan2(z[1],z[0])/(Math.PI/4)),8),level:levels.reduce((best,v,i)=>Math.abs(v-radius)<Math.abs(levels[best]-radius)?i:best,0)};}
+    editPoint(key,{phase,gain},state=this.current){
+      if(!Number.isFinite(phase)||!Number.isFinite(gain)||gain<0||gain>2)throw new Error('Неверные координаты редактирования');
+      // Continuous previews end at an exact C8 seat, including wrapped/negative angles.
+      return this.editMove(key,{phase:mod(Math.round(phase),8),level:gain*4},state);
+    }
     restore(state){if(!validState(state))throw new Error('Неверное состояние Фурье');this.current=encode(parameters(state));}
     reset(seed=1730){this.current=0;this.history=[];this.moves=[];this.selected='A';this.shuffler=new Shuffle.Generator(seed);this.shuffleStep=0;}
     shuffle(){

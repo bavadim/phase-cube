@@ -17,3 +17,22 @@ test('every model supplies named/icon actions and callbacks dispatch rather than
  }
  assert.throws(()=>Actions.validate([{id:'bad',label:'',icon:{text:'?'},onInvoke(){}}]));
 });
+
+test('one interaction contract owns selection, focus and edit capabilities for all puzzles',()=>{
+ for(const puzzle of registry.modules){const policy=Contract.interaction(puzzle);assert(Object.isFrozen(policy));assert.equal(typeof policy.selectionPrompt,'string');
+  assert.equal(policy.requiresSelection,['fourier','bounce','scratch'].includes(puzzle.id));
+  assert.equal(policy.buttonPreview,puzzle.id!=='bounce');
+  if(puzzle.manifest.projection==='complex-riff/3')assert.equal(typeof puzzle.create().editPoint,'function');
+ }
+ const base=registry.get('bounce');
+ for(const interaction of [{unknown:true},{requiresSelection:'yes'}])assert.throws(()=>Contract.inspect({...base,manifest:{...base.manifest,interaction}}),/контракт управления/);
+ assert.throws(()=>Contract.inspect({...base,create(){const m=base.create();m.editPoint=null;return m;}}),/editPoint/);
+});
+
+test('views obey the same geometry/edit contract and cannot override interaction policy',()=>{
+ const view={camera:{isCamera:true},...Object.fromEntries(['resize','sync','pickTargets','hit','locations','feedback','animate'].map(name=>[name,()=>{}]))};
+ assert.equal(Contract.inspectView(view),view);assert.throws(()=>Contract.inspectView({...view,camera:{}}),/камера/);
+ assert.throws(()=>Contract.inspectView({...view,animate:null}),/animate/);
+ assert.throws(()=>Contract.inspectView({...view,requiresSelection:true}),/manifest.interaction/);
+ assert.throws(()=>Contract.inspectView({...view,beginDrag(){}}),/жеста/);
+});

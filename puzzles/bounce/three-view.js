@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Six physical layers, a fixed read head, independent local loop clocks. */
+/* Six physical layers inside the shared equalizer; independent local loop clocks. */
 window.BounceView={create({scene,resources,model,game,binding,tween,onEditPreview}){
   const T=THREE,F=FourierModel,B=BounceTerrain,own=x=>resources.own(x),root=new T.Group();scene.add(root);
   const spacing=.80,height=i=>i*spacing,centerY=height(5)/2;
@@ -31,23 +31,16 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       const c=B.color(event),pad=mesh(padGeometries[B.noteClass(event)],makeMat(c),rotor);
       const socket=mesh(socketGeometry,makeMat(c,{emissive:c,emissiveIntensity:.14}),targets);socket.rotation.x=-Math.PI/2;
       const stud=mesh(own(new T.BoxGeometry(.025,.025,.055)),makeMat(0xfff6df),rotor);
-      return{event,pad,socket,stud,wrong:true};
+      return{event,pad,socket,stud};
     });
-    const badgePoint=B.point((B.front+1.00)/B.TAU,2.37,height(i));
-    const badge=mesh(own(new T.PlaneGeometry(.40,.40)),own(new T.MeshBasicMaterial({map:resources.label(game.voices[i].color,i+1),transparent:true,depthTest:false,depthWrite:false})));badge.position.copy(badgePoint);badge.quaternion.copy(camera.quaternion);badge.renderOrder=30;badge.userData={index:i,kind:'badge'};
-    return{key,index:i,group,rotor,targets,body,geometry,positions,sides,sidePositions,outlineGeometry,outlinePositions,materials,notes,badge,opacity:1,events:base[i],gain:null};
+    return{key,index:i,group,rotor,targets,body,geometry,positions,sides,sidePositions,outlineGeometry,outlinePositions,materials,notes,opacity:1,events:base[i],gain:null};
   });
-  const instruction=document.createElement('div');instruction.className='bounce-instruction';instruction.textContent='Удерживайте шестерёнку, чтобы совместить зубцы с гнёздами';
-  document.getElementById('player-controls').prepend(instruction);
-  const readhead=document.createElement('div');readhead.className='bounce-readhead';readhead.setAttribute('aria-hidden','true');readhead.innerHTML='<svg viewBox="0 0 32 40"><path d="M16 2 29 20H21V38H11V20H3Z"/></svg>';
-  document.getElementById('puzzle-stage').append(readhead);
-  let selected=null,animating=false,dragging=null,committed=null,disposed=false,previewKey='',clock={phase:0,position:0,playing:false,periodSeconds:8};
+  let selected=null,animating=false,dragging=null,committed=null,disposed=false,clock={phase:0,position:0,playing:false,periodSeconds:8};
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot());
   function opacity(){
     layers.forEach(layer=>{
       const alpha=selected==null||layer.index===selected?1:.10;layer.opacity=alpha;
       for(const m of layer.materials){m.opacity=alpha;m.depthWrite=alpha===1;}
-      layer.badge.material.opacity=selected==null||layer.index===selected?1:.48;
     });
   }
   function spin(){
@@ -84,39 +77,29 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
           note.socket.position.copy(slot);note.socket.scale.set(B.tokenWidth(e)/.10,1,1);
         });
       }
-      layer.notes.forEach(note=>{note.wrong=!B.matched(note.event,layer.events,p.gain);note.currentTime=B.wrap(note.event.time-phase/8);});
+      layer.notes.forEach(note=>{note.currentTime=B.wrap(note.event.time-phase/8);});
     });opacity();spin();
   }
   function updateHold(){
     if(!dragging)return;
     const d=dragging,phase=B.heldPhase(d.phase,d.position,clock.position,binding.periods[d.index]),values=valuesAt(d.before);
     values[d.index]={phase,gain:d.gain};draw(values);
-    d.move=model.editMove(d.key,{phase:Math.round(phase),level:d.gain*4},d.before);
+    d.move=model.editPoint(d.key,{phase,gain:d.gain},d.before);
     onEditPreview(d.move,{key:d.key,phase,gain:d.gain});
   }
-  function sync(){if(!animating&&!dragging&&!committed&&!disposed&&!previewKey)draw(valuesAt(model.snapshot()));}
-  function preview(value){
-    if(animating||dragging||committed)return;
-    const next=value?.move!=null?JSON.stringify(value.move):'';if(next===previewKey)return;previewKey=next;
-    const a=display.map(p=>({...p})),b=valuesAt(next?model.applyTo(value.before??model.snapshot(),value.move):model.snapshot());
-    tween('gear-preview',220,t=>draw(a.map((p,i)=>({phase:p.phase+B.delta(p.phase/8,b[i].phase/8)*8*t,gain:p.gain+(b[i].gain-p.gain)*t}))));
-  }
-  const view={camera,hoverActions:false,buttonPreview:false,requiresSelection:true,allowDeselect:true,selectionPrompt:'Выберите шестерёнку',sync,
-    dispose(){disposed=true;instruction.remove();readhead.remove();},
+  function sync(){if(!animating&&!dragging&&!committed&&!disposed)draw(valuesAt(model.snapshot()));}
+  const view={camera,sync,
+    dispose(){disposed=true;dragging=null;},
     resize(aspect){const halfHeight=Math.max(3.36,2.48/aspect);camera.left=-halfHeight*aspect;camera.right=halfHeight*aspect;camera.top=halfHeight;camera.bottom=-halfHeight;camera.updateMatrixWorld();},
     inputPlane:()=>new T.Plane(new T.Vector3(0,1,0),-height(dragging?.index??selected??0)),
-    pickTargets:()=>[...layers.map(l=>l.body),...layers.map(l=>l.badge)],
-    pickHit(hits){return hits.find(h=>h.object.userData.kind==='badge')||(selected==null?hits[0]:hits.find(h=>h.object.userData.index===selected)||hits[0]);},
-    hit(intersection){const {index,kind}=intersection.object.userData;return{key:F.keys[index],pieceId:index,kind,draggable:kind==='gear',pressable:kind==='gear',selectOnly:true};},
-    locations(){root.updateMatrixWorld(true);return layers.map(l=>({key:l.key,pieceId:l.index,kind:'gear',draggable:true,selectOnly:true,point:l.badge.getWorldPosition(new T.Vector3())}));},
-    feedback(value){
-      const index=F.keys.indexOf(value.selected);selected=index<0?null:index;opacity();
-      if(value.focus?.source!=='edit'&&value.focus?.source!=='demonstration')preview(value.focus);
-    },
+    pickTargets:()=>layers.map(l=>l.body),
+    hit({object}){const index=object.userData.index;return{key:F.keys[index],pieceId:index,kind:'gear',draggable:true,pressable:true,selectOnly:true};},
+    locations(){return layers.map(l=>{const p=B.point(B.front/B.TAU,.92,height(l.index)+.04);return{key:l.key,pieceId:l.index,kind:'gear',draggable:true,pressable:true,selectOnly:true,point:new T.Vector3(p.x,p.y,p.z)};});},
+    feedback(value){const index=F.keys.indexOf(value.selected);selected=index<0?null:index;opacity();},
     updateMusic(value){const changed=clock.playing!==value.playing||clock.phase!==value.phase;clock={...value,position:value.position??value.phase};if(dragging)updateHold();else spin();return value.playing||changed;},
     beginDrag(hit,world){
       if(animating||!world)return false;selected=F.keys.indexOf(hit.key);const p=valuesAt(model.snapshot())[selected];
-      tween('gear-preview',0,()=>{});previewKey='';committed=null;draw(valuesAt(model.snapshot()));
+      committed=null;draw(valuesAt(model.snapshot()));
       dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,move:null};
       updateHold();return true;
     },
@@ -132,16 +115,17 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       if(!dragging)return null;if(!cancelled)updateHold();const d=dragging;dragging=null;
       // Keep the display until animate() consumes this edit; clearing focus may sync the view.
       const move=!cancelled&&d.move&&model.validMove(d.move)?d.move:null;
-      committed=move?JSON.stringify(move):null;onEditPreview(null);
+      committed=move?JSON.stringify(move):null;
+      draw(valuesAt(move?model.applyTo(d.before,move):d.before));onEditPreview(null);
       if(move)return move;sync();return null;
     },
     async animate(move,before,{duration=360}={}){
-      const direct=committed===JSON.stringify(move);committed=null;animating=true;previewKey='';tween('gear-preview',0,()=>{});
+      const direct=committed===JSON.stringify(move);committed=null;animating=true;
       const index=F.keys.indexOf(model.moveTarget(move)),a=display.map(p=>({...p})),b=valuesAt(model.applyTo(before,move));
       const delta=B.delta(a[index].phase/8,b[index].phase/8)*8;
-      try{await tween('move',direct?140:duration,t=>draw(a.map((p,i)=>i!==index?p:{phase:p.phase+delta*t,gain:p.gain+(b[i].gain-p.gain)*t})));}finally{animating=false;sync();}
+      try{if(direct)draw(b);else await tween('move',duration,t=>draw(a.map((p,i)=>i!==index?p:{phase:p.phase+delta*t,gain:p.gain+(b[i].gain-p.gain)*t})));}finally{animating=false;sync();}
     },
-    inspect(){return{selected,holding:dragging?.index??null,clock,display,layers:layers.map(l=>({index:l.index,key:l.key,opacity:l.opacity,gain:l.gain,rotation:l.rotor.rotation.y,targetRotation:l.targets.rotation.y,period:binding.periods[l.index],events:l.events,wrongSlots:l.notes.filter(n=>n.wrong).length,bodyRadius:B.radius(l.gain)}))};}
+    inspect(){return{selected,holding:dragging?.index??null,clock,display,layers:layers.map(l=>({index:l.index,key:l.key,opacity:l.opacity,gain:l.gain,rotation:l.rotor.rotation.y,targetRotation:l.targets.rotation.y,period:binding.periods[l.index],events:l.events,bodyRadius:B.radius(l.gain)}))};}
   };
   sync();return view;
 }};

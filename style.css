@@ -29,17 +29,6 @@ button:disabled { opacity:.38; cursor:default; }
 .orbit-sequencer::before { content:''; position:absolute; inset:17%; border-radius:50%; background:radial-gradient(circle,#e2e9d9,#eff1e5 68%,transparent 70%); z-index:-1; }
 .puzzle-stage { position:absolute; left:50%; top:50%; width:66%; height:66%; transform:translate(-50%,-50%); }
 .puzzle-stage canvas { display:block; width:100%; height:100%; touch-action:none; }
-.bounce-instruction { font-size:.9rem; color:var(--muted); text-align:center; text-wrap:balance; }
-.bounce-readhead { position:absolute; left:50%; bottom:1%; width:clamp(24px,4vmin,34px); height:clamp(30px,5vmin,44px); transform:translateX(-50%); pointer-events:none; }
-.bounce-readhead svg { width:100%; height:100%; fill:var(--green); filter:drop-shadow(0 2px 0 var(--panel)); }
-body[data-puzzle="bounce"] .orbital-workspace { width:100%; height:100%; aspect-ratio:auto; }
-body[data-puzzle="bounce"] #orbit-score,body[data-puzzle="bounce"] .orbit-sequencer::before { display:none; }
-body[data-puzzle="bounce"] .puzzle-stage { left:0; top:0; width:100%; height:100%; transform:none; }
-body[data-puzzle="bounce"] .puzzle-operation { font-size:.95rem; }
-@media (max-height:520px) and (min-aspect-ratio:4/3) {
-  body[data-puzzle="bounce"] .controls-dock { flex:0 0 clamp(350px,42vw,380px); }
-  body[data-puzzle="bounce"] .game-status { position:absolute; top:var(--space); left:var(--space); z-index:2; pointer-events:none; }
-}
 .puzzle-stage[data-context="lost"]::after { content:'Восстанавливаем изображение…'; position:absolute; inset:0; display:grid; place-items:center; background:var(--panel); text-align:center; }
 .completion { pointer-events:none; }
 .completion { display:flex; align-items:center; gap:.7rem; color:var(--muted); font-size:.95rem; line-height:1.15; }

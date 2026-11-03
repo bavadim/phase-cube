@@ -12,7 +12,7 @@ window.PuzzleStage = class {
     this.pointer=new PuzzlePointer(this.canvas,{
       enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
       pick:(x,y)=>this.pick(x,y),select:(hit,event)=>this.active?.onSelect(hit,event),
-      empty:()=>{if(this.active?.view.allowDeselect)this.active.onSelect({clearSelection:true});},
+      empty:()=>{if(this.active?.interaction.allowDeselect)this.active.onSelect({clearSelection:true});},
       hover:(hit,event)=>{
         if(hit&&event?.pointerType)this.stopTween('camera');
         this.active?.onHover?.(hit,event);this.dirty=true;this.canvas.style.cursor=hit?.draggable?'grab':hit?'pointer':this.active?.view.drag?'grab':'default';
@@ -41,8 +41,8 @@ window.PuzzleStage = class {
     scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x829478,2.3));
     const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
     try{
-      const view=createView({...context,scene,resources,tween:(...args)=>this.tween(...args),invalidate:()=>{this.dirty=true;}});
-      this.active={scene,resources,view,onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};
+      const view=PuzzleContract.inspectView(createView({...context,scene,resources,tween:(...args)=>this.tween(...args),invalidate:()=>{this.dirty=true;}}));
+      this.active={scene,resources,view,interaction:PuzzleContract.interaction(context.module),onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};
       this.element.dataset.puzzle=context.module.id;this.element.setAttribute('aria-label',context.module.title);
       this.targets.replaceChildren(...context.model.choices().map(choice=>{
         const button=document.createElement('button');button.textContent=choice.label;button.type='button';
@@ -63,7 +63,7 @@ window.PuzzleStage = class {
     const rect=this.canvas.getBoundingClientRect();
     active.scene.updateMatrixWorld(true);active.view.camera.updateMatrixWorld();
     this.ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),active.view.camera);
-    const hits=this.ray.intersectObjects(active.view.pickTargets(),false),hit=active.view.pickHit?.(hits)||hits[0];
+    const [hit]=this.ray.intersectObjects(active.view.pickTargets(),false);
     if(!hit)return null;
     const {actionCenter,...target}=active.view.hit(hit);
     return actionCenter?{...target,inverted:x<this.project(actionCenter).x}:target;
