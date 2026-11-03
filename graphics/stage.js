@@ -12,6 +12,7 @@ window.PuzzleStage = class {
     this.pointer=new PuzzlePointer(this.canvas,{
       enabled:()=>!!this.active&&!this.disabled&&!this.contextLost,log,
       pick:(x,y)=>this.pick(x,y),select:(hit,event)=>this.active?.onSelect(hit,event),
+      empty:()=>{if(this.active?.view.allowDeselect)this.active.onSelect({clearSelection:true});},
       hover:(hit,event)=>{
         if(hit&&event?.pointerType)this.stopTween('camera');
         this.active?.onHover?.(hit,event);this.dirty=true;this.canvas.style.cursor=hit?.draggable?'grab':hit?'pointer':this.active?.view.drag?'grab':'default';
@@ -62,7 +63,7 @@ window.PuzzleStage = class {
     const rect=this.canvas.getBoundingClientRect();
     active.scene.updateMatrixWorld(true);active.view.camera.updateMatrixWorld();
     this.ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),active.view.camera);
-    const hit=this.ray.intersectObjects(active.view.pickTargets(),false)[0];
+    const hits=this.ray.intersectObjects(active.view.pickTargets(),false),hit=active.view.pickHit?.(hits)||hits[0];
     if(!hit)return null;
     const {actionCenter,...target}=active.view.hit(hit);
     return actionCenter?{...target,inverted:x<this.project(actionCenter).x}:target;
@@ -75,7 +76,8 @@ window.PuzzleStage = class {
   unproject(x,y){
     const rect=this.canvas.getBoundingClientRect();this.active.view.camera.updateMatrixWorld();
     this.ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),this.active.view.camera);
-    return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1),0),new THREE.Vector3());
+    const plane=this.active.view.inputPlane?.()||new THREE.Plane(new THREE.Vector3(0,0,1),0);
+    return this.ray.ray.intersectPlane(plane,new THREE.Vector3());
   }
   // Also used by browser QA: these are projections of the actual Three objects, not a second hit map.
   locations(){return (this.active?.view.locations()||[]).map(({point,region,...target})=>({...target,...this.project(point),region:region?.map(p=>this.project(p))}));}

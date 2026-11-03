@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* One pointer subscription per canvas; camera drags and optional model edits. */
 window.PuzzlePointer=class{
-  constructor(canvas,{enabled,pick,select,hover,drag,beginDrag=()=>false,moveDrag=()=>{},endDrag=()=>{},log=()=>{}}){
+  constructor(canvas,{enabled,pick,select,hover,drag,beginDrag=()=>false,moveDrag=()=>{},endDrag=()=>{},empty=()=>{},log=()=>{}}){
     Object.assign(this,{canvas,enabled,pick,select,hover,drag,beginDrag,moveDrag,endDrag,log});
     this.events=new AbortController();this.gesture=null;
     const listen=(type,fn)=>canvas.addEventListener(type,fn,{signal:this.events.signal});
@@ -38,7 +38,7 @@ window.PuzzlePointer=class{
       this.gesture=null;this.release(g.id);
       if(g.custom)endDrag(!enabled());
       else if(!g.moved&&enabled()){
-        const hit=g.hit||pick(event.clientX,event.clientY);log('pointer.hit',{key:hit?.key??null,inverted:hit?.inverted});if(hit)select(hit,{pointerType:event.pointerType});
+        const hit=g.hit||pick(event.clientX,event.clientY);log('pointer.hit',{key:hit?.key??null,inverted:hit?.inverted});if(hit)select(hit,{pointerType:event.pointerType});else empty();
       }
       hover(event.pointerType==='touch'||!enabled()?null:pick(event.clientX,event.clientY),{pointerType:event.pointerType});
     };

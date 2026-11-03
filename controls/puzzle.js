@@ -32,6 +32,7 @@ window.PuzzleControl = {
       },
       onSelect:(hit,event={})=>{
         if(!canInteract())return;
+        if(hit.clearSelection){if(view.allowDeselect){armed=null;focus.reset();onSelect();feedback();}return;}
         const move=fromHit(hit);
         if(!hit.selectOnly&&move&&model.validMove(move)&&(event.pointerType!=='touch'||armed===model.selected&&hit.key===armed)){
           onMove(move);return;
@@ -59,7 +60,7 @@ window.PuzzleControl = {
       selection:()=>hasSelection()?model.selected:null,
       focus:()=>presentation.element.focus({preventScroll:true}),
       destroy(){focus.reset();controls.destroy();if(presentation.active?.view===view)presentation.unmount();},
-      key(event){const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
+      key(event){if(event.code==='Escape'&&view.allowDeselect){armed=null;focus.reset();onSelect();feedback();return true;}const key=event.code?.replace('Key','');if(model.choices().some(c=>c.key===key)){onMove(model.moveFor(key,event.shiftKey));return true;}return false;}
     };
   }
 };

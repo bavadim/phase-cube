@@ -13,7 +13,7 @@ try{
  assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzleModule().id),'bounce');
  if(r.engine==='chromium')await page.evaluate(()=>strudel.getAudioContext().setSinkId({type:'none'}));
  await page.locator('#start').click();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
- const before=await page.evaluate(()=>phaseCubeApp.state());await page.locator('#turn-left').click();await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);assert.notDeepEqual(await page.evaluate(()=>phaseCubeApp.state()),before);
+ await page.locator('.bounce-voices button').nth(0).click();const before=await page.evaluate(()=>phaseCubeApp.state());await page.locator('#turn-left').click();await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);assert.notDeepEqual(await page.evaluate(()=>phaseCubeApp.state()),before);
  await page.locator('#undo').click();await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(page);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.state()),before);
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
  const bytes=await readFile(join(root,'steel-shift-cube.html')),report={schema:'bounce-offline/1',status:'PASS',engine:r.engine,physicalDevice:false,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),externalRequests:external,errors,startAudio:true,move:true,undo:true};
