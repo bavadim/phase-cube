@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+const compositionIds=require('./compositions/catalog.js');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const F=require('./puzzles/scratch/model.js'),Binding=require('./puzzles/scratch/binding.js'),Partition=require('./puzzles/scratch/partition.js'),Contract=require('./puzzle-contract.js'),Projection=require('./music-projection.js');
-const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-loader.js');
+const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-contract.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
 const nativeKey=h=>JSON.stringify([Math.round(Number(h.whole.begin)*1e8),Math.round(Number(h.duration)*1e8),Object.fromEntries(Object.entries(h.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)))]);
@@ -56,6 +57,6 @@ test('every instrument moves: full native arrangement, no background duplication
   const cached=await new Loader(S,{palette,registry,library,storage}).prepareSession({songId,puzzleId:'scratch'});assert.equal(cached.diagnostics.cache,'hit');
   report.pairs.push({songId,count,events:assembled.length,layout:game.layout,...p.diagnostics});
  }
- const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});await assert.rejects(()=>cancelled.prepareSession({songId:L.files[0],puzzleId:'scratch',signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
+ const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});await assert.rejects(()=>cancelled.prepareSession({songId:compositionIds[0],puzzleId:'scratch',signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
  fs.writeFileSync(path.join(__dirname,'qa/scratch/contracts-report.json'),JSON.stringify(report,null,2)+'\n');
 });

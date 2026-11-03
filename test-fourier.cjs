@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+const compositionIds=require('./compositions/catalog.js');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const F=require('./puzzles/fourier/model.js'),Contract=require('./puzzle-contract.js'),Projection=require('./music-projection.js'),Binding=require('./puzzles/fourier/binding.js');
-const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-loader.js');
+const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-contract.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
 const samples=m=>[...new Set([...m.probeStates().filter(Number.isInteger),...Array.from({length:128},(_,i)=>(Math.imul(i+11,1664525)>>>0)%F.stateCount)])];
@@ -40,7 +41,7 @@ test('drag is one replayable guarded move; undo returns both coordinates and rej
 test('all existing scores: polar projection preserves notes/gates and native Strudel emits its event times',async()=>{
  const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},loader=new Loader(S,{palette,registry,library,storage});
  const report={schema:'fourier-contracts/5',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
- for(const songId of L.files){
+ for(const songId of compositionIds){
   const p=await loader.prepareSession({puzzleId:'fourier',songId}),music=new Music(S,p),m=p.model;
   assert.equal(m.count,6);assert.equal(p.fragments.count,6);assert(Projection.validate(p.binding,p.module.manifest));
   assert.equal(norm(music.rows(0)),norm(p.fragments.targetRows));assert(music.phases(0).every(d=>d.aligned&&d.ticks===undefined));
@@ -68,8 +69,8 @@ test('all existing scores: polar projection preserves notes/gates and native Str
   report.pairs.push({songId,fragments:6,progressUnits:6,bindingFingerprint:p.binding.fingerprint,...p.diagnostics});
  }
  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
- await assert.rejects(()=>cancelled.prepareSession({puzzleId:'fourier',songId:L.files[0],signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
- const files=['puzzles/actions.js','puzzles/fourier/model.js','puzzles/fourier/module.js','puzzles/fourier/binding.js','music-projection.js','music.js','puzzle-contract.js','session-loader.js','controls/pattern-pieces.js','composition-loader.js',...L.files.map(id=>'compositions/'+id+'.strudel.mjs')];
+ await assert.rejects(()=>cancelled.prepareSession({puzzleId:'fourier',songId:compositionIds[0],signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
+ const files=['puzzles/actions.js','puzzles/fourier/model.js','puzzles/fourier/module.js','puzzles/fourier/binding.js','music-projection.js','music.js','puzzle-contract.js','session-loader.js','controls/pattern-pieces.js','composition-loader.js','composition-contract.js','compositions/catalog.js',...compositionIds.map(id=>'compositions/'+id+'.strudel.mjs')];
  report.sourceSha256=Object.fromEntries(files.map(file=>[file,require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(__dirname,file))).digest('hex')]));
  fs.mkdirSync(path.join(__dirname,'qa/fourier'),{recursive:true});fs.writeFileSync(path.join(__dirname,'qa/fourier/contracts-report.json'),JSON.stringify(report,null,2)+'\n');
 });
@@ -126,7 +127,7 @@ test('phase aliases wrap before comparing, zero retains phase, and continuous pr
 });
 test('changing pitches with identical rhythm invalidates the cached riff periods',async()=>{
  const base=await library.load('turkish-circuit');let revision=0;
- const score=()=>L.analyze(S,{...base,playerParts:['x','y','z'].map(key=>({key,name:key,pattern:(revision?S.note('c4 d4 e4 f4').slow(2):S.note('c4').fast(2)).s('sine')}))},'cache-note-test',palette);
+ const score=()=>L.analyze(S,{...base,playerParts:['x','y','z'].map(key=>({key,name:key,pattern:(revision?S.note('c4 d4 e4 f4').slow(2):S.note('c4').fast(2)).s('sine')}))},'cache-note-test');
  const loader=new Loader(S,{palette,registry,library:{load:async()=>score()},storage:null});
  const first=await loader.prepareSession({puzzleId:'fourier',songId:'cache-note-test'});revision=1;
  const second=await loader.prepareSession({puzzleId:'fourier',songId:'cache-note-test'});

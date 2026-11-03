@@ -129,4 +129,3 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
   };
   sync();return view;
 }};
-BouncePuzzle.mount=context=>PuzzleControl.mount({...context,module:BouncePuzzle,createView:BounceView.create});

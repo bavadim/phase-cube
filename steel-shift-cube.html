@@ -2472,25 +2472,30 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Load ordinary ES modules; Strudel remains the only pattern interpreter. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.PhaseCubeLibrary=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
+/* Pure music-composition/1 validation and native Strudel event analysis. No files, UI or puzzle rules. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.MusicCompositionContract=factory();})(globalThis,function(){
   'use strict';
-  // Catalog contains paths only. Names, tempo, instruments and form belong to each score.
-  const files=['turkish-circuit','steel-shift','elise-after-hours'];
-  const mod=(x,n)=>((x%n)+n)%n;
   const onset=h=>Number(h.whole.begin);
   const quantize=n=>Math.round(n*1e9)/1e9;
   const attacks=(p,from,to)=>p.queryArc(from,to).filter(h=>h.hasOnset()&&onset(h)>=from&&onset(h)<to);
   const eventsOf=(p,bars)=>attacks(p,0,bars).map(h=>({start:onset(h)/bars,duration:Number(h.duration)/bars,value:h.value}));
+  function inspectModule(module){
+    const meta=module?.metadata;
+    if(meta?.schema!=='music-composition/1'||!Number.isInteger(meta.version)||meta.version<1||
+      typeof meta.title!=='string'||!meta.title||typeof meta.style!=='string'||!meta.style||!Number.isFinite(meta.bpm)||meta.bpm<=0||
+      typeof meta.download!=='string'||!meta.download||typeof module.default!=='function')throw new Error('Неверный модуль композиции');
+    return module;
+  }
   function signature(p,from,bars){
     return attacks(p,from,from+bars).map(h=>JSON.stringify([quantize(onset(h)-from),quantize(Number(h.duration)),h.value])) .sort();
   }
-  function analyze(S,raw,id,palette){
+  function analyze(S,raw,id){
     if(raw?.schema!=='music-composition/1'||!Number.isInteger(raw.version)||raw.version<1)throw new Error('Неподдерживаемый контракт композиции');
     if(!raw||!raw.title||!raw.style||!Number.isFinite(raw.bpm)||raw.bpm<=0)throw new Error('Композиции нужны название, стиль и темп');
     if(raw.meter&&JSON.stringify(raw.meter)!=='[4,4]')throw new Error('Текущий транспорт поддерживает размер 4/4');
     if(raw.phaseOptions?.subdivisionsPerBeat&&(!Array.isArray(raw.phaseOptions.subdivisionsPerBeat)||!raw.phaseOptions.subdivisionsPerBeat.length||raw.phaseOptions.subdivisionsPerBeat.length>4||raw.phaseOptions.subdivisionsPerBeat.some(n=>!Number.isInteger(n)||n<1||n>8)))throw new Error('Неверная сетка фаз');
     if(!Number.isFinite(raw.periodBars)||raw.periodBars<=0)throw new Error('Нужен период игровых партий');
+    if(!Array.isArray(raw.sections)||!raw.sections.length)throw new Error('Нужна форма композиции');
     let bars=0;
     const sections=raw.sections.map(section=>{
       if(!section.name||!Number.isFinite(section.bars)||section.bars<=0)throw new Error('Неверная секция композиции');
@@ -2521,14 +2526,29 @@ lanes.noise = noiseSound(stack(
       stats:Object.freeze({bars,bpm:raw.bpm,seconds:bars*240/raw.bpm,periodBars:raw.periodBars,periodSeconds:raw.periodBars*240/raw.bpm,
         attacks:events.length,instruments:instruments.size,sounds,parts:partStats,sections:sections.length,maxGateBars:Math.max(...events.map(h=>Number(h.duration)))})});
   }
+  return {inspectModule,analyze,attacks,signature,eventsOf};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Resource IDs only; musical metadata lives in each score module. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.CompositionCatalog=factory();})(globalThis,()=>Object.freeze(['turkish-circuit','steel-shift','elise-after-hours']));
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Score import, catalog and caching. Composition semantics belong to the contract. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./compositions/catalog.js'),require('./composition-contract.js'));else root.PuzzleCompositions=factory(root.CompositionCatalog,root.MusicCompositionContract);})(globalThis,function(files,Contract){
+  'use strict';
   class Loader{
-    constructor(S,{palette,baseURL}={}){this.S=S;this.palette=palette;this.baseURL=baseURL||new URL('./',document.baseURI);this.cache=new Map();this.modules=new Map();}
+    constructor(S,{baseURL}={}){this.S=S;this.baseURL=baseURL||new URL('./',document.baseURI);this.cache=new Map();this.modules=new Map();}
     async module(id){
       if(!files.includes(id))throw new Error('Неизвестная композиция: '+id);
       if(!this.modules.has(id)){
         const url=new URL(`compositions/${id}.strudel.mjs`,this.baseURL);url.searchParams.set('v','contracts1');
-        const promise=globalThis.PhaseCubeEmbeddedCompositions?.[id]||import(url.href);
-        this.modules.set(id,Promise.resolve(promise));
+        const source=globalThis.PhaseCubeEmbeddedCompositions?.[id]||import(url.href),pending=Promise.resolve(source).then(Contract.inspectModule);
+        this.modules.set(id,pending);pending.catch(()=>this.modules.delete(id));
       }
       return this.modules.get(id);
     }
@@ -2537,15 +2557,15 @@ lanes.noise = noiseSound(stack(
       if(!this.cache.has(id)){
         const pending=(async()=>{
           const module=await this.module(id);
-          return analyze(this.S,await module.default(this.S),id,this.palette);
+          return Contract.analyze(this.S,await module.default(this.S),id);
         })();
         this.cache.set(id,pending);pending.catch(()=>this.cache.delete(id));
       }
       return this.cache.get(id);
     }
-    async catalog(){return Promise.all(files.map(async id=>({id,...(await this.module(id)).metadata})));}
+    async catalog(){return Promise.all(files.map(async id=>({...((await this.module(id)).metadata),id})));}
   }
-  return {Loader,analyze,files,attacks,signature,eventsOf};
+  return {Loader};
 });
 
 </script>
@@ -2681,7 +2701,7 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../composition-loader.js'));else root.PuzzleParts=factory(root.PhaseCubeLibrary);})(globalThis,function(L){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../composition-contract.js'));else root.PuzzleParts=factory(root.MusicCompositionContract);})(globalThis,function(L){
   'use strict';
   // This partitions native Strudel events; it never rewrites notes or interprets mini-notation.
   function build(S,song,{count,palette}){
@@ -3252,7 +3272,7 @@ lanes.noise = noiseSound(stack(
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Common result contract; each puzzle family keeps its own musical action. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./phase-map.js'),require('./puzzles/fourier/binding.js'),require('./puzzles/scratch/binding.js'));else root.PuzzleProjection=factory(root.PhaseCubeLibrary,root.PuzzlePhases,root.FourierBinding,root.ScratchBinding);})(globalThis,function(L,Phases,Fourier,Scratch){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./phase-map.js'),require('./puzzles/fourier/binding.js'),require('./puzzles/scratch/binding.js'));else root.PuzzleProjection=factory(root.PuzzlePhases,root.FourierBinding,root.ScratchBinding);})(globalThis,function(Phases,Fourier,Scratch){
   'use strict';
   const bindings=[Fourier,Scratch];
   function strategy(spec){const binding=bindings.find(b=>b.VERSION===spec.projection);if(!binding)throw new Error('Неизвестная музыкальная проекция: '+spec.projection);return binding;}
@@ -3292,7 +3312,7 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./music-projection.js'));else root.PuzzleSessionLoader=factory(root.PhaseCubeLibrary,root.PuzzleParts,root.PuzzleContract,root.PuzzleProjection);})(globalThis,function(L,Parts,Contract,Projection){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./music-projection.js'));else root.PuzzleSessionLoader=factory(root.PuzzleCompositions,root.PuzzleParts,root.PuzzleContract,root.PuzzleProjection);})(globalThis,function(L,Parts,Contract,Projection){
   'use strict';
   const CACHE='music-puzzle-bindings/3';
   const aborted=signal=>{if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');};
@@ -3347,7 +3367,7 @@ lanes.noise = noiseSound(stack(
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Shared native Strudel playback; musical projections are separate strategies. */
 window.PuzzleMusic=(()=>{
-  const eventsOf=(p,bars)=>PhaseCubeLibrary.eventsOf(p,bars),eventKey=rows=>JSON.stringify(rows);
+  const eventKey=rows=>JSON.stringify(rows);
   class Music{
     constructor(S,prepared){Object.assign(this,{S,prepared,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.binding});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;this.cache=new Map();this.displayCache=new WeakMap();}
     project(state){
@@ -3378,7 +3398,7 @@ window.PuzzleMusic=(()=>{
     pattern(state){return this.S.stack(...this.shifted(state));}
     code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+(this.puzzle.manifest.projection!=='pose-phase/1'?JSON.stringify({projection:this.binding.algorithm,state,coefficients:this.project(state).coefficients}):this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n'));}
   }
-  return{Music,eventsOf,eventKey};
+  return{Music};
 })();
 
 </script>
@@ -4228,7 +4248,6 @@ window.PuzzleDialogs=class{
   constructor(host,{onStart,onChoose,onAgain,onMenu,onRetry=()=>location.reload(),onReport}){
     host.innerHTML='<dialog id="session-overlay" class="session-overlay" aria-labelledby="session-title"><div class="record-mark" aria-hidden="true"><span>◈</span></div><div class="setup-choices"><label class="song-choice"><span>Композиция</span><select id="song-select" aria-label="Композиция" disabled></select></label><label class="song-choice"><span>Головоломка</span><select id="puzzle-select" aria-label="Головоломка" disabled></select></label></div><h1 id="session-title">Музыкальная головоломка</h1><p id="song-meta" class="song-meta"></p><p id="session-feedback" class="session-feedback" role="status">Загрузка…</p><button id="start" class="primary-button" disabled>Начать</button></dialog><dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title"><div id="celebration" class="celebration" aria-hidden="true" hidden></div><p class="result-caption">Композиция собрана</p><h2 id="result-title"></h2><p id="result-song" class="song-meta"></p><a id="download-mp3" class="primary-button" download>Скачать трек · MP3</a><button id="play-again" class="outline-button">Ещё раз</button><button id="choose-song" class="outline-button">Выбрать композицию</button></dialog>';
     this.root=host;this.$=id=>host.querySelector('#'+id);
-    this.$('session-overlay').insertAdjacentHTML('beforeend','<a class="report-button" href="xronomorph/index.html?v=collapse1">Круг ритма</a>');
     this.$('start').onclick=()=>this.error?onRetry():onStart();this.$('play-again').onclick=onAgain;this.$('choose-song').onclick=onMenu;
     for(const id of ['song-select','puzzle-select'])this.$(id).onchange=()=>onChoose({songId:this.$('song-select').value,puzzleId:this.$('puzzle-select').value});
     host.querySelectorAll('dialog').forEach(d=>d.addEventListener('cancel',e=>e.preventDefault()));
@@ -4452,7 +4471,6 @@ window.RubikView = {create({scene,resources,model,tween}){
   };
   sync();return view;
 }};
-RubikPuzzle.mount=context=>PuzzleControl.mount({...context,module:RubikPuzzle,createView:RubikView.create});
 
 </script>
 <script>
@@ -4567,7 +4585,6 @@ window.TwiddleView = {create({scene,resources,model,game,tween}){
   };
   sync();return view;
 }};
-TwiddlePuzzle.mount=context=>PuzzleControl.mount({...context,module:TwiddlePuzzle,createView:TwiddleView.create});
 
 </script>
 <script>
@@ -4743,13 +4760,12 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   };
   sync();return view;
 }};
-FourierPuzzle.mount=context=>PuzzleControl.mount({...context,module:FourierPuzzle,createView:FourierView.create});
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Picture/music partitioning belongs to this puzzle, not the score loader. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../../composition-loader.js'));else root.ScratchPartition=factory(root.PhaseCubeLibrary);})(globalThis,function(L){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../../composition-contract.js'));else root.ScratchPartition=factory(root.MusicCompositionContract);})(globalThis,function(L){
   'use strict';
   const names={kick:'Бочка',hat:'Хэт',snare:'Рабочий барабан',clap:'Хлопок',openhat:'Открытый хэт',metal:'Перкуссия',noise:'Шумовой эффект',hook:'Главная тема',lead:'Лид',stab:'Аккорды',bass:'Бас',sub:'Саб-бас',riff:'Риф',pluck:'Плак',answer:'Ответ темы',acid:'Эйсид'};
   function layout(count){
@@ -4926,7 +4942,6 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   };
   draw(display);return view;
 }};
-ScratchPuzzle.mount=context=>PuzzleControl.mount({...context,module:ScratchPuzzle,createView:ScratchView.create});
 
 </script>
 <script>
@@ -5119,7 +5134,6 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
   };
   sync();return view;
 }};
-BouncePuzzle.mount=context=>PuzzleControl.mount({...context,module:BouncePuzzle,createView:BounceView.create});
 
 </script>
 <script>
@@ -5128,6 +5142,15 @@ BouncePuzzle.mount=context=>PuzzleControl.mount({...context,module:BouncePuzzle,
   const get=id=>{const module=modules.find(p=>p.id===id);if(!module)throw new Error('Неизвестная головоломка: '+id);return module;};
   return {modules,get};
 });
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Presentation registry. Puzzle modules contain rules and never import renderers. */
+window.PuzzleViews=(()=>{
+  const views=Object.freeze({twiddle:TwiddleView.create,rubik:RubikView.create,fourier:FourierView.create,scratch:ScratchView.create,bounce:BounceView.create});
+  return Object.freeze({get(id){if(!Object.hasOwn(views,id))throw new Error('Нет представления головоломки: '+id);return views[id];}});
+})();
 
 </script>
 <script>
@@ -5166,8 +5189,8 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/gears4';
-  const library=new PhaseCubeLibrary.Loader(strudel);
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/components5';
+  const library=new PuzzleCompositions.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
   let module=PuzzleRegistry.get(params.get('puzzle')||C.defaultPuzzle),model=null,control=null,music=null,game=null,song=null,catalog=[];
@@ -5239,7 +5262,7 @@ window.PhaseCubeCelebration=(()=>{
       control?.destroy();preparation=next;module=next.module;model=next.model;game=next.fragments;song=next.composition;
       model.reset(seed++);shuffle=newShuffle();music=new PuzzleMusic.Music(strudel,next);transport.setComposition(song);
       $('orbit-score').replaceChildren();orbit=new PuzzleEqualizer.Score($('orbit-score'),game.voices,{periodBeats:song.timing.periodBeats,periodSeconds:song.periodBars*240/song.bpm});
-      control=module.mount({presentation,commands:player.commands,model,game,binding:next.binding,canInteract:canMove,
+      control=PuzzleControl.mount({module,createView:PuzzleViews.get(module.id),presentation,commands:player.commands,model,game,binding:next.binding,canInteract:canMove,
         onMove:move=>turn(move).catch(fail),onSelect:()=>{clearHint();updateUI();},onPreview:()=>{
           updateRows();player.hint.update(canMove()&&!!model?.hint(),control?.focusState()?.source==='hint');
         }});

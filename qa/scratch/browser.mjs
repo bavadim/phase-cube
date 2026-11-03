@@ -67,7 +67,7 @@ try{
       const valueKey=h=>JSON.stringify([Number(h.whole.begin),Number(h.duration),Object.fromEntries(Object.entries(h.value).filter(([k])=>!k.startsWith('_phaseCube')).sort(([a],[b])=>a.localeCompare(b)))]);
       for(const songId of ['turkish-circuit','steel-shift','elise-after-hours']){
         await app.chooseSong(songId);const music=app.getMusic(),song=app.getSong(),game=app.getGame(),m=app.getPuzzle();
-        const original=PhaseCubeLibrary.attacks(song.pattern,0,song.bars).map(valueKey).sort(),assembled=PhaseCubeLibrary.attacks(S.stack(song.backing,music.pattern(m.initialState())),0,song.bars).map(valueKey).sort();
+        const original=MusicCompositionContract.attacks(song.pattern,0,song.bars).map(valueKey).sort(),assembled=MusicCompositionContract.attacks(S.stack(song.backing,music.pattern(m.initialState())),0,song.bars).map(valueKey).sort();
         if(JSON.stringify(original)!==JSON.stringify(assembled))throw Error('Original score mismatch '+songId);
         const active=game.targetRows.map((_,i)=>i);
         const worst=PuzzleContract.probes(app.getPreparation().puzzle).states.map(({state})=>({state,energy:music.rows(state).reduce((sum,row,i)=>sum+(active.includes(i)?row.reduce((v,e)=>v+(e.volume??1)**2,0):0),0)})).sort((a,b)=>b.energy-a.energy)[0].state;
@@ -75,7 +75,7 @@ try{
       }
       let total=0;for(const job of jobs){job.offset=total;total+=job.bars/job.cps+1;}
       await S.getAudioContext().close();const ac=new OfflineAudioContext(2,Math.ceil(total*48000),48000);S.setAudioContext(ac);S.setSuperdoughAudioController(null);await S.initAudio({maxPolyphony:4096,multiChannelOrbits:false});
-      for(const[orbit,job]of jobs.entries())for(const h of PhaseCubeLibrary.attacks(job.pattern,job.from,job.from+job.bars).sort((a,b)=>Number(a.whole.begin)-Number(b.whole.begin))){const at=job.offset+(Number(h.whole.begin)-job.from)/job.cps;await S.webaudioOutput(h.withValue(v=>({...v,orbit})),at,Number(h.duration)/job.cps,job.cps,at);}
+      for(const[orbit,job]of jobs.entries())for(const h of MusicCompositionContract.attacks(job.pattern,job.from,job.from+job.bars).sort((a,b)=>Number(a.whole.begin)-Number(b.whole.begin))){const at=job.offset+(Number(h.whole.begin)-job.from)/job.cps;await S.webaudioOutput(h.withValue(v=>({...v,orbit})),at,Number(h.duration)/job.cps,job.cps,at);}
       const buffer=await ac.startRendering(),channels=[buffer.getChannelData(0),buffer.getChannelData(1)];
       return jobs.map(job=>{let sum=0,peak=0,clipped=0,n=0;for(const channel of channels)for(let i=Math.round(job.offset*48000);i<Math.round((job.offset+job.bars/job.cps)*48000);i++){const x=channel[i];if(!Number.isFinite(x))throw Error('Invalid PCM');sum+=x*x;peak=Math.max(peak,Math.abs(x));clipped+=Math.abs(x)>=1;n++;}return{songId:job.songId,kind:job.kind,state:job.state,rms:Math.sqrt(sum/n),peak,clipped,nativeScoreEvents:job.nativeScoreEvents};});
     });

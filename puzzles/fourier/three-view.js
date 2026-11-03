@@ -160,4 +160,3 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   };
   sync();return view;
 }};
-FourierPuzzle.mount=context=>PuzzleControl.mount({...context,module:FourierPuzzle,createView:FourierView.create});

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../composition-loader.js'));else root.PuzzleParts=factory(root.PhaseCubeLibrary);})(globalThis,function(L){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../composition-contract.js'));else root.PuzzleParts=factory(root.MusicCompositionContract);})(globalThis,function(L){
   'use strict';
   // This partitions native Strudel events; it never rewrites notes or interprets mini-notation.
   function build(S,song,{count,palette}){

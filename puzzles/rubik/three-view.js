@@ -89,4 +89,3 @@ window.RubikView = {create({scene,resources,model,tween}){
   };
   sync();return view;
 }};
-RubikPuzzle.mount=context=>PuzzleControl.mount({...context,module:RubikPuzzle,createView:RubikView.create});

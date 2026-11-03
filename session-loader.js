@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./music-projection.js'));else root.PuzzleSessionLoader=factory(root.PhaseCubeLibrary,root.PuzzleParts,root.PuzzleContract,root.PuzzleProjection);})(globalThis,function(L,Parts,Contract,Projection){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./controls/pattern-pieces.js'),require('./puzzle-contract.js'),require('./music-projection.js'));else root.PuzzleSessionLoader=factory(root.PuzzleCompositions,root.PuzzleParts,root.PuzzleContract,root.PuzzleProjection);})(globalThis,function(L,Parts,Contract,Projection){
   'use strict';
   const CACHE='music-puzzle-bindings/3';
   const aborted=signal=>{if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');};

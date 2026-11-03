@@ -7,19 +7,11 @@ import assert from 'node:assert/strict';
 const root=new URL('./',import.meta.url),html=await readFile(new URL('index.html',root),'utf8');
 const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>m[1].split('?')[0]);
 assert(scripts.length>0);
-const {files}=await import('./composition-loader.js').then(m=>m.default);
-for(const file of [...scripts,'check.mjs','export.mjs',...['model','transport','view','app'].map(id=>`xronomorph/${id}.js`),...['algorithms','beat-builder'].flatMap(dir=>['model','view','app'].map(id=>`xronomorph/${dir}/${id}.js`)),...files.map(id=>`compositions/${id}.strudel.mjs`)]){
+const files=await import('./compositions/catalog.js').then(m=>m.default);
+for(const file of [...scripts,'check.mjs','export.mjs',...files.map(id=>`compositions/${id}.strudel.mjs`)]){
   assert(!file.includes('..')&&!file.includes('://'));
   const check=spawnSync(process.execPath,['--check',fileURLToPath(new URL(file,root))],{encoding:'utf8'});
   assert.equal(check.status,0,check.stderr);
-}
-for(const dir of ['algorithms','beat-builder']){
-const methods=await readFile(new URL(`xronomorph/${dir}/index.html`,root),'utf8');
-const methodIds=[...methods.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
-assert.equal(new Set(methodIds).size,methodIds.length,'Duplicate rhythm-methods ids');
-for(const match of methods.matchAll(/(?:src|href)="([^"?#]+)(?:\?[^"#]*)?"/g)){
-  const path=match[1];if(path.endsWith('.js')||path.endsWith('.css'))assert((await readFile(new URL(`xronomorph/${dir}/`+path,root))).length>0);
-}
 }
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 assert.equal(new Set(ids).size,ids.length,'Duplicate HTML ids');

@@ -5,12 +5,13 @@ import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {openBrowser,root} from '../modules/browser.mjs';
 import {settled,select,turnPuzzle} from '../modules/field-input.mjs';
-const r=await openBrowser(),report={schema:'standard-gears/4',engine:r.engine,physicalDevice:false,cases:[],errors:[]};let page;
+const r=await openBrowser(),report={schema:'components/5',engine:r.engine,physicalDevice:false,cases:[],errors:[]};let page;
 const frame=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
 try{
  for(const [width,height]of [[1280,800],[390,844],[844,390]].filter(([w])=>!process.env.BOUNCE_SIZE||w===Number(process.env.BOUNCE_SIZE))){
   const touch=width!==1280,context=await r.browser.newContext({viewport:{width,height},hasTouch:touch,isMobile:touch});page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));
   await page.goto(r.url+'/?debug=1&puzzle=bounce&song=turkish-circuit');await page.waitForFunction(()=>window.phaseCubeApp);await page.evaluate(()=>phaseCubeApp.ready);
+  assert.equal(await page.locator('a[href*="xronomorph"]').count(),0);assert.equal(await page.getByText('Круг ритма',{exact:true}).count(),0);
   if(r.engine==='chromium')await page.evaluate(()=>strudel.getAudioContext().setSinkId({type:'none'}));
   assert(await page.evaluate(()=>phaseCubeApp.getPuzzle().solved()));
   const click=locator=>locator[touch?'tap':'click'](),state=()=>page.evaluate(()=>phaseCubeApp.state()),inspect=()=>page.evaluate(()=>phaseCubeApp.getPresentation().active.view.inspect());
@@ -100,7 +101,7 @@ try{
  assert.deepEqual(report.errors,[]);report.status='PASS';
 }catch(e){report.status='FAIL';report.failure=e.stack;try{await page.screenshot({path:join(root,'qa/bounce/'+r.engine+'-failure.png')});report.diagnostics=await page.evaluate(()=>({d:phaseCubeApp.diagnostics(),view:phaseCubeApp.getPresentation().active.view.inspect?.(),events:phaseCubeApp.report().events.slice(-12)}));}catch{}throw e;}
 finally{
- const files=['index.html','config.js','puzzle-contract.js','app.js','style.css','graphics/stage.js','graphics/pointer.js','controls/puzzle.js','controls/action-controls.js','controls/player.css','puzzles/fourier/model.js','puzzles/fourier/module.js','puzzles/fourier/three-view.js','puzzles/scratch/module.js','puzzles/scratch/three-view.js','puzzles/bounce/module.js','puzzles/bounce/terrain.js','puzzles/bounce/three-view.js'];
+ const html=await readFile(join(root,'index.html'),'utf8'),files=[...new Set(['index.html',...[...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)].map(m=>m[1].split('?')[0])])];
  report.sourceSha256=Object.fromEntries(await Promise.all(files.map(async f=>[f,createHash('sha256').update(await readFile(join(root,f))).digest('hex')])));
  await writeFile(join(root,'qa/bounce/'+r.engine+(process.env.BOUNCE_SIZE?'-'+process.env.BOUNCE_SIZE:'')+'-report.json'),JSON.stringify(report,null,2)+'\n');await r.close();console.log(JSON.stringify({status:report.status,engine:r.engine,cases:report.cases,failure:report.failure,errors:report.errors}));
 }

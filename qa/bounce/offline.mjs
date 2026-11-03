@@ -11,6 +11,7 @@ try{
  page.on('pageerror',e=>errors.push(e.message));page.on('request',q=>{if(/^https?:/.test(q.url()))external.push(q.url());});
  await page.goto(pathToFileURL(join(root,'steel-shift-cube.html')).href+'?debug=1');await page.waitForFunction(()=>window.phaseCubeApp);await page.evaluate(()=>phaseCubeApp.ready);
  assert.equal(await page.evaluate(()=>phaseCubeApp.getPuzzleModule().id),'bounce');
+ assert.equal(await page.getByText('Круг ритма',{exact:true}).count(),0);await page.screenshot({path:join(root,'qa/bounce/components-start.png')});
  if(r.engine==='chromium')await page.evaluate(()=>strudel.getAudioContext().setSinkId({type:'none'}));
  await page.locator('#start').click();await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
  await page.locator('#next-object').click();const before=await page.evaluate(()=>phaseCubeApp.state());await page.locator('#turn-left').click();await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);assert.notDeepEqual(await page.evaluate(()=>phaseCubeApp.state()),before);

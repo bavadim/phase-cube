@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+const compositionIds=require('./compositions/catalog.js');
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const B=require('./puzzles/bounce/terrain.js'),Module=require('./puzzles/bounce/module.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,a+' != '+b);
@@ -45,9 +46,9 @@ test('gear model retains exact undo, independent riff moves and solvable hints',
  let n=0;while(!m.solved()){m.apply(m.hint());assert(++n<50);}assert.equal(m.correct(),6);
 });
 test('every score: six visible rotors retain native Strudel attacks and their true repeat periods',async()=>{
- const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-loader.js'),F=require('./puzzles/fourier/model.js');
+ const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-contract.js'),F=require('./puzzles/fourier/model.js');
  const loader=new Loader(S,{palette,registry,library,storage:null});
- for(const songId of L.files){
+ for(const songId of compositionIds){
   const p=await loader.prepareSession({puzzleId:'bounce',songId}),m=p.model,music=new Music(S,p);assert(m.solved());
   for(const move of ['A',"B'",'C-','D+']){
    const state=m.applyTo(m.snapshot(),move),rows=music.rows(state);

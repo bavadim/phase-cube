@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {S,Phases,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),Contract=require('./puzzle-contract.js'),Parts=require('./controls/pattern-pieces.js'),L=require('./composition-loader.js');
+const {S,Phases,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),Contract=require('./puzzle-contract.js'),Parts=require('./controls/pattern-pieces.js'),L=require('./composition-contract.js');
 const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)};
 const loader=new Loader(S,{palette,registry,library,storage}),prepared=new Map();
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)])));

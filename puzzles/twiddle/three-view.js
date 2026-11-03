@@ -50,4 +50,3 @@ window.TwiddleView = {create({scene,resources,model,game,tween}){
   };
   sync();return view;
 }};
-TwiddlePuzzle.mount=context=>PuzzleControl.mount({...context,module:TwiddlePuzzle,createView:TwiddleView.create});

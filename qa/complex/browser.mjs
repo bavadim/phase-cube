@@ -59,7 +59,7 @@ try{
  const c=await r.browser.newContext(),p=await c.newPage();p.on('pageerror',e=>report.errors.push(e.message));
  await p.goto(r.url+'/?debug=1&puzzle=fourier');await p.waitForFunction(()=>window.phaseCubeApp);await p.evaluate(()=>phaseCubeApp.ready);
  report.pcm=await p.evaluate(async()=>{
-  const S=strudel,app=phaseCubeApp,model=new FourierModel.Model(),base=S.note('c4 e4 g4 e4').s('sine').gain(.4).distort(.4).clip(.15),row=PhaseCubeLibrary.eventsOf(base,1).map((e,i)=>({...e,id:'0:'+i}));
+  const S=strudel,app=phaseCubeApp,model=new FourierModel.Model(),base=S.note('c4 e4 g4 e4').s('sine').gain(.4).distort(.4).clip(.15),row=MusicCompositionContract.eventsOf(base,1).map((e,i)=>({...e,id:'0:'+i}));
   const fixture={puzzle:{manifest:FourierPuzzle.manifest,model},binding:{periods:Array(6).fill(FourierBinding.period(row))},fragments:{periodBars:1,targetRows:Array(6).fill(row),basePatterns:Array(6).fill(base)}};
   const states=[0,model.applyTo(0,'A-'),model.applyTo(model.applyTo(0,'A-'),'A-'),model.applyTo(0,"A'")];
   const jobs=states.map(state=>({pattern:PuzzleProjection.project(S,fixture,state).patterns[0],bars:1,cps:1}));

@@ -118,4 +118,3 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   };
   draw(display);return view;
 }};
-ScratchPuzzle.mount=context=>PuzzleControl.mount({...context,module:ScratchPuzzle,createView:ScratchView.create});

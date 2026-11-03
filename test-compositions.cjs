@@ -3,15 +3,14 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),vm=requir
 const root=__dirname;
 const context={window:{addEventListener(){}},document:{addEventListener(){}},console:{log(){},warn:console.warn,error:console.error},performance,setTimeout,clearTimeout,setInterval,clearInterval,TextEncoder,TextDecoder,URL,Blob};
 vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'vendor/strudel-web-1.3.0.js'),'utf8'),context);const S=context.strudel;S.miniAllStrings();
-const {Loader,analyze,attacks}=require('./composition-loader.js');
+const {Loader}=require('./composition-loader.js'),{analyze,attacks}=require('./composition-contract.js');
 const palette=require('./config.js').palette;
 const puzzles=require('./puzzles/registry.js').modules;
 const Parts=require('./controls/pattern-pieces.js');
-const Contract=require('./puzzle-contract.js');
 const build=(puzzle,song)=>puzzle.configure?.(S,song,{palette}).game||Parts.build(S,song,{count:puzzle.manifest.fragments,palette});
-const loader=new Loader(S,{palette,baseURL:pathToFileURL(root+'/')});
+const loader=new Loader(S,{baseURL:pathToFileURL(root+'/')});
 test('pinned Strudel compiles every score and derives the cube from declared player parts',async()=>{
- const catalog=await loader.catalog();assert.equal(catalog.length,3);
+ const catalog=await loader.catalog();assert.deepEqual(catalog.map(song=>song.id),require('./compositions/catalog.js'));
  assert(catalog.every(item=>item.title&&!item.pattern),'Catalog must not compile unselected scores');
  const songs=await Promise.all(catalog.map(item=>loader.load(item.id)));
  for(const song of songs){
@@ -44,11 +43,11 @@ test('pinned Strudel compiles every score and derives the cube from declared pla
 });
 test('module changes drive all displayed metadata and player rows without a config edit',async()=>{
  const base=await loader.load('turkish-circuit');
- const changed=analyze(S,{...base,title:'Другая музыка',bpm:120,playerParts:[{key:'bell',name:'Колокольчик',pattern:S.note('c5 d5 e5 f5 g5 a5 b5 c6').s('sine').duration(.1)}]},'test',palette);
+ const changed=analyze(S,{...base,title:'Другая музыка',bpm:120,playerParts:[{key:'bell',name:'Колокольчик',pattern:S.note('c5 d5 e5 f5 g5 a5 b5 c6').s('sine').duration(.1)}]},'test');
  assert.equal(changed.stats.seconds,128);
  for(const puzzle of puzzles){const game=build(puzzle,changed);if(!puzzle.configure){assert.equal(game.voices.length,puzzle.manifest.fragments);assert(game.voices.every(v=>v.name.startsWith('Колокольчик')));}else assert.equal(game.targetRows.flat().length,changed.stats.attacks);}
  assert.deepEqual(changed.stats.parts.map(p=>p.key),['bell']);
- assert.throws(()=>analyze(S,{...base,playerParts:[]},'test',palette),/партий/);
- assert.throws(()=>analyze(S,{...base,periodBars:3},'test',palette),/целое/);
- assert.throws(()=>analyze(S,{...base,playerParts:[{key:'x',name:'Пусто',pattern:S.silence}]},'test',palette),/Пустая/);
+ assert.throws(()=>analyze(S,{...base,playerParts:[]},'test'),/партий/);
+ assert.throws(()=>analyze(S,{...base,periodBars:3},'test'),/целое/);
+ assert.throws(()=>analyze(S,{...base,playerParts:[{key:'x',name:'Пусто',pattern:S.silence}]},'test'),/Пустая/);
 });

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Shared native Strudel playback; musical projections are separate strategies. */
 window.PuzzleMusic=(()=>{
-  const eventsOf=(p,bars)=>PhaseCubeLibrary.eventsOf(p,bars),eventKey=rows=>JSON.stringify(rows);
+  const eventKey=rows=>JSON.stringify(rows);
   class Music{
     constructor(S,prepared){Object.assign(this,{S,prepared,model:prepared.model,game:prepared.fragments,song:prepared.composition,puzzle:prepared.puzzle,binding:prepared.binding});this.basePatterns=this.game.basePatterns;this.localBars=this.game.periodBars;this.cache=new Map();this.displayCache=new WeakMap();}
     project(state){
@@ -32,5 +32,5 @@ window.PuzzleMusic=(()=>{
     pattern(state){return this.S.stack(...this.shifted(state));}
     code(state){return '// '+this.song.title+' / '+this.game.count+' fragments\n'+(this.puzzle.manifest.projection!=='pose-phase/1'?JSON.stringify({projection:this.binding.algorithm,state,coefficients:this.project(state).coefficients}):this.phases(state).map((p,i)=>'pieces['+i+'].late('+p.ticks+'*'+this.localBars+'/'+this.binding.gridSteps+')').join('\n'));}
   }
-  return{Music,eventsOf,eventKey};
+  return{Music};
 })();

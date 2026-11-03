@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Picture/music partitioning belongs to this puzzle, not the score loader. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../../composition-loader.js'));else root.ScratchPartition=factory(root.PhaseCubeLibrary);})(globalThis,function(L){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../../composition-contract.js'));else root.ScratchPartition=factory(root.MusicCompositionContract);})(globalThis,function(L){
   'use strict';
   const names={kick:'Бочка',hat:'Хэт',snare:'Рабочий барабан',clap:'Хлопок',openhat:'Открытый хэт',metal:'Перкуссия',noise:'Шумовой эффект',hook:'Главная тема',lead:'Лид',stab:'Аккорды',bass:'Бас',sub:'Саб-бас',riff:'Риф',pluck:'Плак',answer:'Ответ темы',acid:'Эйсид'};
   function layout(count){

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Common result contract; each puzzle family keeps its own musical action. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./composition-loader.js'),require('./phase-map.js'),require('./puzzles/fourier/binding.js'),require('./puzzles/scratch/binding.js'));else root.PuzzleProjection=factory(root.PhaseCubeLibrary,root.PuzzlePhases,root.FourierBinding,root.ScratchBinding);})(globalThis,function(L,Phases,Fourier,Scratch){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./phase-map.js'),require('./puzzles/fourier/binding.js'),require('./puzzles/scratch/binding.js'));else root.PuzzleProjection=factory(root.PuzzlePhases,root.FourierBinding,root.ScratchBinding);})(globalThis,function(Phases,Fourier,Scratch){
   'use strict';
   const bindings=[Fourier,Scratch];
   function strategy(spec){const binding=bindings.find(b=>b.VERSION===spec.projection);if(!binding)throw new Error('Неизвестная музыкальная проекция: '+spec.projection);return binding;}
