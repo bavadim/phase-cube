@@ -1,0 +1,83 @@
+{
+  "schema": "hold-gears/3",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "cases": [
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native CDP touch",
+      "sixLayers": true,
+      "modelSelection": true,
+      "nextSelection": true,
+      "buttonPreviewOff": true,
+      "stationaryHold": true,
+      "independentTargets": true,
+      "releaseSingleMove": true,
+      "continuousGain": 1.587,
+      "undo": true,
+      "cancel": true,
+      "fixedReadhead": true,
+      "hintsWin": true,
+      "hints": 6,
+      "legacyFieldInput": true,
+      "navigation": [
+        {
+          "id": "twiddle",
+          "choices": 2,
+          "selectionOnly": true,
+          "hintContinuation": true
+        },
+        {
+          "id": "rubik",
+          "choices": 6,
+          "selectionOnly": true,
+          "hintContinuation": true
+        },
+        {
+          "id": "fourier",
+          "choices": 6,
+          "selectionOnly": true,
+          "hintContinuation": true
+        },
+        {
+          "id": "scratch",
+          "choices": 13,
+          "selectionOnly": true,
+          "hintContinuation": true
+        }
+      ],
+      "geometry": {
+        "overflow": false,
+        "canvases": 1,
+        "minTargetHeight": 56,
+        "stage": {
+          "x": 10,
+          "y": 10,
+          "width": 459.53125,
+          "height": 370,
+          "top": 10,
+          "right": 469.53125,
+          "bottom": 380,
+          "left": 10
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "d6968ff9564926aec76967ad34a27e3f5ba48b7b3fb40e6125293da6443960e3",
+    "config.js": "fd9f1b1061f54c609417c14af2eb6081f34baa3d552d318513f504ba84ce4a8e",
+    "app.js": "6bee70912cd16eac1411ee4bef1f5c6a593231b039ec288259e9204e79d880bd",
+    "style.css": "721ed3a24fd340b7c820f1cd0639b502a452ecd9455728727cd0004ab9d09d01",
+    "graphics/stage.js": "8fd958efe406fe537c78a289a1f639bc6e93cb015069f9c59c381ab35ab3cd4f",
+    "graphics/pointer.js": "1bc05eead2a7bb26696a24def3fecc85b5f4e32b90f90b7014420986cb0f3395",
+    "controls/puzzle.js": "a72297f7922e006ac6e7f4df6c30247d533c98a83a857a885472be29483a5046",
+    "controls/action-controls.js": "84068381b7f77e6839fdd98cc1faea7659bc38a744f650f810bd51e8bee92c5c",
+    "controls/player.css": "454d3d903b29fc2bef5a1b3a74b118a444daf5f941790741dcfa26f488c9fba3",
+    "puzzles/bounce/module.js": "8d6ed1a22e15d022ce4b1d1dff9413548ca4583b9f576392e8d002e4c7326b66",
+    "puzzles/bounce/terrain.js": "ed8541a00ab5bf4c15da60b06ff90de7d7b7ad9d46a4fb0a2b07128c2de4ed49",
+    "puzzles/bounce/three-view.js": "ca547dda8a41a4d5bdff991c7d807d10a80002056accfadbbb4c78bcadceac1b"
+  }
+}

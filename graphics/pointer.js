@@ -13,6 +13,8 @@ window.PuzzlePointer=class{
         slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false,custom:false};
       hover(this.gesture.hit,{pointerType:event.pointerType});
       try{canvas.setPointerCapture(event.pointerId);}catch(e){log('pointer.capture-failed',{message:e.message});}
+      // Some objects respond to holding still, rather than waiting for a drag.
+      if(this.gesture.hit?.pressable)this.gesture.custom=beginDrag(this.gesture.hit,{x:event.clientX,y:event.clientY})===true;
       event.preventDefault();
     });
     listen('pointermove',event=>{
@@ -21,7 +23,7 @@ window.PuzzlePointer=class{
       if(g.id!==event.pointerId)return;
       if(!g.moved&&Math.hypot(event.clientX-g.startX,event.clientY-g.startY)>g.slop){
         g.moved=true;
-        if(enabled())g.custom=beginDrag(g.hit,{x:g.startX,y:g.startY})===true;
+        if(enabled()&&!g.custom)g.custom=beginDrag(g.hit,{x:g.startX,y:g.startY})===true;
         log('pointer.drag',{key:g.hit?.key??null,custom:g.custom});
       }
       if(g.moved&&enabled()){

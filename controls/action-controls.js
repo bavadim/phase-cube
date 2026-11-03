@@ -1,19 +1,22 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Generic keyed action lists around a persistent hint. No puzzle rules here. */
 window.PuzzleActionControls=class{
-  constructor(host,{model,onMove,onPreview,onFocus}){
+  constructor(host,{model,onMove,onPreview,onFocus,onNext}){
     Object.assign(this,{host,model,onFocus,callbacks:{perform:onMove,preview:onPreview}});this.focused=null;this.items=new Map();
     const hint=document.getElementById('hint');hint.remove();host.replaceChildren();host.setAttribute('aria-label','Действия выбранного объекта');
     this.caption=document.createElement('div');this.caption.className='puzzle-operation';this.caption.setAttribute('role','status');host.append(this.caption);
     const side=name=>{const el=document.createElement('div');el.className='puzzle-actions puzzle-actions-'+name;
       const title=document.createElement('span');title.className='puzzle-action-group';const row=document.createElement('div');row.className='puzzle-action-row';el.append(title,row);host.append(el);return{el,title,row};};
     this.left=side('left');this.hintSlot=document.createElement('span');this.hintSlot.className='hint-slot';this.hintSlot.append(hint);host.append(this.hintSlot);this.right=side('right');
+    this.next=document.createElement('button');this.next.type='button';this.next.id='next-object';this.next.className='puzzle-action puzzle-next';
+    this.next.innerHTML='<span class="puzzle-action-icon" aria-hidden="true">⇥</span><span class="puzzle-next-label">Объект</span>';
+    this.next.title='Следующий объект';this.next.setAttribute('aria-label','Следующий объект');this.next.onclick=()=>{if(!this.next.disabled)onNext?.();};
     this.update(true);
   }
-  update(disabled,{label=this.model.selectionLabel?.()||''}={}){
+  update(disabled,{label=this.model.selectionLabel?.()||'',canSelect=!disabled}={}){
     const actions=PuzzleActions.validate(this.model.actions(this.callbacks)),split=Math.ceil(actions.length/2),seen=new Set();
     this.host.dataset.actionCount=actions.length;this.host.classList.toggle('many-actions',actions.length>2);
-    this.host.style.setProperty('--left-grow',Math.max(1,split)+'fr');this.host.style.setProperty('--right-grow',Math.max(1,actions.length-split)+'fr');
+    this.host.style.setProperty('--left-grow',(split+1)+'fr');this.host.style.setProperty('--right-grow',Math.max(1,actions.length-split)+'fr');
     this.caption.hidden=!label;if(this.caption.textContent!==label)this.caption.textContent=label;
     const groups=[actions.slice(0,split),actions.slice(split)];
     [this.left,this.right].forEach((side,i)=>{
@@ -47,12 +50,16 @@ window.PuzzleActionControls=class{
         b.classList.toggle('hinted',(focused&&this.focused.source==='hint')||demo);
         if(focused||demo)b.dataset.focusSource=this.focused.source;else delete b.dataset.focusSource;
       });
-      // Reorder existing nodes only when the model actually changes its list.
-      groups[i].forEach((action,index)=>{const b=this.items.get(action.id).button;if(side.row.children[index]!==b)side.row.insertBefore(b,side.row.children[index]||null);});
+      // Include navigation in the stable order, preserving keyboard focus on updates.
+      const order=groups[i].map(action=>this.items.get(action.id).button);
+      if(i===0)order.splice(Math.min(1,order.length),0,this.next);
+      order.forEach((b,index)=>{if(side.row.children[index]!==b)side.row.insertBefore(b,side.row.children[index]||null);});
     });
     for(const [id,item]of this.items)if(!seen.has(id)){item.button.remove();this.items.delete(id);}
+    // Navigation belongs beside the turn arrows, independent of move validity.
+    this.next.disabled=!canSelect;
   }
   setFocus(value){this.focused=value;}
   focus(){[...this.items.values()].find(item=>!item.button.disabled)?.button.focus({preventScroll:true});}
-  destroy(){for(const {button}of this.items.values())button.remove();this.items.clear();}
+  destroy(){for(const {button}of this.items.values())button.remove();this.next.remove();this.items.clear();}
 };

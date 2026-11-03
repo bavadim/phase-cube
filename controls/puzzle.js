@@ -4,7 +4,7 @@ window.PuzzleControl = {
   mount({presentation,module,commands,model,game,binding,canInteract,onMove,onPreview,onSelect,createView}){
     let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
     const hasSelection=()=>!view?.requiresSelection||armed!=null;
-    const updateControls=()=>controls?.update(disabled||!hasSelection(),{label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
+    const updateControls=()=>controls?.update(disabled||!hasSelection(),{canSelect:!disabled&&model.choices().length>0,label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
     const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:hasSelection()?model.selected:null,move:focus.current?.move||null,focus:focus.current});};
     const focus=new PuzzleActionFocus({
       resolve:value=>{
@@ -19,8 +19,14 @@ window.PuzzleControl = {
     });
     const intent=(move,extra={})=>({key:model.moveTarget(move),move,...extra});
     const fromHit=hit=>hit?.move??(hit&&typeof hit.inverted==='boolean'?model.moveFor(hit.key,hit.inverted):null);
-    controls=new PuzzleActionControls(commands,{model,onMove,onPreview:()=>{},onFocus:(action,source,active)=>{
-      if(active&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
+    const select=key=>{focus.reset();model.select(key);armed=key;onSelect();feedback();};
+    controls=new PuzzleActionControls(commands,{model,onMove,onPreview:()=>{},onNext:()=>{
+      if(!canInteract())return;
+      presentation.pointer.cancel('next-object');
+      const choices=model.choices(),index=hasSelection()?choices.findIndex(c=>c.key===model.selected):-1;
+      if(choices.length){select(choices[(index+1)%choices.length].key);view.focus?.(model.selected);}
+    },onFocus:(action,source,active)=>{
+      if(active&&view?.buttonPreview!==false&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
       else focus.clear(source,action.id);
     }});
     view=presentation.mount(createView,{module,model,game,binding,onMove,
@@ -37,7 +43,7 @@ window.PuzzleControl = {
         if(!hit.selectOnly&&move&&model.validMove(move)&&(event.pointerType!=='touch'||armed===model.selected&&hit.key===armed)){
           onMove(move);return;
         }
-        focus.reset();model.select(hit.key);armed=hit.key;onSelect();feedback();
+        select(hit.key);
       }
     });
     return {

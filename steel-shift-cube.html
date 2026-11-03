@@ -39,20 +39,16 @@ button:disabled { opacity:.38; cursor:default; }
 .orbit-sequencer::before { content:''; position:absolute; inset:17%; border-radius:50%; background:radial-gradient(circle,#e2e9d9,#eff1e5 68%,transparent 70%); z-index:-1; }
 .puzzle-stage { position:absolute; left:50%; top:50%; width:66%; height:66%; transform:translate(-50%,-50%); }
 .puzzle-stage canvas { display:block; width:100%; height:100%; touch-action:none; }
-.bounce-voices { display:flex; justify-content:center; gap:6px; }
 .bounce-instruction { font-size:.9rem; color:var(--muted); text-align:center; text-wrap:balance; }
 .bounce-readhead { position:absolute; left:50%; bottom:1%; width:clamp(24px,4vmin,34px); height:clamp(30px,5vmin,44px); transform:translateX(-50%); pointer-events:none; }
 .bounce-readhead svg { width:100%; height:100%; fill:var(--green); filter:drop-shadow(0 2px 0 var(--panel)); }
 body[data-puzzle="bounce"] .orbital-workspace { width:100%; height:100%; aspect-ratio:auto; }
 body[data-puzzle="bounce"] #orbit-score,body[data-puzzle="bounce"] .orbit-sequencer::before { display:none; }
 body[data-puzzle="bounce"] .puzzle-stage { left:0; top:0; width:100%; height:100%; transform:none; }
-.bounce-voices button { flex:1; max-width:64px; min-width:44px; min-height:44px; border:2px solid var(--voice-color); border-radius:50%; color:var(--voice-color); background:var(--panel); font-size:1.1rem; font-weight:700; }
-.bounce-voices button[aria-pressed="true"] { background:var(--voice-color); color:white; box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--voice-color); }
 body[data-puzzle="bounce"] .puzzle-operation { font-size:.95rem; }
 @media (max-height:520px) and (min-aspect-ratio:4/3) {
-  body[data-puzzle="bounce"] .controls-dock { flex:0 0 clamp(284px,38vw,320px); }
+  body[data-puzzle="bounce"] .controls-dock { flex:0 0 clamp(350px,42vw,380px); }
   body[data-puzzle="bounce"] .game-status { position:absolute; top:var(--space); left:var(--space); z-index:2; pointer-events:none; }
-  .bounce-voices { gap:4px; }
 }
 .puzzle-stage[data-context="lost"]::after { content:'Восстанавливаем изображение…'; position:absolute; inset:0; display:grid; place-items:center; background:var(--panel); text-align:center; }
 .completion { pointer-events:none; }
@@ -149,9 +145,11 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 .puzzle-actions-left { grid-column:1; }
 .puzzle-actions-right { grid-column:3; }
 .puzzle-action-group { display:block; margin-bottom:5px; text-align:center; color:var(--muted); font-size:1rem; }
-.puzzle-action-row { display:flex; flex-wrap:wrap; gap:6px; }
+.puzzle-action-row { display:flex; flex-wrap:nowrap; gap:6px; }
 .puzzle-action { flex:1 1 44px; min-width:44px; min-height:var(--command-size); display:grid; place-items:center; padding:4px; border:1px solid var(--green); border-radius:clamp(14px,2vmin,24px); color:var(--panel); background:var(--green); font-size:clamp(28px,4vmin,44px); line-height:1; }
 .puzzle-action-icon { display:block; }
+.puzzle-next { align-content:center; gap:2px; }
+.puzzle-next-label { font-size:.65rem; line-height:1.1; }
 img.puzzle-action-icon { width:1em; height:1em; object-fit:contain; }
 .puzzle-action:hover:not(:disabled) { background:#326c50; }
 .puzzle-action:active:not(:disabled) { transform:translateY(1px); }
@@ -166,7 +164,7 @@ body[data-phase="shuffling"] .puzzle-action.hinted { opacity:1; }
 .secondary-button>span[aria-hidden] { font-size:1.4rem; line-height:1; }
 #pause-icon { width:1.3rem; font-weight:700; }
 @media (min-width:900px) and (min-aspect-ratio:3/2), (max-height:520px) and (min-aspect-ratio:4/3) {
-  .controls-dock { flex:0 0 clamp(216px,24vw,400px); width:auto; margin:0; }
+  .controls-dock { flex:0 0 clamp(350px,29vw,430px); width:auto; margin:0; }
 }
 @media (max-height:520px) and (min-aspect-ratio:4/3) {
   .controls-dock { gap:.25rem; }
@@ -177,7 +175,7 @@ body[data-phase="shuffling"] .puzzle-action.hinted { opacity:1; }
   .action-label { display:none; }
 }
 /* Reflow only the renderer, based on available dock width and action count. */
-@container (max-width:280px) {
+@container (max-width:340px) {
   .puzzle-command { grid-template-columns:1fr 1fr; gap:6px; }
   .puzzle-operation { order:0; }
   .puzzle-actions-left { order:1; grid-column:1; }
@@ -3843,6 +3841,8 @@ window.PuzzlePointer=class{
         slop:event.pointerType==='touch'?12:6,hit:pick(event.clientX,event.clientY),moved:false,custom:false};
       hover(this.gesture.hit,{pointerType:event.pointerType});
       try{canvas.setPointerCapture(event.pointerId);}catch(e){log('pointer.capture-failed',{message:e.message});}
+      // Some objects respond to holding still, rather than waiting for a drag.
+      if(this.gesture.hit?.pressable)this.gesture.custom=beginDrag(this.gesture.hit,{x:event.clientX,y:event.clientY})===true;
       event.preventDefault();
     });
     listen('pointermove',event=>{
@@ -3851,7 +3851,7 @@ window.PuzzlePointer=class{
       if(g.id!==event.pointerId)return;
       if(!g.moved&&Math.hypot(event.clientX-g.startX,event.clientY-g.startY)>g.slop){
         g.moved=true;
-        if(enabled())g.custom=beginDrag(g.hit,{x:g.startX,y:g.startY})===true;
+        if(enabled()&&!g.custom)g.custom=beginDrag(g.hit,{x:g.startX,y:g.startY})===true;
         log('pointer.drag',{key:g.hit?.key??null,custom:g.custom});
       }
       if(g.moved&&enabled()){
@@ -4017,7 +4017,7 @@ window.PuzzleControl = {
   mount({presentation,module,commands,model,game,binding,canInteract,onMove,onPreview,onSelect,createView}){
     let armed=null,disabled=true,demonstrating=false,view=null,controls=null;
     const hasSelection=()=>!view?.requiresSelection||armed!=null;
-    const updateControls=()=>controls?.update(disabled||!hasSelection(),{label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
+    const updateControls=()=>controls?.update(disabled||!hasSelection(),{canSelect:!disabled&&model.choices().length>0,label:hasSelection()?model.selectionLabel?.(focus.current?.point)||'':view.selectionPrompt||'Выберите объект'});
     const feedback=()=>{if(presentation.active?.view===view)presentation.feedback({selected:hasSelection()?model.selected:null,move:focus.current?.move||null,focus:focus.current});};
     const focus=new PuzzleActionFocus({
       resolve:value=>{
@@ -4032,8 +4032,14 @@ window.PuzzleControl = {
     });
     const intent=(move,extra={})=>({key:model.moveTarget(move),move,...extra});
     const fromHit=hit=>hit?.move??(hit&&typeof hit.inverted==='boolean'?model.moveFor(hit.key,hit.inverted):null);
-    controls=new PuzzleActionControls(commands,{model,onMove,onPreview:()=>{},onFocus:(action,source,active)=>{
-      if(active&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
+    const select=key=>{focus.reset();model.select(key);armed=key;onSelect();feedback();};
+    controls=new PuzzleActionControls(commands,{model,onMove,onPreview:()=>{},onNext:()=>{
+      if(!canInteract())return;
+      presentation.pointer.cancel('next-object');
+      const choices=model.choices(),index=hasSelection()?choices.findIndex(c=>c.key===model.selected):-1;
+      if(choices.length){select(choices[(index+1)%choices.length].key);view.focus?.(model.selected);}
+    },onFocus:(action,source,active)=>{
+      if(active&&view?.buttonPreview!==false&&canInteract()&&action.move!=null)focus.set(source,intent(action.move,{owner:action.id}));
       else focus.clear(source,action.id);
     }});
     view=presentation.mount(createView,{module,model,game,binding,onMove,
@@ -4050,7 +4056,7 @@ window.PuzzleControl = {
         if(!hit.selectOnly&&move&&model.validMove(move)&&(event.pointerType!=='touch'||armed===model.selected&&hit.key===armed)){
           onMove(move);return;
         }
-        focus.reset();model.select(hit.key);armed=hit.key;onSelect();feedback();
+        select(hit.key);
       }
     });
     return {
@@ -4111,19 +4117,22 @@ window.PuzzleControl = {
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Generic keyed action lists around a persistent hint. No puzzle rules here. */
 window.PuzzleActionControls=class{
-  constructor(host,{model,onMove,onPreview,onFocus}){
+  constructor(host,{model,onMove,onPreview,onFocus,onNext}){
     Object.assign(this,{host,model,onFocus,callbacks:{perform:onMove,preview:onPreview}});this.focused=null;this.items=new Map();
     const hint=document.getElementById('hint');hint.remove();host.replaceChildren();host.setAttribute('aria-label','Действия выбранного объекта');
     this.caption=document.createElement('div');this.caption.className='puzzle-operation';this.caption.setAttribute('role','status');host.append(this.caption);
     const side=name=>{const el=document.createElement('div');el.className='puzzle-actions puzzle-actions-'+name;
       const title=document.createElement('span');title.className='puzzle-action-group';const row=document.createElement('div');row.className='puzzle-action-row';el.append(title,row);host.append(el);return{el,title,row};};
     this.left=side('left');this.hintSlot=document.createElement('span');this.hintSlot.className='hint-slot';this.hintSlot.append(hint);host.append(this.hintSlot);this.right=side('right');
+    this.next=document.createElement('button');this.next.type='button';this.next.id='next-object';this.next.className='puzzle-action puzzle-next';
+    this.next.innerHTML='<span class="puzzle-action-icon" aria-hidden="true">⇥</span><span class="puzzle-next-label">Объект</span>';
+    this.next.title='Следующий объект';this.next.setAttribute('aria-label','Следующий объект');this.next.onclick=()=>{if(!this.next.disabled)onNext?.();};
     this.update(true);
   }
-  update(disabled,{label=this.model.selectionLabel?.()||''}={}){
+  update(disabled,{label=this.model.selectionLabel?.()||'',canSelect=!disabled}={}){
     const actions=PuzzleActions.validate(this.model.actions(this.callbacks)),split=Math.ceil(actions.length/2),seen=new Set();
     this.host.dataset.actionCount=actions.length;this.host.classList.toggle('many-actions',actions.length>2);
-    this.host.style.setProperty('--left-grow',Math.max(1,split)+'fr');this.host.style.setProperty('--right-grow',Math.max(1,actions.length-split)+'fr');
+    this.host.style.setProperty('--left-grow',(split+1)+'fr');this.host.style.setProperty('--right-grow',Math.max(1,actions.length-split)+'fr');
     this.caption.hidden=!label;if(this.caption.textContent!==label)this.caption.textContent=label;
     const groups=[actions.slice(0,split),actions.slice(split)];
     [this.left,this.right].forEach((side,i)=>{
@@ -4157,14 +4166,18 @@ window.PuzzleActionControls=class{
         b.classList.toggle('hinted',(focused&&this.focused.source==='hint')||demo);
         if(focused||demo)b.dataset.focusSource=this.focused.source;else delete b.dataset.focusSource;
       });
-      // Reorder existing nodes only when the model actually changes its list.
-      groups[i].forEach((action,index)=>{const b=this.items.get(action.id).button;if(side.row.children[index]!==b)side.row.insertBefore(b,side.row.children[index]||null);});
+      // Include navigation in the stable order, preserving keyboard focus on updates.
+      const order=groups[i].map(action=>this.items.get(action.id).button);
+      if(i===0)order.splice(Math.min(1,order.length),0,this.next);
+      order.forEach((b,index)=>{if(side.row.children[index]!==b)side.row.insertBefore(b,side.row.children[index]||null);});
     });
     for(const [id,item]of this.items)if(!seen.has(id)){item.button.remove();this.items.delete(id);}
+    // Navigation belongs beside the turn arrows, independent of move validity.
+    this.next.disabled=!canSelect;
   }
   setFocus(value){this.focused=value;}
   focus(){[...this.items.values()].find(item=>!item.button.disabled)?.button.focus({preventScroll:true});}
-  destroy(){for(const {button}of this.items.values())button.remove();this.items.clear();}
+  destroy(){for(const {button}of this.items.values())button.remove();this.next.remove();this.items.clear();}
 };
 
 </script>
@@ -4944,9 +4957,11 @@ ScratchPuzzle.mount=context=>PuzzleControl.mount({...context,module:ScratchPuzzl
   const tokenWidth=event=>.065+.002*(Math.abs(pitch(event))%24)+.05*Math.sqrt(Math.min(1,event.gate*8));
   const matched=(slot,events,gain)=>Math.abs(gain-1)<1e-7&&events.some(e=>Math.abs(delta(slot.time,e.time))<1e-7&&e.signature===slot.signature);
   const rotation=(phase,period)=>front-wrap(phase/period)*TAU;
+  // Positions are unwrapped audio cycles, so holding across loop boundaries is continuous.
+  const heldPhase=(phase,start,position,period)=>phase-8*(position-start)/period;
   function point(time,r,y=0){const a=time*TAU;return{x:Math.sin(a)*r,y,z:Math.cos(a)*r};}
   const angle=p=>Math.atan2(p.x,p.z)/TAU;
-  return{wrap,delta,TAU,front,gainDragSpan,attacks,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,matched,rotation,point,angle};
+  return{wrap,delta,TAU,front,gainDragSpan,attacks,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,matched,rotation,heldPhase,point,angle};
 });
 
 </script>
@@ -4966,7 +4981,7 @@ ScratchPuzzle.mount=context=>PuzzleControl.mount({...context,module:ScratchPuzzl
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Six physical layers, a fixed read head, independent local loop clocks. */
-window.BounceView={create({scene,resources,model,game,binding,tween,onEditPreview,onSelect}){
+window.BounceView={create({scene,resources,model,game,binding,tween,onEditPreview}){
   const T=THREE,F=FourierModel,B=BounceTerrain,own=x=>resources.own(x),root=new T.Group();scene.add(root);
   const spacing=.80,height=i=>i*spacing,centerY=height(5)/2;
   const camera=new T.OrthographicCamera(-3,3,3,-3,.1,60);camera.position.set(9,centerY+9,9);camera.lookAt(0,centerY,0);
@@ -4977,11 +4992,11 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
   const shaft=mesh(own(new T.CylinderGeometry(.14,.14,height(5)+.44,20)),material(0xafa58a,{metalness:.3}));shaft.position.y=centerY;
   const cap=mesh(own(new T.SphereGeometry(.19,20,12)),material(0xba9160));cap.position.y=height(5)+.27;
   const N=192,inner=.25,base=game.targetRows.map((row,i)=>B.attacks(row,binding.periods[i]));
-  const socketGeometry=own(new T.TorusGeometry(.12,.025,7,24)),haloGeometry=own(new T.TorusGeometry(.18,.019,6,24));
+  const socketGeometry=own(new T.TorusGeometry(.12,.025,7,24));
   const padGeometries=Array.from({length:12},(_,i)=>own(new T.CylinderGeometry(1,1,.075,3+i)));
   const layers=F.keys.map((key,i)=>{
     const group=new T.Group();group.position.y=height(i);root.add(group);
-    const rotor=new T.Group();group.add(rotor);
+    const rotor=new T.Group(),targets=new T.Group();group.add(rotor,targets);
     const materials=[],makeMat=(color,extra={})=>{const m=material(color,extra);materials.push(m);return m;};
     const color=new T.Color(game.voices[i].color),bodyMat=makeMat(color),sideMat=makeMat(color.clone().multiplyScalar(.68));
     const positions=new Float32Array((N+1)*6),indices=[],sidePositions=new Float32Array((N+1)*6);
@@ -4995,22 +5010,19 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     rotor.add(new T.LineLoop(outlineGeometry,outlineMat));
     const notes=base[i].map(event=>{
       const c=B.color(event),pad=mesh(padGeometries[B.noteClass(event)],makeMat(c),rotor);
-      const socket=mesh(socketGeometry,makeMat(c,{emissive:c,emissiveIntensity:.14}),rotor);socket.rotation.x=-Math.PI/2;
-      const halo=mesh(haloGeometry,makeMat(0xd96a50,{emissive:0xd96a50,emissiveIntensity:.35}),rotor);halo.rotation.x=-Math.PI/2;
+      const socket=mesh(socketGeometry,makeMat(c,{emissive:c,emissiveIntensity:.14}),targets);socket.rotation.x=-Math.PI/2;
       const stud=mesh(own(new T.BoxGeometry(.025,.025,.055)),makeMat(0xfff6df),rotor);
-      return{event,pad,socket,halo,stud,wrong:true};
+      return{event,pad,socket,stud,wrong:true};
     });
     const badgePoint=B.point((B.front+1.00)/B.TAU,2.37,height(i));
     const badge=mesh(own(new T.PlaneGeometry(.40,.40)),own(new T.MeshBasicMaterial({map:resources.label(game.voices[i].color,i+1),transparent:true,depthTest:false,depthWrite:false})));badge.position.copy(badgePoint);badge.quaternion.copy(camera.quaternion);badge.renderOrder=30;badge.userData={index:i,kind:'badge'};
-    return{key,index:i,group,rotor,body,geometry,positions,sides,sidePositions,outlineGeometry,outlinePositions,materials,notes,badge,opacity:1,events:base[i],gain:1};
+    return{key,index:i,group,rotor,targets,body,geometry,positions,sides,sidePositions,outlineGeometry,outlinePositions,materials,notes,badge,opacity:1,events:base[i],gain:null};
   });
-  const voices=document.createElement('div');voices.className='bounce-voices';voices.setAttribute('role','group');voices.setAttribute('aria-label','Выбор партии');
-  const buttons=F.keys.map((key,i)=>{const b=document.createElement('button');b.type='button';b.textContent=i+1;b.style.setProperty('--voice-color',game.voices[i].color);b.title=game.voices[i].name;b.setAttribute('aria-label','Партия '+(i+1)+': '+game.voices[i].name);b.onclick=()=>onSelect(selected===i?{clearSelection:true}:{key,selectOnly:true});voices.append(b);return b;});
-  const instruction=document.createElement('div');instruction.className='bounce-instruction';instruction.textContent='Крутите обод · тяните от центра';
-  document.getElementById('player-controls').prepend(instruction,voices);
+  const instruction=document.createElement('div');instruction.className='bounce-instruction';instruction.textContent='Удерживайте шестерёнку, чтобы совместить зубцы с гнёздами';
+  document.getElementById('player-controls').prepend(instruction);
   const readhead=document.createElement('div');readhead.className='bounce-readhead';readhead.setAttribute('aria-hidden','true');readhead.innerHTML='<svg viewBox="0 0 32 40"><path d="M16 2 29 20H21V38H11V20H3Z"/></svg>';
   document.getElementById('puzzle-stage').append(readhead);
-  let selected=null,disabled=true,animating=false,dragging=null,committed=null,disposed=false,previewKey='',clock={phase:0,playing:false,periodSeconds:8};
+  let selected=null,animating=false,dragging=null,committed=null,disposed=false,previewKey='',clock={phase:0,position:0,playing:false,periodSeconds:8};
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot());
   function opacity(){
     layers.forEach(layer=>{
@@ -5018,40 +5030,50 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       for(const m of layer.materials){m.opacity=alpha;m.depthWrite=alpha===1;}
       layer.badge.material.opacity=selected==null||layer.index===selected?1:.48;
     });
-    buttons.forEach((b,i)=>{b.disabled=disabled;b.setAttribute('aria-pressed',String(i===selected));});
   }
   function spin(){
-    const now=performance.now();
     layers.forEach((layer,i)=>{
-      layer.rotor.rotation.y=B.rotation(clock.phase,binding.periods[i]);
+      const rotation=B.rotation(clock.phase,binding.periods[i]);
+      layer.targets.rotation.y=rotation;
+      layer.rotor.rotation.y=rotation-(display[i].phase-F.homePhase[i])*B.TAU/8;
       const local=B.wrap(clock.phase/binding.periods[i]);
       layer.notes.forEach(note=>{
         const age=B.wrap(local-note.currentTime)*binding.periods[i]*clock.periodSeconds;
         const hit=clock.playing&&age<.09&&layer.gain>0?1-age/.09:0;
         note.pad.scale.y=1+hit*.65;
-        note.halo.material.emissiveIntensity=.2+(note.wrong?.25*(1+Math.sin(now/230)):0);
       });
     });
   }
   function draw(values){
     display=values.map(p=>({...p}));
     layers.forEach((layer,i)=>{
-      const p=display[i],phase=p.phase-F.homePhase[i];layer.events=B.shift(base[i],phase);layer.gain=p.gain;
-      for(let n=0;n<=N;n++){
-        const t=n/N,a=B.point(t,inner),b=B.point(t,B.surface(layer.events,t,p.gain)),k=n*6;
-        layer.positions.set([a.x,.04,a.z,b.x,.04,b.z],k);layer.sidePositions.set([b.x,-.11,b.z,b.x,.04,b.z],k);
-        if(n<N)layer.outlinePositions.set([b.x,.047,b.z],n*3);
+      const p=display[i],phase=p.phase-F.homePhase[i];layer.events=B.shift(base[i],phase);
+      // Phase is a transform, not a rebuild. Only radial gain changes the mesh.
+      if(layer.gain!==p.gain){
+        layer.gain=p.gain;
+        for(let n=0;n<=N;n++){
+          const t=n/N,a=B.point(t,inner),b=B.point(t,B.surface(base[i],t,p.gain)),k=n*6;
+          layer.positions.set([a.x,.04,a.z,b.x,.04,b.z],k);layer.sidePositions.set([b.x,-.11,b.z,b.x,.04,b.z],k);
+          if(n<N)layer.outlinePositions.set([b.x,.047,b.z],n*3);
+        }
+        for(const geo of [layer.geometry,layer.sides]){geo.attributes.position.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();}
+        layer.outlineGeometry.attributes.position.needsUpdate=true;layer.outlineGeometry.computeBoundingSphere();
+        layer.notes.forEach(note=>{
+          const e=note.event,t=e.time,pt=B.point(t,B.crest(e,p.gain),.09),slot=B.point(t,B.crest(e,1),.07);
+          note.pad.position.copy(pt);note.pad.scale.set(B.tokenWidth(e),1,.10);note.pad.rotation.y=-t*B.TAU;
+          const mark=B.point(t,B.crest(e,p.gain)-.045,.145);note.stud.position.copy(mark);note.stud.scale.z=1+(Math.floor(Math.abs(B.pitch(e))/12)%3)*.6;note.stud.rotation.y=-t*B.TAU;
+          note.socket.position.copy(slot);note.socket.scale.set(B.tokenWidth(e)/.10,1,1);
+        });
       }
-      for(const geo of [layer.geometry,layer.sides]){geo.attributes.position.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();}
-      layer.outlineGeometry.attributes.position.needsUpdate=true;layer.outlineGeometry.computeBoundingSphere();
-      layer.notes.forEach(note=>{
-        const e=note.event,t=B.wrap(e.time-phase/8),pt=B.point(t,B.crest(e,p.gain),.09),slot=B.point(e.time,B.crest(e,1),.07);
-        note.pad.position.copy(pt);note.pad.scale.set(B.tokenWidth(e),1,.10);note.pad.rotation.y=-t*B.TAU;
-        const mark=B.point(t,B.crest(e,p.gain)-.045,.145);note.stud.position.copy(mark);note.stud.scale.z=1+(Math.floor(Math.abs(B.pitch(e))/12)%3)*.6;note.stud.rotation.y=-t*B.TAU;
-        note.socket.position.copy(slot);note.socket.scale.set(B.tokenWidth(e)/.10,1,1);
-        note.halo.position.set(slot.x,.065,slot.z);note.wrong=!B.matched(e,layer.events,p.gain);note.halo.visible=note.wrong;note.currentTime=t;
-      });
+      layer.notes.forEach(note=>{note.wrong=!B.matched(note.event,layer.events,p.gain);note.currentTime=B.wrap(note.event.time-phase/8);});
     });opacity();spin();
+  }
+  function updateHold(){
+    if(!dragging)return;
+    const d=dragging,phase=B.heldPhase(d.phase,d.position,clock.position,binding.periods[d.index]),values=valuesAt(d.before);
+    values[d.index]={phase,gain:d.gain};draw(values);
+    d.move=model.editMove(d.key,{phase:Math.round(phase),level:d.gain*4},d.before);
+    onEditPreview(d.move,{key:d.key,phase,gain:d.gain});
   }
   function sync(){if(!animating&&!dragging&&!committed&&!disposed&&!previewKey)draw(valuesAt(model.snapshot()));}
   function preview(value){
@@ -5060,40 +5082,47 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     const a=display.map(p=>({...p})),b=valuesAt(next?model.applyTo(value.before??model.snapshot(),value.move):model.snapshot());
     tween('gear-preview',220,t=>draw(a.map((p,i)=>({phase:p.phase+B.delta(p.phase/8,b[i].phase/8)*8*t,gain:p.gain+(b[i].gain-p.gain)*t}))));
   }
-  const view={camera,hoverActions:false,requiresSelection:true,allowDeselect:true,selectionPrompt:'Выберите шестерёнку',sync,
-    dispose(){disposed=true;voices.remove();instruction.remove();readhead.remove();},
+  const view={camera,hoverActions:false,buttonPreview:false,requiresSelection:true,allowDeselect:true,selectionPrompt:'Выберите шестерёнку',sync,
+    dispose(){disposed=true;instruction.remove();readhead.remove();},
     resize(aspect){const halfHeight=Math.max(3.36,2.48/aspect);camera.left=-halfHeight*aspect;camera.right=halfHeight*aspect;camera.top=halfHeight;camera.bottom=-halfHeight;camera.updateMatrixWorld();},
     inputPlane:()=>new T.Plane(new T.Vector3(0,1,0),-height(dragging?.index??selected??0)),
     pickTargets:()=>[...layers.map(l=>l.body),...layers.map(l=>l.badge)],
     pickHit(hits){return hits.find(h=>h.object.userData.kind==='badge')||(selected==null?hits[0]:hits.find(h=>h.object.userData.index===selected)||hits[0]);},
-    hit(intersection){const {index,kind}=intersection.object.userData;return{key:F.keys[index],pieceId:index,kind,draggable:kind==='gear',selectOnly:true};},
+    hit(intersection){const {index,kind}=intersection.object.userData;return{key:F.keys[index],pieceId:index,kind,draggable:kind==='gear',pressable:kind==='gear',selectOnly:true};},
     locations(){root.updateMatrixWorld(true);return layers.map(l=>({key:l.key,pieceId:l.index,kind:'gear',draggable:true,selectOnly:true,point:l.badge.getWorldPosition(new T.Vector3())}));},
     feedback(value){
-      disabled=document.getElementById('puzzle-stage').getAttribute('aria-disabled')==='true';const index=F.keys.indexOf(value.selected);selected=index<0?null:index;opacity();
+      const index=F.keys.indexOf(value.selected);selected=index<0?null:index;opacity();
       if(value.focus?.source!=='edit'&&value.focus?.source!=='demonstration')preview(value.focus);
     },
-    updateMusic(value){const changed=clock.playing!==value.playing||clock.phase!==value.phase;clock=value;spin();return value.playing||changed;},
+    updateMusic(value){const changed=clock.playing!==value.playing||clock.phase!==value.phase;clock={...value,position:value.position??value.phase};if(dragging)updateHold();else spin();return value.playing||changed;},
     beginDrag(hit,world){
       if(animating||!world)return false;selected=F.keys.indexOf(hit.key);const p=valuesAt(model.snapshot())[selected];
       tween('gear-preview',0,()=>{});previewKey='';committed=null;draw(valuesAt(model.snapshot()));
-      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),previous:B.angle(world),angle:0,phase:p.phase,gain:p.gain,mode:null,move:null};return true;
+      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,move:null};
+      updateHold();return true;
     },
     dragTo(world){
-      if(!dragging||!world)return;const d=dragging,a=B.angle(world);d.angle+=B.delta(d.previous,a);d.previous=a;
-      const r=Math.hypot(d.start.x,d.start.z),dr=Math.hypot(world.x,world.z)-r;
-      if(!d.mode)d.mode=Math.abs(d.angle*B.TAU*r)>Math.abs(dr)*.8?'phase':'gain';
-      const phase=d.mode==='phase'?d.phase-d.angle*8:d.phase;
-      let gain=d.mode==='gain'?Math.max(0,Math.min(2,d.gain+dr/B.gainDragSpan)):d.gain;if(Math.abs(gain-1)<.035)gain=1;gain=Math.round(gain*1e6)/1e6;
-      const values=valuesAt(d.before);values[d.index]={phase,gain};draw(values);d.move=model.editMove(d.key,{phase:Math.round(phase),level:gain*4},d.before);onEditPreview(d.move,{key:d.key,phase,gain});
+      // Tangential pointer movement never rotates the gear. While it is held,
+      // a radial pull can still adjust size/gain; phase follows elapsed audio time.
+      if(!dragging||!world)return;const d=dragging,initial=valuesAt(d.before)[d.index].gain;
+      const dr=Math.hypot(world.x,world.z)-Math.hypot(d.start.x,d.start.z);
+      let gain=Math.max(0,Math.min(2,initial+dr/B.gainDragSpan));if(Math.abs(gain-1)<.035)gain=1;
+      d.gain=Math.round(gain*1e6)/1e6;updateHold();
     },
-    endDrag(cancelled){if(!dragging)return null;const d=dragging;dragging=null;onEditPreview(null);if(!cancelled&&d.move&&model.validMove(d.move)){committed=JSON.stringify(d.move);return d.move;}sync();return null;},
+    endDrag(cancelled){
+      if(!dragging)return null;if(!cancelled)updateHold();const d=dragging;dragging=null;
+      // Keep the display until animate() consumes this edit; clearing focus may sync the view.
+      const move=!cancelled&&d.move&&model.validMove(d.move)?d.move:null;
+      committed=move?JSON.stringify(move):null;onEditPreview(null);
+      if(move)return move;sync();return null;
+    },
     async animate(move,before,{duration=360}={}){
       const direct=committed===JSON.stringify(move);committed=null;animating=true;previewKey='';tween('gear-preview',0,()=>{});
       const index=F.keys.indexOf(model.moveTarget(move)),a=display.map(p=>({...p})),b=valuesAt(model.applyTo(before,move));
       const delta=B.delta(a[index].phase/8,b[index].phase/8)*8;
       try{await tween('move',direct?140:duration,t=>draw(a.map((p,i)=>i!==index?p:{phase:p.phase+delta*t,gain:p.gain+(b[i].gain-p.gain)*t})));}finally{animating=false;sync();}
     },
-    inspect(){return{selected,clock,display,layers:layers.map(l=>({index:l.index,key:l.key,opacity:l.opacity,gain:l.gain,rotation:l.rotor.rotation.y,period:binding.periods[l.index],events:l.events,wrongSlots:l.notes.filter(n=>n.wrong).length,bodyRadius:B.radius(l.gain)}))};}
+    inspect(){return{selected,holding:dragging?.index??null,clock,display,layers:layers.map(l=>({index:l.index,key:l.key,opacity:l.opacity,gain:l.gain,rotation:l.rotor.rotation.y,targetRotation:l.targets.rotation.y,period:binding.periods[l.index],events:l.events,wrongSlots:l.notes.filter(n=>n.wrong).length,bodyRadius:B.radius(l.gain)}))};}
   };
   sync();return view;
 }};
@@ -5144,7 +5173,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/gears2';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/hold3';
   const library=new PhaseCubeLibrary.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});
@@ -5358,7 +5387,7 @@ window.PhaseCubeCelebration=(()=>{
       if(displayWindow!==music.displayWindow(cycle))updateRows();
       player.frame(((cycle%song.bars)+song.bars)%song.bars,song);
       orbit.frame(phase,transport.running,now);
-      if(presentation?.active?.view.updateMusic?.({phase,playing:transport.running,rows:music.rows(heardState()),periodSeconds:song.periodBars*240/song.bpm}))presentation.dirty=true;
+      if(presentation?.active?.view.updateMusic?.({phase,position:cycle/song.periodBars,playing:transport.running,rows:music.rows(heardState()),periodSeconds:song.periodBars*240/song.bpm}))presentation.dirty=true;
     }
     if(debug&&performance.now()-lastDiagnostics>150){lastDiagnostics=performance.now();$('audio-diagnostics').textContent=JSON.stringify(diagnostics());}
     }catch(e){fail(e);}

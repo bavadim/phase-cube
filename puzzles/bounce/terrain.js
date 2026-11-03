@@ -36,7 +36,9 @@
   const tokenWidth=event=>.065+.002*(Math.abs(pitch(event))%24)+.05*Math.sqrt(Math.min(1,event.gate*8));
   const matched=(slot,events,gain)=>Math.abs(gain-1)<1e-7&&events.some(e=>Math.abs(delta(slot.time,e.time))<1e-7&&e.signature===slot.signature);
   const rotation=(phase,period)=>front-wrap(phase/period)*TAU;
+  // Positions are unwrapped audio cycles, so holding across loop boundaries is continuous.
+  const heldPhase=(phase,start,position,period)=>phase-8*(position-start)/period;
   function point(time,r,y=0){const a=time*TAU;return{x:Math.sin(a)*r,y,z:Math.cos(a)*r};}
   const angle=p=>Math.atan2(p.x,p.z)/TAU;
-  return{wrap,delta,TAU,front,gainDragSpan,attacks,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,matched,rotation,point,angle};
+  return{wrap,delta,TAU,front,gainDragSpan,attacks,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,matched,rotation,heldPhase,point,angle};
 });

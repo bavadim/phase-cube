@@ -10,6 +10,18 @@ test('gears: rotating events and sockets cross the fixed read head at the exact 
  close(B.radius(2)-B.radius(0),.64);assert(B.gainDragSpan>=1.8);
  for(const gain of [0,.2,1,1.4,2])assert(Number.isFinite(B.surface([],0,gain))&&B.radius(gain)>.25);
 });
+test('holding uses the unwrapped audio clock, freezes geometry and snaps to the existing phase grid',()=>{
+ for(const period of [1,.5,.25,.125])for(const start of [.93,10.99])for(const turns of [0,.125,.375,1,2.25,10.125]){
+  const phase=3,position=start+turns*period,held=B.heldPhase(phase,start,position,period);
+  close(held,phase-8*turns);
+  const a=B.rotation(start,period)-phase*B.TAU/8,b=B.rotation(position,period)-held*B.TAU/8;
+  close(Math.sin(a),Math.sin(b));close(Math.cos(a),Math.cos(b));
+  const m=Module.create(),before=m.snapshot(),p=m.parameters()[0];
+  const move=m.editMove('A',{phase:Math.round(B.heldPhase(p.phase,start,position,period)),level:p.level});
+  if(Math.abs(turns-Math.round(turns))<1e-8)assert.equal(move,null,'A whole local revolution is a no-op');
+  else {m.apply(move);assert.equal(m.history.length,1);m.undo();assert.deepEqual(m.snapshot(),before);}
+ }
+});
 test('slot matching distinguishes pitch, gates and gain despite equal onset patterns',()=>{
  const row=[{start:0,duration:.1,value:{note:60,velocity:.8}},{start:.5,duration:.2,value:{note:64,velocity:.8}}];
  const events=B.attacks(row);assert(events.every(e=>B.matched(e,events,1)));

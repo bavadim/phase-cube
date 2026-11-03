@@ -29,20 +29,16 @@ button:disabled { opacity:.38; cursor:default; }
 .orbit-sequencer::before { content:''; position:absolute; inset:17%; border-radius:50%; background:radial-gradient(circle,#e2e9d9,#eff1e5 68%,transparent 70%); z-index:-1; }
 .puzzle-stage { position:absolute; left:50%; top:50%; width:66%; height:66%; transform:translate(-50%,-50%); }
 .puzzle-stage canvas { display:block; width:100%; height:100%; touch-action:none; }
-.bounce-voices { display:flex; justify-content:center; gap:6px; }
 .bounce-instruction { font-size:.9rem; color:var(--muted); text-align:center; text-wrap:balance; }
 .bounce-readhead { position:absolute; left:50%; bottom:1%; width:clamp(24px,4vmin,34px); height:clamp(30px,5vmin,44px); transform:translateX(-50%); pointer-events:none; }
 .bounce-readhead svg { width:100%; height:100%; fill:var(--green); filter:drop-shadow(0 2px 0 var(--panel)); }
 body[data-puzzle="bounce"] .orbital-workspace { width:100%; height:100%; aspect-ratio:auto; }
 body[data-puzzle="bounce"] #orbit-score,body[data-puzzle="bounce"] .orbit-sequencer::before { display:none; }
 body[data-puzzle="bounce"] .puzzle-stage { left:0; top:0; width:100%; height:100%; transform:none; }
-.bounce-voices button { flex:1; max-width:64px; min-width:44px; min-height:44px; border:2px solid var(--voice-color); border-radius:50%; color:var(--voice-color); background:var(--panel); font-size:1.1rem; font-weight:700; }
-.bounce-voices button[aria-pressed="true"] { background:var(--voice-color); color:white; box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--voice-color); }
 body[data-puzzle="bounce"] .puzzle-operation { font-size:.95rem; }
 @media (max-height:520px) and (min-aspect-ratio:4/3) {
-  body[data-puzzle="bounce"] .controls-dock { flex:0 0 clamp(284px,38vw,320px); }
+  body[data-puzzle="bounce"] .controls-dock { flex:0 0 clamp(350px,42vw,380px); }
   body[data-puzzle="bounce"] .game-status { position:absolute; top:var(--space); left:var(--space); z-index:2; pointer-events:none; }
-  .bounce-voices { gap:4px; }
 }
 .puzzle-stage[data-context="lost"]::after { content:'Восстанавливаем изображение…'; position:absolute; inset:0; display:grid; place-items:center; background:var(--panel); text-align:center; }
 .completion { pointer-events:none; }
