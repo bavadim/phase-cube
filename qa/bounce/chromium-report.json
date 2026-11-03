@@ -1,0 +1,124 @@
+{
+  "schema": "bounce-game/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "cases": [
+    {
+      "width": 1280,
+      "height": 800,
+      "input": "mouse",
+      "audioRms": true,
+      "shuffleSteps": 6,
+      "singleRiffPreview": true,
+      "phaseDrag": true,
+      "continuousGain": 1.587,
+      "undo": true,
+      "cancel": true,
+      "hintsWin": true,
+      "hints": 6,
+      "landings": {
+        "count": 56,
+        "maxError": 0
+      },
+      "oldPuzzles": true,
+      "geometry": {
+        "overflow": false,
+        "canvases": 1,
+        "voiceCount": 6,
+        "minTargetHeight": 44,
+        "stage": {
+          "x": 295.90625,
+          "y": 145.5,
+          "width": 509,
+          "height": 509,
+          "top": 145.5,
+          "right": 804.90625,
+          "bottom": 654.5,
+          "left": 295.90625
+        }
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "input": "native CDP touch",
+      "audioRms": true,
+      "shuffleSteps": 6,
+      "singleRiffPreview": true,
+      "phaseDrag": true,
+      "continuousGain": 1.587,
+      "undo": true,
+      "cancel": true,
+      "hintsWin": true,
+      "hints": 6,
+      "landings": {
+        "count": 56,
+        "maxError": 0
+      },
+      "oldPuzzles": true,
+      "geometry": {
+        "overflow": false,
+        "canvases": 1,
+        "voiceCount": 6,
+        "minTargetHeight": 44,
+        "stage": {
+          "x": 72.90625,
+          "y": 173.90625,
+          "width": 244.1875,
+          "height": 244.1875,
+          "top": 173.90625,
+          "right": 317.09375,
+          "bottom": 418.09375,
+          "left": 72.90625
+        }
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native CDP touch",
+      "audioRms": true,
+      "shuffleSteps": 6,
+      "singleRiffPreview": true,
+      "phaseDrag": true,
+      "continuousGain": 1.587,
+      "undo": true,
+      "cancel": true,
+      "hintsWin": true,
+      "hints": 6,
+      "landings": {
+        "count": 56,
+        "maxError": 0
+      },
+      "oldPuzzles": true,
+      "geometry": {
+        "overflow": false,
+        "canvases": 1,
+        "voiceCount": 6,
+        "minTargetHeight": 44,
+        "stage": {
+          "x": 234.09375,
+          "y": 63.90625,
+          "width": 244.1875,
+          "height": 244.1875,
+          "top": 63.90625,
+          "right": 478.28125,
+          "bottom": 308.09375,
+          "left": 234.09375
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "e967f554dc575bb8ca0af68bf03551e5a926878380e0c97877b3c4e194d898e1",
+    "config.js": "fd9f1b1061f54c609417c14af2eb6081f34baa3d552d318513f504ba84ce4a8e",
+    "app.js": "8f47a9c836240247db2e91bc6ce5e42c31be56c71eb64a0ec82712105807f176",
+    "style.css": "e3f63470365a56e44eaca309402489ead56e49a47e223e7c79a5a39a08165f8a",
+    "puzzles/registry.js": "920a9fb6cc0e470ac64dddd12cffb7141bf2834a29f0fc6da378df41e3f804a3",
+    "puzzles/bounce/module.js": "9d576367873affd13b92730a2b627e6acb106b417ec433de17e86e75fe603a99",
+    "puzzles/bounce/terrain.js": "c2a02d37e344ea8ccc4a69bd8e735116ddb2f0759176d8e8e8734a9e44c34d35",
+    "puzzles/bounce/three-view.js": "d516d32ad13bb355d2d70b96d5ce2c124d5aaaa15775f0820626f1a9f280ec40"
+  }
+}
