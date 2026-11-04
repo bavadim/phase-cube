@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Соберите музыкальную машину из знакомых мелодий. Подключайте устройства, меняйте фразы и играйте со временем.">
+  <base href="../">
+  <title>Ночная смена — музыкальная машина</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="machine/style.css?v=machine1">
+</head>
+<body>
+<main class="machine-app" id="studio">
+  <header class="machine-header">
+    <span class="wordmark">НОЧНАЯ СМЕНА</span>
+    <button id="open-library" class="song-title" aria-label="Выбрать композицию или сохранить сборку"><span id="song-title">Загружаем музыку…</span><span id="song-tempo"></span><span aria-hidden="true">⌄</span></button>
+    <span class="live-state"><i id="live-light"></i><span id="machine-status">ЗАГРУЗКА</span></span>
+  </header>
+  <section class="machine-well" aria-label="Собираемая музыкальная машина">
+    <div id="machine-stage" tabindex="0" aria-label="Музыкальная машина"></div>
+    <div class="clock-strip" aria-hidden="true"><div id="clock-progress"></div></div>
+  </section>
+  <div class="instruction" aria-live="polite"><span id="part-name">Выберите деталь</span><span id="scene-instruction">Подключайте детали и слушайте, как меняется музыка.</span></div>
+  <footer class="controls-dock" aria-label="Управление машиной">
+    <button id="undo" disabled title="Отменить изменение"><span class="control-icon">↶</span><span>Отмена</span></button>
+    <button id="next-part" disabled title="Следующая деталь"><span class="control-icon">⇥</span><span>Деталь</span></button>
+    <button id="play" class="play-button" disabled><span id="play-icon" class="control-icon">▶</span><span id="play-label">Загрузка</span></button>
+    <button id="install" disabled><span id="install-icon" class="control-icon">＋</span><span id="install-label">Подключить</span></button>
+    <button id="variant" disabled><span class="control-icon">⤨</span><span>Фраза</span></button>
+  </footer>
+  <p id="notice" class="notice" role="status"></p>
+</main>
+<dialog id="library" aria-labelledby="library-title">
+  <form method="dialog"><button class="close-dialog" aria-label="Закрыть">×</button></form>
+  <span class="eyebrow">ВАША МАСТЕРСКАЯ</span><h1 id="library-title">Музыка и сборки</h1>
+  <label class="song-picker">Материал композиции<select id="song-select" disabled><option>Загружаем…</option></select></label>
+  <div class="snapshots"><span>Два состояния машины</span><div class="snapshot-buttons"><button id="snapshot-a" aria-pressed="true">Вариант A</button><button id="snapshot-b" aria-pressed="false">Вариант B</button><button id="save-snapshot">Запомнить A</button></div></div>
+  <div class="save-actions"><button id="save-scene">Сохранить сборку</button><button id="restore-scene">Вернуть сохранённую</button><button id="export-scene">Скачать файл</button><button id="import-scene">Открыть файл</button><input id="scene-file" type="file" accept="application/json,.json" hidden></div>
+  <p>Сборка сохраняет ваши детали и настройки. К ней можно вернуться и продолжить играть.</p>
+</dialog>
+<script src="vendor/three-0.160.1.min.js"></script>
+<script src="vendor/strudel-web-1.3.0.js"></script>
+<script src="audio-bank.js"></script>
+<script src="composition-contract.js"></script>
+<script src="compositions/catalog.js"></script>
+<script src="composition-loader.js"></script>
+<script src="async-task.js"></script>
+<script src="transport.js"></script>
+<script src="puzzles/actions.js"></script>
+<script src="puzzle-contract.js"></script>
+<script src="graphics/resources.js"></script>
+<script src="graphics/pointer.js"></script>
+<script src="graphics/stage.js"></script>
+<script src="machine/model.js?v=machine1"></script>
+<script src="machine/music.js?v=machine1"></script>
+<script src="machine/three-view.js?v=machine1"></script>
+<script src="machine/controls.js?v=machine1"></script>
+<script src="machine/app.js?v=machine1"></script>
+</body>
+</html>
