@@ -3000,7 +3000,7 @@ lanes.noise = noiseSound(stack(
     legalMoves(state=this.current){return keys.flatMap(key=>[key,key+"'",...[-1,1].map(d=>this.levelMove(key,d,state)).filter(Boolean)]);}
     applyTo(state,move){return applyTo(state,move);}
     inverse(move){return inverse(move);}
-    validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
+    validMove(move,state=this.current){try{return this.applyTo(state,move)!==state;}catch{return false;}}
     moveTarget(move){return target(move);}
     select(key){if(!keys.includes(key))throw new Error('Неверный риф');this.selected=key;}
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
@@ -3039,7 +3039,7 @@ lanes.noise = noiseSound(stack(
       this.apply(move);this.history=[];this.moves=[];return move;
     }
     apply(move){
-      const next=applyTo(this.current,move),saved=edit(move)?{kind:'coefficient',key:move.key,from:{...move.from},to:{...move.to}}:move;
+      const next=this.applyTo(this.current,move),saved=edit(move)?{kind:'coefficient',key:move.key,from:{...move.from},to:{...move.to}}:move;
       this.history.push({state:this.current,move:saved});this.current=next;this.moves.push(saved);this.selected=target(saved);
     }
     undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=target(old.move);return inverse(old.move);}
@@ -3103,11 +3103,11 @@ lanes.noise = noiseSound(stack(
   }
   const signature=rows=>rows.map(row=>rowKey(row)).join('||');
   function validate(binding,spec){
-    return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.gridPresetStates===F.stateCount&&binding.gridSteps===8&&
+    return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.gridPresetStates===spec.gridPresetStates&&binding.gridSteps===8&&
       Array.isArray(binding.periods)&&binding.periods.length===spec.fragments&&binding.periods.every(p=>Number.isFinite(p)&&p>0&&p<=1&&Math.abs(1/p-Math.round(1/p))<1e-6);
   }
   async function prepare({puzzle,game,signal,onProgress=()=>{}}){
-    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,gridSteps:8,gridPresetStates:F.stateCount,periods:game.targetRows.map(period)},signatures=new Map();
+    const spec=puzzle.manifest,probe=Contract.probes(puzzle),binding={algorithm:VERSION,gridSteps:8,gridPresetStates:spec.gridPresetStates,periods:game.targetRows.map(period)},signatures=new Map();
     const target=signature(game.targetRows);let aliases=0;
     for(let i=0;i<probe.states.length;i++){
       if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
@@ -3117,7 +3117,7 @@ lanes.noise = noiseSound(stack(
     }
     const silentMoves=probe.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length;
     if(aliases||silentMoves)throw new Error('Рифы не различают действия: '+aliases+' ложных целей, '+silentMoves+' неизменных ходов');
-    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:'C8^6 × [0,2]^6',gridPresetStates:F.stateCount,continuousGain:true,states:probe.states.length,edges:probe.edges.length,
+    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:spec.stateSpace,gridPresetStates:spec.gridPresetStates,continuousGain:spec.parameters.magnitudes.continuous,states:probe.states.length,edges:probe.edges.length,
       distinctPatterns:new Set(signatures.values()).size,unsolvedGoalRhythmAliases:aliases,silentMoves,
       discrimination:new Set(signatures.values()).size===probe.states.length?'distinct-in-probes':'weak',
       independentRiffs:true,mutedPhaseEditsAllowed:true,signatureScope:'per-riff-events-not-summed-PCM',acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};
@@ -4950,7 +4950,7 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.BounceTerrain=factory();})(globalThis,function(){
   'use strict';
   const wrap=x=>((x%1)+1)%1,delta=(a,b)=>wrap(b-a+.5)-.5,TAU=Math.PI*2;
-  const gainDragSpan=1.8,front=Math.PI/4;
+  const gainDragSpan=1.8,gainStep=.1,gainCapture=.1,front=Math.PI/4;
   const colors=['#db7063','#df994d','#cfb64e','#a5b95a','#71af79','#53ac99','#50a4b8','#668ec1','#8d7bb7','#ae79ac','#c67f9d','#d58781'];
   function attacks(row,period=1){
     if(!(period>0&&Number.isFinite(period)))throw new Error('Invalid riff period');
@@ -4966,7 +4966,19 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   }
   const shift=(events,phase)=>events.map(e=>({...e,time:wrap(e.time-phase/8)})).sort((a,b)=>a.time-b.time);
   const radius=gain=>1.10+.32*Math.max(0,Math.min(2,gain));
-  const crest=(event,gain)=>radius(gain)+.14*(.55+.45*event.velocity);
+  // Every tooth shares the socket radius; dynamics must not change the fit.
+  const crest=(event,gain)=>radius(gain)+.14;
+  // Rotational stabilizer of the actual onset set inside C8. An arbitrary 45°
+  // step is not a seat when the rhythm only fits every 90° or 180°.
+  function seatStep(events){
+    if(!events.length)throw new Error('Шестерёнке нужны ноты');
+    return [1,2,4,8].find(step=>events.every(e=>events.some(s=>Math.abs(delta(e.time-step/8,s.time))<1e-7)));
+  }
+  function snapGain(gain,capture=true){
+    if(!Number.isFinite(gain))throw new Error('Неверный размер шестерёнки');
+    const bounded=Math.max(0,Math.min(2,gain));
+    return capture&&Math.abs(bounded-1)<=gainCapture+1e-9?1:Math.round(bounded/gainStep)/10;
+  }
   function surface(events,time,gain){
     let r=radius(gain)-.10;
     for(let i=0;i<events.length;i++){
@@ -4985,20 +4997,64 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   // Positions are unwrapped audio cycles, so holding across loop boundaries is continuous.
   const heldPhase=(phase,start,position,period)=>phase-8*(position-start)/period;
   function point(time,r,y=0){const a=time*TAU;return{x:Math.sin(a)*r,y,z:Math.cos(a)*r};}
-  return{wrap,delta,TAU,front,gainDragSpan,attacks,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,rotation,heldPhase,point};
+  return{wrap,delta,TAU,front,gainDragSpan,gainStep,gainCapture,attacks,seatStep,snapGain,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,rotation,heldPhase,point};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Rhythm gears use the shared independent-riff and interaction contracts. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/module.js'),require('../fourier/model.js'));else root.BouncePuzzle=factory(root.FourierPuzzle,root.FourierModel);})(globalThis,function(Base,F){
+/* Gear rules: seats fit the authored rhythm; size is quantized to 10%. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/module.js'),require('../fourier/model.js'),require('../fourier/binding.js'),require('./terrain.js'),require('../../controls/pattern-pieces.js'));else root.BouncePuzzle=factory(root.FourierPuzzle,root.FourierModel,root.FourierBinding,root.BounceTerrain,root.PuzzleParts);})(globalThis,function(Base,F,Binding,B,Parts){
+  'use strict';
+  const mod=n=>((n%8)+8)%8,round=n=>Math.round(n*1e9)/1e9;
   class Model extends F.Model{
+    constructor(steps=F.keys.map(()=>1)){super();if(steps.length!==6||steps.some(s=>![1,2,4,8].includes(s)))throw new Error('Неверные посадочные места');this.seatSteps=Object.freeze([...steps]);}
     selectionLabel(preview){const p=this.parameters()[F.keys.indexOf(this.selected)];return 'Партия '+(F.keys.indexOf(this.selected)+1)+' · '+Math.round((preview?.gain??F.gain(p))*100)+'%';}
+    snapPoint(key,{phase,gain,captureGain=true}){
+      const i=F.keys.indexOf(key);if(i<0||!Number.isFinite(phase)||!Number.isFinite(gain))throw new Error('Неверные координаты шестерёнки');
+      const step=this.seatSteps[i],home=F.homePhase[i],delta=B.delta(home/8,phase/8)*8;
+      // Prefer the target at a tie, including the 0°/360° seam.
+      const offset=Math.abs(delta)<=step/2+1e-9?0:Math.round(delta/step)*step;
+      return{phase:mod(home+offset),gain:B.snapGain(gain,captureGain)};
+    }
+    editPoint(key,point,state=this.current){const p=this.snapPoint(key,point);return this.editMove(key,{phase:p.phase,level:p.gain*4},state);}
+    editMove(key,to,state=this.current){
+      const i=F.keys.indexOf(key),step=this.seatSteps[i];
+      if(i<0||mod(to.phase-F.homePhase[i])%step||Math.abs(to.level/.4-Math.round(to.level/.4))>1e-7)throw new Error('Между посадочными местами');
+      return super.editMove(key,to,state);
+    }
+    applyTo(state,move){
+      if(typeof move!=='string'){this.editMove(move?.key,move?.to,state);return super.applyTo(state,move);}
+      const key=this.moveTarget(move),i=F.keys.indexOf(key),p=this.parameters(state)[i];
+      const to=/[+-]$/.test(move)?{...p,level:round(p.level+(move.endsWith('+')?.4:-.4))}:{...p,phase:mod(p.phase+(move.endsWith("'")?1:-1)*this.seatSteps[i])};
+      const edit=this.editMove(key,to,state);if(!edit)throw new Error('Пустой поворот');return super.applyTo(state,edit);
+    }
+    levelMove(key,direction,state=this.current){const move=key+(direction>0?'+':'-');return this.validMove(move,state)?move:null;}
+    legalMoves(state=this.current){return F.keys.flatMap(key=>[key,key+"'",key+'-',key+'+'].filter(move=>this.validMove(move,state)));}
+    restore(state){this.parameters(state).forEach((p,i)=>this.editMove(F.keys[i],p,0));super.restore(state);}
+    distance(state=this.current){return round(this.parameters(state).reduce((sum,p,i)=>{const d=mod(p.phase-F.homePhase[i]);return sum+Math.min(d,8-d)/this.seatSteps[i]+Math.abs(p.level-4)/.4;},0));}
+    shuffle(){
+      const radius=this.shuffleStep++%2===1,legal=this.legalMoves(),moves=legal.filter(m=>/[+-]$/.test(m)===radius);
+      const move=this.shuffler.next(this,{moves:moves.length?moves:legal});this.apply(move);this.history=[];this.moves=[];return move;
+    }
+    probeStates(){
+      const result=[this.initialState()];
+      for(let i=0;i<F.keys.length;i++){
+        for(let offset=this.seatSteps[i];offset<8;offset+=this.seatSteps[i])result.push(this.applyTo(0,this.editMove(F.keys[i],{phase:mod(F.homePhase[i]+offset),level:4},0)));
+        for(let level=0;level<=20;level++)if(level!==10)result.push(this.applyTo(0,this.editMove(F.keys[i],{phase:F.homePhase[i],level:round(level*.4)},0)));
+      }
+      return result;
+    }
   }
-  return{id:'bounce',title:'Шестерёнки ритма',progressLabel:'партий\nв ритме',shuffleSteps:6,create:()=>new Model(),
-    manifest:Object.freeze({...Base.manifest,id:'bounce',version:3,
-      interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'}})};
+  const manifest=steps=>({...Base.manifest,id:'bounce',version:4,stateSpace:'rhythm seats × {0,0.1,…,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*21,1),
+    parameters:{phases:steps.map(s=>8/s),seatSteps:[...steps],magnitudes:{min:0,max:2,step:B.gainStep,continuous:false,targetCapture:B.gainCapture}},
+    operations:{phase:{orders:steps.map(s=>8/s)},magnitude:{kind:'bounded-step',step:B.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}},
+    interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'}});
+  return{id:'bounce',title:'Шестерёнки ритма',progressLabel:'партий\nв ритме',shuffleSteps:6,create:()=>new Model(),manifest:Object.freeze(manifest(F.keys.map(()=>1))),
+    configure(S,song,options){
+      const game=Parts.build(S,song,{...options,count:F.keys.length}),steps=game.targetRows.map(row=>B.seatStep(B.attacks(row,Binding.period(row))));
+      return{module:{...this,create:()=>new Model(steps),manifest:Object.freeze(manifest(steps))},game};
+    }};
 });
 
 </script>
@@ -5089,7 +5145,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     if(!dragging)return;
     const d=dragging,phase=B.heldPhase(d.phase,d.position,clock.position,binding.periods[d.index]),values=valuesAt(d.before);
     values[d.index]={phase,gain:d.gain};draw(values);
-    d.move=model.editPoint(d.key,{phase,gain:d.gain},d.before);
+    d.move=model.editPoint(d.key,{phase,gain:d.gain,captureGain:d.resized},d.before);
     onEditPreview(d.move,{key:d.key,phase,gain:d.gain});
   }
   function sync(){if(!animating&&!dragging&&!committed&&!disposed)draw(valuesAt(model.snapshot()));}
@@ -5105,7 +5161,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     beginDrag(hit,world){
       if(animating||!world)return false;selected=F.keys.indexOf(hit.key);const p=valuesAt(model.snapshot())[selected];
       committed=null;draw(valuesAt(model.snapshot()));
-      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,move:null};
+      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,resized:false,move:null};
       updateHold();return true;
     },
     dragTo(world){
@@ -5113,7 +5169,8 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       // a radial pull can still adjust size/gain; phase follows elapsed audio time.
       if(!dragging||!world)return;const d=dragging,initial=valuesAt(d.before)[d.index].gain;
       const dr=Math.hypot(world.x,world.z)-Math.hypot(d.start.x,d.start.z);
-      let gain=Math.max(0,Math.min(2,initial+dr/B.gainDragSpan));if(Math.abs(gain-1)<.035)gain=1;
+      if(Math.abs(dr)>.015)d.resized=true;
+      const gain=Math.max(0,Math.min(2,initial+dr/B.gainDragSpan));
       d.gain=Math.round(gain*1e6)/1e6;updateHold();
     },
     endDrag(cancelled){
@@ -5130,7 +5187,15 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       const delta=B.delta(a[index].phase/8,b[index].phase/8)*8;
       try{if(direct)draw(b);else await tween('move',duration,t=>draw(a.map((p,i)=>i!==index?p:{phase:p.phase+delta*t,gain:p.gain+(b[i].gain-p.gain)*t})));}finally{animating=false;sync();}
     },
-    inspect(){return{selected,holding:dragging?.index??null,clock,display,layers:layers.map(l=>({index:l.index,key:l.key,opacity:l.opacity,gain:l.gain,rotation:l.rotor.rotation.y,targetRotation:l.targets.rotation.y,period:binding.periods[l.index],events:l.events,bodyRadius:B.radius(l.gain)}))};}
+    inspect(){
+      root.updateMatrixWorld(true);
+      return{selected,holding:dragging?.index??null,clock,display,layers:layers.map(l=>{
+        const pads=l.notes.map(n=>n.pad.getWorldPosition(new T.Vector3())),sockets=l.notes.map(n=>n.socket.getWorldPosition(new T.Vector3()));
+        return{index:l.index,key:l.key,opacity:l.opacity,gain:l.gain,rotation:l.rotor.rotation.y,targetRotation:l.targets.rotation.y,period:binding.periods[l.index],seatStep:model.seatSteps[l.index],events:l.events,bodyRadius:B.radius(l.gain),
+          angularErrors:pads.map(p=>Math.min(...sockets.map(s=>Math.abs(B.delta(Math.atan2(p.x,p.z)/B.TAU,Math.atan2(s.x,s.z)/B.TAU))))),
+          seatErrors:pads.map(p=>Math.min(...sockets.map(s=>Math.hypot(p.x-s.x,p.z-s.z))))};
+      })};
+    }
   };
   sync();return view;
 }};
@@ -5189,7 +5254,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/components5';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/assist6';
   const library=new PuzzleCompositions.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});

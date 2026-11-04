@@ -1,5 +1,5 @@
 {
-  "schema": "components/5",
+  "schema": "gear-assist/6",
   "engine": "chromium",
   "physicalDevice": false,
   "cases": [
@@ -14,7 +14,11 @@
       "stationaryHold": true,
       "independentTargets": true,
       "releaseSingleMove": true,
-      "continuousGain": 1.618427,
+      "gainPreview": 1.468427,
+      "gainStep": 0.1,
+      "targetCapture": 0.1,
+      "capturePreview": 1.091427,
+      "realThreeSocketFit": true,
       "undo": true,
       "cancel": true,
       "standardEqualizer": true,
@@ -71,7 +75,7 @@
   "errors": [],
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "baf10f27e0ac0ce458c9aff8f2cf755c85d9399cf62a8fb3c4245e9783969505",
+    "index.html": "0854c0b5df72cdaf97d14dccbb905e64a497701b21d30e54f1252ac33f5c3aa7",
     "style.css": "2482e2717acba00722bc820865b7cf9adf2f98e30e6e78cd19c8d53260fec676",
     "controls/equalizer.css": "ba8a2ba4c6eda758f02eb4038fa1bc20bee0c293db0151ce4ee30f75b7d6a0be",
     "controls/player.css": "454d3d903b29fc2bef5a1b3a74b118a444daf5f941790741dcfa26f488c9fba3",
@@ -90,8 +94,8 @@
     "controls/pattern-pieces.js": "d5d4495d7008f0763d713fd2bba34d0713cff5860e88793d513debe86e4fa7e9",
     "puzzle-contract.js": "af0c3c0f8dda4a6c9fa3fde50b786828148b96afb88d158e77fbf87a75e23e45",
     "phase-map.js": "f4972177807a0f6b530c71a59f9ad4a44759d52d12d0ed633a7f69b7e3027657",
-    "puzzles/fourier/model.js": "40d435e0b9e31a4bab9da2c2583fa1aafef8a75d0db755064485de45c7191235",
-    "puzzles/fourier/binding.js": "5ef351a391a79dc892cccef03cad06cdb11415a07fdaa3979cd2599068e8da61",
+    "puzzles/fourier/model.js": "183d786b6a755b596286c9789e671f475510be940f645f3dd0b57e3987b21dc8",
+    "puzzles/fourier/binding.js": "ff1200cf54540cec50775034cfdc0cb6a569d3fe385f9dafeb7f078873aed955",
     "puzzles/scratch/model.js": "ce647fad9237e2ab1940ec6af71cde024d4a55e1f8ced4b6c6ae9477c69dabb4",
     "puzzles/scratch/binding.js": "c8556ad58ace9bc7003545eb394454d9df75baa5511f8afdf98fcaf0e0ba17e8",
     "music-projection.js": "4361495e799a6bc976a7a245103b915afacd2cd5c22c47650128a045aaf7b2de",
@@ -120,12 +124,12 @@
     "puzzles/scratch/partition.js": "b55d64f7bff278eedee4020f8037af0900858bc763a9e5ccbafd66964a5a248d",
     "puzzles/scratch/module.js": "2489e05e5c6b03daed0abb4fba6773a4d6c89a82d2cc12910004056f2eb85ddd",
     "puzzles/scratch/three-view.js": "ec162c588ebb32df28f397120d0b0172bb5c521606c8c95dbc5d0e0f48502dd7",
-    "puzzles/bounce/terrain.js": "7fc02caad51c7f7f025044feb12f08c7d34e452492c8c0cb660b2a33384335a7",
-    "puzzles/bounce/module.js": "c0b31951b589d4e695929e4c987e98bbfbbc224d659d5def37ccd2d0f7a90512",
-    "puzzles/bounce/three-view.js": "242a3278544f3c6b9de3da014d032ad156398e24424ffd65bd0bbf8ed90b20ee",
+    "puzzles/bounce/terrain.js": "c22e40a5f3bcad57247c7b1b2e6834da25f17f28f2f426341a1bafc5c9ca0d7a",
+    "puzzles/bounce/module.js": "18685bd88514830bdd1bb8df22f448c773b56445ba0ef5014949fd94eaacdf30",
+    "puzzles/bounce/three-view.js": "7967685ffe15601bcd96142b72e283957b392c0f2547a2234a61527127b27462",
     "puzzles/registry.js": "920a9fb6cc0e470ac64dddd12cffb7141bf2834a29f0fc6da378df41e3f804a3",
     "graphics/puzzle-views.js": "19b1c45e467f4e24740f9bc18a39668acc21ee92c44cd796570ab3d1856536b5",
     "celebration.js": "6f941db21c30a110650220fcb8f098e92699f41a3a50cb26da9a77c539b0e0b5",
-    "app.js": "a0026fec5f5c49511ee1ada66da7712ccc81f062d912b35a763513e6631f4eb9"
+    "app.js": "c48bd9a5c2a2111df01baa0ef4a04453ffe0a0577612eb487cce4cc025ba1ea1"
   }
 }

@@ -73,9 +73,9 @@
   "musicalAcceptance": "unverified",
   "sourceSha256": {
     "puzzles/actions.js": "bc8ef385e92d424bcc634a32eb1a39de914b87e125604628a8139f21cfaa2446",
-    "puzzles/fourier/model.js": "40d435e0b9e31a4bab9da2c2583fa1aafef8a75d0db755064485de45c7191235",
+    "puzzles/fourier/model.js": "183d786b6a755b596286c9789e671f475510be940f645f3dd0b57e3987b21dc8",
     "puzzles/fourier/module.js": "b75c5ee86785c5b27d48ef7b19e84490a177b9e2919cbf09be34c73bf64fded1",
-    "puzzles/fourier/binding.js": "5ef351a391a79dc892cccef03cad06cdb11415a07fdaa3979cd2599068e8da61",
+    "puzzles/fourier/binding.js": "ff1200cf54540cec50775034cfdc0cb6a569d3fe385f9dafeb7f078873aed955",
     "music-projection.js": "4361495e799a6bc976a7a245103b915afacd2cd5c22c47650128a045aaf7b2de",
     "music.js": "c197421d99154d2932035d8f06f1f5ab9701cd69ffb8312e72bdb8e74b5bc610",
     "puzzle-contract.js": "af0c3c0f8dda4a6c9fa3fde50b786828148b96afb88d158e77fbf87a75e23e45",

@@ -33,11 +33,11 @@
   }
   const signature=rows=>rows.map(row=>rowKey(row)).join('||');
   function validate(binding,spec){
-    return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.gridPresetStates===F.stateCount&&binding.gridSteps===8&&
+    return spec.projection===VERSION&&binding?.algorithm===VERSION&&binding.gridPresetStates===spec.gridPresetStates&&binding.gridSteps===8&&
       Array.isArray(binding.periods)&&binding.periods.length===spec.fragments&&binding.periods.every(p=>Number.isFinite(p)&&p>0&&p<=1&&Math.abs(1/p-Math.round(1/p))<1e-6);
   }
   async function prepare({puzzle,game,signal,onProgress=()=>{}}){
-    const probe=Contract.probes(puzzle),binding={algorithm:VERSION,gridSteps:8,gridPresetStates:F.stateCount,periods:game.targetRows.map(period)},signatures=new Map();
+    const spec=puzzle.manifest,probe=Contract.probes(puzzle),binding={algorithm:VERSION,gridSteps:8,gridPresetStates:spec.gridPresetStates,periods:game.targetRows.map(period)},signatures=new Map();
     const target=signature(game.targetRows);let aliases=0;
     for(let i=0;i<probe.states.length;i++){
       if(signal?.aborted)throw new DOMException('Подготовка отменена','AbortError');
@@ -47,7 +47,7 @@
     }
     const silentMoves=probe.edges.filter(e=>signatures.get(e.before)===signatures.get(e.after)).length;
     if(aliases||silentMoves)throw new Error('Рифы не различают действия: '+aliases+' ложных целей, '+silentMoves+' неизменных ходов');
-    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:'C8^6 × [0,2]^6',gridPresetStates:F.stateCount,continuousGain:true,states:probe.states.length,edges:probe.edges.length,
+    return{...binding,diagnostics:{coverage:probe.coverage,stateSpace:spec.stateSpace,gridPresetStates:spec.gridPresetStates,continuousGain:spec.parameters.magnitudes.continuous,states:probe.states.length,edges:probe.edges.length,
       distinctPatterns:new Set(signatures.values()).size,unsolvedGoalRhythmAliases:aliases,silentMoves,
       discrimination:new Set(signatures.values()).size===probe.states.length?'distinct-in-probes':'weak',
       independentRiffs:true,mutedPhaseEditsAllowed:true,signatureScope:'per-riff-events-not-summed-PCM',acousticAcceptance:'unverified',musicalAcceptance:'unverified'}};

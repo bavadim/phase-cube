@@ -61,7 +61,7 @@
     legalMoves(state=this.current){return keys.flatMap(key=>[key,key+"'",...[-1,1].map(d=>this.levelMove(key,d,state)).filter(Boolean)]);}
     applyTo(state,move){return applyTo(state,move);}
     inverse(move){return inverse(move);}
-    validMove(move,state=this.current){try{return applyTo(state,move)!==state;}catch{return false;}}
+    validMove(move,state=this.current){try{return this.applyTo(state,move)!==state;}catch{return false;}}
     moveTarget(move){return target(move);}
     select(key){if(!keys.includes(key))throw new Error('Неверный риф');this.selected=key;}
     moveFor(key,inverted=false){return key+(inverted?"'":'');}
@@ -100,7 +100,7 @@
       this.apply(move);this.history=[];this.moves=[];return move;
     }
     apply(move){
-      const next=applyTo(this.current,move),saved=edit(move)?{kind:'coefficient',key:move.key,from:{...move.from},to:{...move.to}}:move;
+      const next=this.applyTo(this.current,move),saved=edit(move)?{kind:'coefficient',key:move.key,from:{...move.from},to:{...move.to}}:move;
       this.history.push({state:this.current,move:saved});this.current=next;this.moves.push(saved);this.selected=target(saved);
     }
     undo(){const old=this.history.pop();if(!old)return null;this.current=old.state;this.moves.pop();this.selected=target(old.move);return inverse(old.move);}

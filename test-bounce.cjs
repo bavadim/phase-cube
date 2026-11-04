@@ -29,20 +29,26 @@ test('note markers retain pitches and duration; repeated local events are folded
  const repeated=B.attacks([...row,...row.map(e=>({...e,start:e.start+1}))],1);assert.equal(repeated.length,2);
  assert.deepEqual(repeated.map(e=>e.signature),events.map(e=>e.signature));assert.throws(()=>B.attacks([],0));
 });
-test('shared edit contract snaps each release to its nearest C8 seat without changing another riff',()=>{
+test('gear release snaps gain to 10% and leaves the other riffs untouched',()=>{
  for(const phase of [-800.51,-8.5,-8.49,-.51,-.5,-.49,0,.49,.5,.51,7.49,7.5,7.99,8,83.63]){
   const m=Module.create();m.apply('B');const before=m.snapshot(),point={phase,gain:1.137},move=m.editPoint('A',point,before);
   assert(move);const state=m.applyTo(before,move),params=m.parameters(state),expected=((Math.round(phase)%8)+8)%8;
-  assert.equal(params[0].phase,expected);close(params[0].level/4,point.gain);
+  // Ties near the target prefer the target rather than the next seat.
+  const targetDistance=Math.abs(B.delta(0,phase/8))*8;
+  assert.equal(params[0].phase,targetDistance<=.5+1e-9?0:expected);close(params[0].level/4,1.1);
   const distance=Math.abs(B.delta(phase/8,expected/8));assert(distance<=1/16+1e-9);
   assert.deepEqual(params.slice(1),m.parameters(before).slice(1));assert.deepEqual(m.applyTo(state,m.inverse(move)),before);
  }
  const m=Module.create();assert.equal(m.editPoint('A',{phase:16.1,gain:1}),null);
- for(const point of [{phase:NaN,gain:1},{phase:0,gain:Infinity},{phase:0,gain:-1}])assert.throws(()=>m.editPoint('A',point));
+ for(const point of [{phase:NaN,gain:1},{phase:0,gain:Infinity}])assert.throws(()=>m.editPoint('A',point));
+ for(const gain of [.9,.94,1,1.06,1.1])assert.equal(B.snapGain(gain),1);
+ for(const [gain,want]of [[-.3,0],[.23,.2],[.85,.9],[1.11,1.1],[1.37,1.4],[2.4,2]])close(B.snapGain(gain),want);
+ for(let g=0;g<=2000;g++)close(B.snapGain(g/1000)*10,Math.round(B.snapGain(g/1000)*10));
 });
 test('gear model retains exact undo, independent riff moves and solvable hints',()=>{
  const m=Module.create();assert(m.solved());for(let i=0;i<Module.shuffleSteps;i++)m.shuffle();assert(!m.solved());
- const before=m.snapshot(),p=m.parameters()[0];m.apply(m.editMove('A',{phase:p.phase+1,level:5.348}));m.undo();assert.deepEqual(m.snapshot(),before);
+ const before=m.snapshot(),p=m.parameters()[0];m.apply(m.editMove('A',{phase:p.phase+1,level:5.6}));m.undo();assert.deepEqual(m.snapshot(),before);
+ assert.throws(()=>m.editMove('A',{phase:0,level:5.348}),/Между/);
  let n=0;while(!m.solved()){m.apply(m.hint());assert(++n<50);}assert.equal(m.correct(),6);
 });
 test('every score: six visible rotors retain native Strudel attacks and their true repeat periods',async()=>{
@@ -50,7 +56,24 @@ test('every score: six visible rotors retain native Strudel attacks and their tr
  const loader=new Loader(S,{palette,registry,library,storage:null});
  for(const songId of compositionIds){
   const p=await loader.prepareSession({puzzleId:'bounce',songId}),m=p.model,music=new Music(S,p);assert(m.solved());
-  for(const move of ['A',"B'",'C-','D+']){
+  // Verify geometry, not just an integer angle. Every permitted rotation must
+  // seat every tooth in a real socket, even for irregular authored rhythms.
+  for(let i=0;i<6;i++){
+   const base=B.attacks(p.fragments.targetRows[i],p.binding.periods[i]),step=m.seatSteps[i];
+   assert.equal(step,B.seatStep(base));
+   for(let angle=-16;angle<=16;angle+=.03125){
+    const snapped=m.snapPoint(F.keys[i],{phase:angle,gain:1});
+    assert.equal(((snapped.phase-F.homePhase[i])%step+step)%step,0);
+    for(const e of B.shift(base,snapped.phase-F.homePhase[i])){
+     const sockets=base.filter(s=>Math.abs(B.delta(e.time,s.time))<1e-7);assert(sockets.length,'A tooth is between sockets in '+songId+' riff '+i);
+     close(B.crest(e,1),B.crest(sockets[0],1));
+    }
+   }
+   for(const direction of [-1,1]){const move=F.keys[i]+(direction>0?'+':'-'),state=m.applyTo(0,move);close(m.parameters(state)[i].level/4,1+direction*.1);assert.deepEqual(m.applyTo(state,m.inverse(move)),0);}
+  }
+  const shuffled=[];for(let i=0;i<6;i++)shuffled.push(m.shuffle());
+  for(const move of shuffled.slice().reverse())m.apply(m.inverse(move));assert(m.solved());m.reset();
+  for(const move of ['A',"B'",'C-','D+'].filter(move=>m.validMove(move))){
    const state=m.applyTo(m.snapshot(),move),rows=music.rows(state);
    for(let i=0;i<6;i++){
     const events=B.shift(B.attacks(p.fragments.targetRows[i],p.binding.periods[i]),m.parameters(state)[i].phase-F.homePhase[i]);

@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {openBrowser,root} from '../modules/browser.mjs';
 import {settled,select,turnPuzzle} from '../modules/field-input.mjs';
-const r=await openBrowser(),report={schema:'components/5',engine:r.engine,physicalDevice:false,cases:[],errors:[]};let page;
+const r=await openBrowser(),report={schema:'gear-assist/6',engine:r.engine,physicalDevice:false,cases:[],errors:[]};let page;
 const frame=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
 try{
  for(const [width,height]of [[1280,800],[390,844],[844,390]].filter(([w])=>!process.env.BOUNCE_SIZE||w===Number(process.env.BOUNCE_SIZE))){
@@ -15,8 +15,10 @@ try{
   if(r.engine==='chromium')await page.evaluate(()=>strudel.getAudioContext().setSinkId({type:'none'}));
   assert(await page.evaluate(()=>phaseCubeApp.getPuzzle().solved()));
   const click=locator=>locator[touch?'tap':'click'](),state=()=>page.evaluate(()=>phaseCubeApp.state()),inspect=()=>page.evaluate(()=>phaseCubeApp.getPresentation().active.view.inspect());
+  const seated=async()=>{const v=await inspect();for(const l of v.layers){assert(l.angularErrors.every(e=>e<1e-7),'Teeth between real socket angles');if(Math.abs(l.gain-1)<1e-8)assert(l.seatErrors.every(e=>e<1e-7),'Teeth do not fit real Three.js sockets');}};
   await click(page.locator('#start'));await settled(page);await page.waitForFunction(()=>phaseCubeApp.diagnostics().rms>.0001);
   const initial=await state();let v=await inspect();assert.equal(v.selected,null);assert(v.layers.every(l=>l.opacity===1));assert.equal(v.layers.length,6);
+  assert.deepEqual(v.layers.map(l=>l.seatStep),[2,2,1,1,2,2]);await seated();
   assert.equal(await page.locator('.bounce-voices,.bounce-instruction,.bounce-readhead').count(),0);assert(await page.locator('#orbit-score').isVisible());assert.equal(await page.locator('#orbit-score .orbit-track').count(),6);assert.equal(await page.locator('#clock-hand').count(),1);
   await page.screenshot({path:join(root,'qa/bounce/'+r.engine+'-'+width+'-all.png')});
   // Every model tier is clickable; navigation begins at A from no selection, wraps, and never makes a musical move.
@@ -56,12 +58,21 @@ try{
   assert.deepEqual(await state(),initial);assert.deepEqual(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast.changed),[0]);
   await send('up');await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);await frame(page);
   let after=await page.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]);assert.notEqual(after.phase,params.phase);assert.equal(after.level,params.level);assert.equal((await inspect()).holding,null);assert.equal((await inspect()).display[0].phase,after.phase);assert(Number.isInteger((await inspect()).display[0].phase));
+  await seated();
   await click(page.locator('#undo'));await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(page);await frame(page);assert.deepEqual(await state(),initial);
   // Pointer angle is ignored; radial motion alone can still alter size/gain during a hold.
   await send('down',origin);await send('move',await point(.125,2.65));await send('move',await point(.125,.92+1.8*.337));
   const gainPreview=(await inspect()).display[0].gain;assert(Math.abs(gainPreview-(params.level/4+.337))<.04);
-  await send('up');await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);after=await page.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]);assert(Math.abs(after.level/4-gainPreview)<1e-6);
+  await send('up');await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);after=await page.evaluate(()=>phaseCubeApp.getPuzzle().parameters()[0]);assert(Math.abs(after.level/4-Math.round(gainPreview*10)/10)<1e-7);await seated();
   assert.deepEqual(await page.evaluate(()=>phaseCubeApp.getTransport().active.meta.state),await state());
+  await click(page.locator('#undo'));await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(page);await frame(page);
+  // The target wins over the 90%/110% grid point inside the assistance window.
+  await send('down',origin);await send('move',await point(.125,2.65));await send('move',await point(.125,.92+1.8*(1.06-params.level/4)));
+  const capturePreview=(await inspect()).display[0].gain;assert(Math.abs(capturePreview-1)<=.1&&Math.abs(capturePreview-1)>.01);
+  await send('up');await frame(page);await settled(page);assert.equal((await inspect()).display[0].gain,1);await seated();
+  if(await page.evaluate(()=>phaseCubeApp.getPuzzle().history.length)){await click(page.locator('#undo'));await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(page);await frame(page);}
+  // Buttons use the same ten-percent grid, including exact undo.
+  await click(page.locator('#magnitude-up'));await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===1);await settled(page);assert(Math.abs((await inspect()).display[0].gain-params.level/4-.1)<1e-8);
   await click(page.locator('#undo'));await page.waitForFunction(()=>phaseCubeApp.getPuzzle().history.length===0);await settled(page);await frame(page);
   await send('down',origin);await page.waitForTimeout(170);await send('cancel');await frame(page);assert.deepEqual(await state(),initial);assert.equal((await inspect()).holding,null);assert.equal(await page.evaluate(()=>phaseCubeApp.getEqualizer().forecast),null);
   // A cancelled press cannot leave a stopped gear behind.
@@ -95,7 +106,7 @@ try{
    navigation.push({id,choices:keys.length,selectionOnly:true,hintContinuation:true});console.log(JSON.stringify({width,height,puzzle:id,status:'PASS'}));
   }
   await page.evaluate(()=>phaseCubeApp.choosePuzzle('bounce'));assert.equal(await page.locator('.bounce-readhead').count(),0);assert(await page.locator('#orbit-score').isVisible());assert.equal(await page.locator('#next-object').count(),1);assert.equal(await page.locator('#puzzle-stage canvas').count(),1);
-  report.cases.push({width,height,input:cdp?'native CDP touch':touch?'synthetic touch PointerEvents':'mouse',sixLayers:true,modelSelection:true,nextSelection:true,buttonPreviewOff:true,stationaryHold:true,independentTargets:true,releaseSingleMove:true,continuousGain:gainPreview,undo:true,cancel:true,standardEqualizer:true,exactReleaseSeat:true,noExtraControls:true,hintsWin:true,hints,legacyFieldInput:true,navigation,geometry});
+  report.cases.push({width,height,input:cdp?'native CDP touch':touch?'synthetic touch PointerEvents':'mouse',sixLayers:true,modelSelection:true,nextSelection:true,buttonPreviewOff:true,stationaryHold:true,independentTargets:true,releaseSingleMove:true,gainPreview,gainStep:.1,targetCapture:.1,capturePreview,realThreeSocketFit:true,undo:true,cancel:true,standardEqualizer:true,exactReleaseSeat:true,noExtraControls:true,hintsWin:true,hints,legacyFieldInput:true,navigation,geometry});
   if(cdp)await cdp.detach();await context.close();
  }
  assert.deepEqual(report.errors,[]);report.status='PASS';
