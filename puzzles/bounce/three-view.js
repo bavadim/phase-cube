@@ -84,7 +84,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     if(!dragging)return;
     const d=dragging,phase=B.heldPhase(d.phase,d.position,clock.position,binding.periods[d.index]),values=valuesAt(d.before);
     values[d.index]={phase,gain:d.gain};draw(values);
-    d.move=model.editPoint(d.key,{phase,gain:d.gain,captureGain:d.resized},d.before);
+    d.move=model.editPoint(d.key,{phase,gain:d.gain},d.before);
     onEditPreview(d.move,{key:d.key,phase,gain:d.gain});
   }
   function sync(){if(!animating&&!dragging&&!committed&&!disposed)draw(valuesAt(model.snapshot()));}
@@ -100,7 +100,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     beginDrag(hit,world){
       if(animating||!world)return false;selected=F.keys.indexOf(hit.key);const p=valuesAt(model.snapshot())[selected];
       committed=null;draw(valuesAt(model.snapshot()));
-      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,resized:false,move:null};
+      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,move:null};
       updateHold();return true;
     },
     dragTo(world){
@@ -108,9 +108,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       // a radial pull can still adjust size/gain; phase follows elapsed audio time.
       if(!dragging||!world)return;const d=dragging,initial=valuesAt(d.before)[d.index].gain;
       const dr=Math.hypot(world.x,world.z)-Math.hypot(d.start.x,d.start.z);
-      if(Math.abs(dr)>.015)d.resized=true;
-      const gain=Math.max(0,Math.min(2,initial+dr/B.gainDragSpan));
-      d.gain=Math.round(gain*1e6)/1e6;updateHold();
+      d.gain=B.snapGain(initial+dr/B.gainDragSpan);updateHold();
     },
     endDrag(cancelled){
       if(!dragging)return null;if(!cancelled)updateHold();const d=dragging;dragging=null;

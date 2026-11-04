@@ -29,25 +29,32 @@ test('note markers retain pitches and duration; repeated local events are folded
  const repeated=B.attacks([...row,...row.map(e=>({...e,start:e.start+1}))],1);assert.equal(repeated.length,2);
  assert.deepEqual(repeated.map(e=>e.signature),events.map(e=>e.signature));assert.throws(()=>B.attacks([],0));
 });
-test('gear release snaps gain to 10% and leaves the other riffs untouched',()=>{
+test('gear release has exactly five sizes and leaves the other riffs untouched',()=>{
  for(const phase of [-800.51,-8.5,-8.49,-.51,-.5,-.49,0,.49,.5,.51,7.49,7.5,7.99,8,83.63]){
-  const m=Module.create();m.apply('B');const before=m.snapshot(),point={phase,gain:1.137},move=m.editPoint('A',point,before);
+  const m=Module.create();m.apply('B');const before=m.snapshot(),point={phase,gain:1.337},move=m.editPoint('A',point,before);
   assert(move);const state=m.applyTo(before,move),params=m.parameters(state),expected=((Math.round(phase)%8)+8)%8;
   // Ties near the target prefer the target rather than the next seat.
   const targetDistance=Math.abs(B.delta(0,phase/8))*8;
-  assert.equal(params[0].phase,targetDistance<=.5+1e-9?0:expected);close(params[0].level/4,1.1);
+  assert.equal(params[0].phase,targetDistance<=.5+1e-9?0:expected);assert.equal(params[0].level/4,1.5);
   const distance=Math.abs(B.delta(phase/8,expected/8));assert(distance<=1/16+1e-9);
   assert.deepEqual(params.slice(1),m.parameters(before).slice(1));assert.deepEqual(m.applyTo(state,m.inverse(move)),before);
  }
  const m=Module.create();assert.equal(m.editPoint('A',{phase:16.1,gain:1}),null);
  for(const point of [{phase:NaN,gain:1},{phase:0,gain:Infinity}])assert.throws(()=>m.editPoint('A',point));
- for(const gain of [.9,.94,1,1.06,1.1])assert.equal(B.snapGain(gain),1);
- for(const [gain,want]of [[-.3,0],[.23,.2],[.85,.9],[1.11,1.1],[1.37,1.4],[2.4,2]])close(B.snapGain(gain),want);
- for(let g=0;g<=2000;g++)close(B.snapGain(g/1000)*10,Math.round(B.snapGain(g/1000)*10));
+ assert.deepEqual(B.gains,[0,.5,1,1.5,2]);
+ for(const gain of [.75,.9,.999999999,1,1.000000001,1.1,1.249999]){
+  assert.equal(B.snapGain(gain),1);assert.equal(m.editPoint('A',{phase:0,gain}),null);assert(m.solved());
+ }
+ for(const [gain,want]of [[-.3,0],[.2499,0],[.25,.5],[.7499,.5],[1.25,1.5],[1.7499,1.5],[1.75,2],[2.4,2]])assert.equal(B.snapGain(gain),want);
+ const seen=new Set();for(let g=0;g<=2000;g++){const gain=B.snapGain(g/1000);assert(B.gains.includes(gain));seen.add(gain);}assert.deepEqual([...seen],B.gains);
+ // All public creation paths use the same grid; a hidden near-target value
+ // cannot be committed as an unsolved state.
+ for(const gain of B.gains){const move=m.editPoint('A',{phase:0,gain});const state=move?m.applyTo(0,move):0;assert.equal(m.parameters(state)[0].level/4,gain);assert.equal(m.solved(state),gain===1);}
+ for(const level of [4-1e-9,4+1e-9,4.4,5.6])assert.throws(()=>m.editMove('A',{phase:0,level}),/Между/);
 });
 test('gear model retains exact undo, independent riff moves and solvable hints',()=>{
  const m=Module.create();assert(m.solved());for(let i=0;i<Module.shuffleSteps;i++)m.shuffle();assert(!m.solved());
- const before=m.snapshot(),p=m.parameters()[0];m.apply(m.editMove('A',{phase:p.phase+1,level:5.6}));m.undo();assert.deepEqual(m.snapshot(),before);
+ const before=m.snapshot(),p=m.parameters()[0];m.apply(m.editMove('A',{phase:p.phase+1,level:6}));m.undo();assert.deepEqual(m.snapshot(),before);
  assert.throws(()=>m.editMove('A',{phase:0,level:5.348}),/Между/);
  let n=0;while(!m.solved()){m.apply(m.hint());assert(++n<50);}assert.equal(m.correct(),6);
 });
@@ -69,7 +76,7 @@ test('every score: six visible rotors retain native Strudel attacks and their tr
      close(B.crest(e,1),B.crest(sockets[0],1));
     }
    }
-   for(const direction of [-1,1]){const move=F.keys[i]+(direction>0?'+':'-'),state=m.applyTo(0,move);close(m.parameters(state)[i].level/4,1+direction*.1);assert.deepEqual(m.applyTo(state,m.inverse(move)),0);}
+   for(const direction of [-1,1]){const move=F.keys[i]+(direction>0?'+':'-'),state=m.applyTo(0,move);assert.equal(m.parameters(state)[i].level/4,1+direction*.5);assert.deepEqual(m.applyTo(state,m.inverse(move)),0);}
   }
   const shuffled=[];for(let i=0;i<6;i++)shuffled.push(m.shuffle());
   for(const move of shuffled.slice().reverse())m.apply(m.inverse(move));assert(m.solved());m.reset();

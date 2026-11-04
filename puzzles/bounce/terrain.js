@@ -3,7 +3,7 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.BounceTerrain=factory();})(globalThis,function(){
   'use strict';
   const wrap=x=>((x%1)+1)%1,delta=(a,b)=>wrap(b-a+.5)-.5,TAU=Math.PI*2;
-  const gainDragSpan=1.8,gainStep=.1,gainCapture=.1,front=Math.PI/4;
+  const gainDragSpan=1.8,gainStep=.5,gains=Object.freeze([0,.5,1,1.5,2]),front=Math.PI/4;
   const colors=['#db7063','#df994d','#cfb64e','#a5b95a','#71af79','#53ac99','#50a4b8','#668ec1','#8d7bb7','#ae79ac','#c67f9d','#d58781'];
   function attacks(row,period=1){
     if(!(period>0&&Number.isFinite(period)))throw new Error('Invalid riff period');
@@ -27,10 +27,10 @@
     if(!events.length)throw new Error('Шестерёнке нужны ноты');
     return [1,2,4,8].find(step=>events.every(e=>events.some(s=>Math.abs(delta(e.time-step/8,s.time))<1e-7)));
   }
-  function snapGain(gain,capture=true){
+  function snapGain(gain){
     if(!Number.isFinite(gain))throw new Error('Неверный размер шестерёнки');
     const bounded=Math.max(0,Math.min(2,gain));
-    return capture&&Math.abs(bounded-1)<=gainCapture+1e-9?1:Math.round(bounded/gainStep)/10;
+    return gains[Math.round(bounded/gainStep)];
   }
   function surface(events,time,gain){
     let r=radius(gain)-.10;
@@ -50,5 +50,5 @@
   // Positions are unwrapped audio cycles, so holding across loop boundaries is continuous.
   const heldPhase=(phase,start,position,period)=>phase-8*(position-start)/period;
   function point(time,r,y=0){const a=time*TAU;return{x:Math.sin(a)*r,y,z:Math.cos(a)*r};}
-  return{wrap,delta,TAU,front,gainDragSpan,gainStep,gainCapture,attacks,seatStep,snapGain,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,rotation,heldPhase,point};
+  return{wrap,delta,TAU,front,gainDragSpan,gainStep,gains,attacks,seatStep,snapGain,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,rotation,heldPhase,point};
 });

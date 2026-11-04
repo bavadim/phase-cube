@@ -4950,7 +4950,7 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.BounceTerrain=factory();})(globalThis,function(){
   'use strict';
   const wrap=x=>((x%1)+1)%1,delta=(a,b)=>wrap(b-a+.5)-.5,TAU=Math.PI*2;
-  const gainDragSpan=1.8,gainStep=.1,gainCapture=.1,front=Math.PI/4;
+  const gainDragSpan=1.8,gainStep=.5,gains=Object.freeze([0,.5,1,1.5,2]),front=Math.PI/4;
   const colors=['#db7063','#df994d','#cfb64e','#a5b95a','#71af79','#53ac99','#50a4b8','#668ec1','#8d7bb7','#ae79ac','#c67f9d','#d58781'];
   function attacks(row,period=1){
     if(!(period>0&&Number.isFinite(period)))throw new Error('Invalid riff period');
@@ -4974,10 +4974,10 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
     if(!events.length)throw new Error('Шестерёнке нужны ноты');
     return [1,2,4,8].find(step=>events.every(e=>events.some(s=>Math.abs(delta(e.time-step/8,s.time))<1e-7)));
   }
-  function snapGain(gain,capture=true){
+  function snapGain(gain){
     if(!Number.isFinite(gain))throw new Error('Неверный размер шестерёнки');
     const bounded=Math.max(0,Math.min(2,gain));
-    return capture&&Math.abs(bounded-1)<=gainCapture+1e-9?1:Math.round(bounded/gainStep)/10;
+    return gains[Math.round(bounded/gainStep)];
   }
   function surface(events,time,gain){
     let r=radius(gain)-.10;
@@ -4997,42 +4997,42 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   // Positions are unwrapped audio cycles, so holding across loop boundaries is continuous.
   const heldPhase=(phase,start,position,period)=>phase-8*(position-start)/period;
   function point(time,r,y=0){const a=time*TAU;return{x:Math.sin(a)*r,y,z:Math.cos(a)*r};}
-  return{wrap,delta,TAU,front,gainDragSpan,gainStep,gainCapture,attacks,seatStep,snapGain,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,rotation,heldPhase,point};
+  return{wrap,delta,TAU,front,gainDragSpan,gainStep,gains,attacks,seatStep,snapGain,shift,radius,crest,surface,pitch,noteClass,color,tokenWidth,rotation,heldPhase,point};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Gear rules: seats fit the authored rhythm; size is quantized to 10%. */
+/* Gear rules: seats fit the authored rhythm; five exact size/gain levels. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/module.js'),require('../fourier/model.js'),require('../fourier/binding.js'),require('./terrain.js'),require('../../controls/pattern-pieces.js'));else root.BouncePuzzle=factory(root.FourierPuzzle,root.FourierModel,root.FourierBinding,root.BounceTerrain,root.PuzzleParts);})(globalThis,function(Base,F,Binding,B,Parts){
   'use strict';
-  const mod=n=>((n%8)+8)%8,round=n=>Math.round(n*1e9)/1e9;
+  const mod=n=>((n%8)+8)%8,levelStep=B.gainStep*4;
   class Model extends F.Model{
     constructor(steps=F.keys.map(()=>1)){super();if(steps.length!==6||steps.some(s=>![1,2,4,8].includes(s)))throw new Error('Неверные посадочные места');this.seatSteps=Object.freeze([...steps]);}
     selectionLabel(preview){const p=this.parameters()[F.keys.indexOf(this.selected)];return 'Партия '+(F.keys.indexOf(this.selected)+1)+' · '+Math.round((preview?.gain??F.gain(p))*100)+'%';}
-    snapPoint(key,{phase,gain,captureGain=true}){
+    snapPoint(key,{phase,gain}){
       const i=F.keys.indexOf(key);if(i<0||!Number.isFinite(phase)||!Number.isFinite(gain))throw new Error('Неверные координаты шестерёнки');
       const step=this.seatSteps[i],home=F.homePhase[i],delta=B.delta(home/8,phase/8)*8;
       // Prefer the target at a tie, including the 0°/360° seam.
       const offset=Math.abs(delta)<=step/2+1e-9?0:Math.round(delta/step)*step;
-      return{phase:mod(home+offset),gain:B.snapGain(gain,captureGain)};
+      return{phase:mod(home+offset),gain:B.snapGain(gain)};
     }
     editPoint(key,point,state=this.current){const p=this.snapPoint(key,point);return this.editMove(key,{phase:p.phase,level:p.gain*4},state);}
     editMove(key,to,state=this.current){
       const i=F.keys.indexOf(key),step=this.seatSteps[i];
-      if(i<0||mod(to.phase-F.homePhase[i])%step||Math.abs(to.level/.4-Math.round(to.level/.4))>1e-7)throw new Error('Между посадочными местами');
+      if(i<0||mod(to.phase-F.homePhase[i])%step||!B.gains.includes(to.level/4))throw new Error('Между посадочными местами');
       return super.editMove(key,to,state);
     }
     applyTo(state,move){
       if(typeof move!=='string'){this.editMove(move?.key,move?.to,state);return super.applyTo(state,move);}
       const key=this.moveTarget(move),i=F.keys.indexOf(key),p=this.parameters(state)[i];
-      const to=/[+-]$/.test(move)?{...p,level:round(p.level+(move.endsWith('+')?.4:-.4))}:{...p,phase:mod(p.phase+(move.endsWith("'")?1:-1)*this.seatSteps[i])};
+      const to=/[+-]$/.test(move)?{...p,level:p.level+(move.endsWith('+')?levelStep:-levelStep)}:{...p,phase:mod(p.phase+(move.endsWith("'")?1:-1)*this.seatSteps[i])};
       const edit=this.editMove(key,to,state);if(!edit)throw new Error('Пустой поворот');return super.applyTo(state,edit);
     }
     levelMove(key,direction,state=this.current){const move=key+(direction>0?'+':'-');return this.validMove(move,state)?move:null;}
     legalMoves(state=this.current){return F.keys.flatMap(key=>[key,key+"'",key+'-',key+'+'].filter(move=>this.validMove(move,state)));}
     restore(state){this.parameters(state).forEach((p,i)=>this.editMove(F.keys[i],p,0));super.restore(state);}
-    distance(state=this.current){return round(this.parameters(state).reduce((sum,p,i)=>{const d=mod(p.phase-F.homePhase[i]);return sum+Math.min(d,8-d)/this.seatSteps[i]+Math.abs(p.level-4)/.4;},0));}
+    distance(state=this.current){return this.parameters(state).reduce((sum,p,i)=>{const d=mod(p.phase-F.homePhase[i]);return sum+Math.min(d,8-d)/this.seatSteps[i]+Math.abs(p.level-4)/levelStep;},0);}
     shuffle(){
       const radius=this.shuffleStep++%2===1,legal=this.legalMoves(),moves=legal.filter(m=>/[+-]$/.test(m)===radius);
       const move=this.shuffler.next(this,{moves:moves.length?moves:legal});this.apply(move);this.history=[];this.moves=[];return move;
@@ -5041,13 +5041,13 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
       const result=[this.initialState()];
       for(let i=0;i<F.keys.length;i++){
         for(let offset=this.seatSteps[i];offset<8;offset+=this.seatSteps[i])result.push(this.applyTo(0,this.editMove(F.keys[i],{phase:mod(F.homePhase[i]+offset),level:4},0)));
-        for(let level=0;level<=20;level++)if(level!==10)result.push(this.applyTo(0,this.editMove(F.keys[i],{phase:F.homePhase[i],level:round(level*.4)},0)));
+        for(const gain of B.gains)if(gain!==1)result.push(this.applyTo(0,this.editMove(F.keys[i],{phase:F.homePhase[i],level:gain*4},0)));
       }
       return result;
     }
   }
-  const manifest=steps=>({...Base.manifest,id:'bounce',version:4,stateSpace:'rhythm seats × {0,0.1,…,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*21,1),
-    parameters:{phases:steps.map(s=>8/s),seatSteps:[...steps],magnitudes:{min:0,max:2,step:B.gainStep,continuous:false,targetCapture:B.gainCapture}},
+  const manifest=steps=>({...Base.manifest,id:'bounce',version:5,stateSpace:'rhythm seats × {0,0.5,1,1.5,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*B.gains.length,1),
+    parameters:{phases:steps.map(s=>8/s),seatSteps:[...steps],magnitudes:{min:0,max:2,step:B.gainStep,values:B.gains,continuous:false}},
     operations:{phase:{orders:steps.map(s=>8/s)},magnitude:{kind:'bounded-step',step:B.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}},
     interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'}});
   return{id:'bounce',title:'Шестерёнки ритма',progressLabel:'партий\nв ритме',shuffleSteps:6,create:()=>new Model(),manifest:Object.freeze(manifest(F.keys.map(()=>1))),
@@ -5145,7 +5145,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     if(!dragging)return;
     const d=dragging,phase=B.heldPhase(d.phase,d.position,clock.position,binding.periods[d.index]),values=valuesAt(d.before);
     values[d.index]={phase,gain:d.gain};draw(values);
-    d.move=model.editPoint(d.key,{phase,gain:d.gain,captureGain:d.resized},d.before);
+    d.move=model.editPoint(d.key,{phase,gain:d.gain},d.before);
     onEditPreview(d.move,{key:d.key,phase,gain:d.gain});
   }
   function sync(){if(!animating&&!dragging&&!committed&&!disposed)draw(valuesAt(model.snapshot()));}
@@ -5161,7 +5161,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
     beginDrag(hit,world){
       if(animating||!world)return false;selected=F.keys.indexOf(hit.key);const p=valuesAt(model.snapshot())[selected];
       committed=null;draw(valuesAt(model.snapshot()));
-      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,resized:false,move:null};
+      dragging={key:hit.key,index:selected,before:model.snapshot(),start:world.clone(),position:clock.position,phase:p.phase,gain:p.gain,move:null};
       updateHold();return true;
     },
     dragTo(world){
@@ -5169,9 +5169,7 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
       // a radial pull can still adjust size/gain; phase follows elapsed audio time.
       if(!dragging||!world)return;const d=dragging,initial=valuesAt(d.before)[d.index].gain;
       const dr=Math.hypot(world.x,world.z)-Math.hypot(d.start.x,d.start.z);
-      if(Math.abs(dr)>.015)d.resized=true;
-      const gain=Math.max(0,Math.min(2,initial+dr/B.gainDragSpan));
-      d.gain=Math.round(gain*1e6)/1e6;updateHold();
+      d.gain=B.snapGain(initial+dr/B.gainDragSpan);updateHold();
     },
     endDrag(cancelled){
       if(!dragging)return null;if(!cancelled)updateHold();const d=dragging;dragging=null;
@@ -5254,7 +5252,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/assist6';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/sizes7';
   const library=new PuzzleCompositions.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});

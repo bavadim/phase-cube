@@ -1,5 +1,5 @@
 {
-  "schema": "gear-assist/6",
+  "schema": "gear-sizes/7",
   "engine": "chromium",
   "physicalDevice": false,
   "cases": [
@@ -14,10 +14,17 @@
       "stationaryHold": true,
       "independentTargets": true,
       "releaseSingleMove": true,
-      "gainPreview": 1.468427,
-      "gainStep": 0.1,
-      "targetCapture": 0.1,
-      "capturePreview": 1.091427,
+      "gainPreview": 2,
+      "gainStep": 0.5,
+      "gainLevels": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2
+      ],
+      "snappedDuringDrag": true,
+      "capturePreview": 1,
       "realThreeSocketFit": true,
       "undo": true,
       "cancel": true,
@@ -26,33 +33,8 @@
       "noExtraControls": true,
       "hintsWin": true,
       "hints": 6,
-      "legacyFieldInput": true,
-      "navigation": [
-        {
-          "id": "twiddle",
-          "choices": 2,
-          "selectionOnly": true,
-          "hintContinuation": true
-        },
-        {
-          "id": "rubik",
-          "choices": 6,
-          "selectionOnly": true,
-          "hintContinuation": true
-        },
-        {
-          "id": "fourier",
-          "choices": 6,
-          "selectionOnly": true,
-          "hintContinuation": true
-        },
-        {
-          "id": "scratch",
-          "choices": 13,
-          "selectionOnly": true,
-          "hintContinuation": true
-        }
-      ],
+      "legacyFieldInput": false,
+      "navigation": [],
       "geometry": {
         "scoreVisible": true,
         "stageRatio": 0.6597510373443983,
@@ -75,7 +57,7 @@
   "errors": [],
   "status": "PASS",
   "sourceSha256": {
-    "index.html": "0854c0b5df72cdaf97d14dccbb905e64a497701b21d30e54f1252ac33f5c3aa7",
+    "index.html": "83dffda332714457c36332e73e8e5ab5349d39b213b69fcb0486059652978aba",
     "style.css": "2482e2717acba00722bc820865b7cf9adf2f98e30e6e78cd19c8d53260fec676",
     "controls/equalizer.css": "ba8a2ba4c6eda758f02eb4038fa1bc20bee0c293db0151ce4ee30f75b7d6a0be",
     "controls/player.css": "454d3d903b29fc2bef5a1b3a74b118a444daf5f941790741dcfa26f488c9fba3",
@@ -124,12 +106,12 @@
     "puzzles/scratch/partition.js": "b55d64f7bff278eedee4020f8037af0900858bc763a9e5ccbafd66964a5a248d",
     "puzzles/scratch/module.js": "2489e05e5c6b03daed0abb4fba6773a4d6c89a82d2cc12910004056f2eb85ddd",
     "puzzles/scratch/three-view.js": "ec162c588ebb32df28f397120d0b0172bb5c521606c8c95dbc5d0e0f48502dd7",
-    "puzzles/bounce/terrain.js": "c22e40a5f3bcad57247c7b1b2e6834da25f17f28f2f426341a1bafc5c9ca0d7a",
-    "puzzles/bounce/module.js": "18685bd88514830bdd1bb8df22f448c773b56445ba0ef5014949fd94eaacdf30",
-    "puzzles/bounce/three-view.js": "7967685ffe15601bcd96142b72e283957b392c0f2547a2234a61527127b27462",
+    "puzzles/bounce/terrain.js": "0643e0bf8dcfb119c888c765e452c803d1c1ae116179719d6f6bc38ab785407c",
+    "puzzles/bounce/module.js": "bb1b4f7b90d52f26f729379f62bb71bbe07a6a705c2c01c323f8226298c549c3",
+    "puzzles/bounce/three-view.js": "9fe8f5990d5be2da5a3a59f7e1b3b3520eb24bd6e479b63edd8df49b62fe8b33",
     "puzzles/registry.js": "920a9fb6cc0e470ac64dddd12cffb7141bf2834a29f0fc6da378df41e3f804a3",
     "graphics/puzzle-views.js": "19b1c45e467f4e24740f9bc18a39668acc21ee92c44cd796570ab3d1856536b5",
     "celebration.js": "6f941db21c30a110650220fcb8f098e92699f41a3a50cb26da9a77c539b0e0b5",
-    "app.js": "c48bd9a5c2a2111df01baa0ef4a04453ffe0a0577612eb487cce4cc025ba1ea1"
+    "app.js": "7993e730d78fb4f06bf86c4eb279bcc3bc83a7ab12df18d1b7dbfd4feca81c6d"
   }
 }
