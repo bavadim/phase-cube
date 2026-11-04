@@ -1,0 +1,17 @@
+{
+  "schema": "rotary-lift-maze/1",
+  "status": "PASS",
+  "individualPoses": 240,
+  "interfaceCombinations": 4096,
+  "stateSpace": 4096000000,
+  "invariant": "route is passable iff every riff has its reference phase and gain",
+  "scope": "fixed six-node serial topology; C8 phase and five gain values; not musical/artistic acceptance",
+  "sourceSha256": {
+    "puzzles/fourier/maze.js": "28fade8ac8f596c6022d1b0c57146268bd39edb188c53239603c68fbdce998e8",
+    "puzzles/fourier/maze-model.js": "a6f10737bc856d937dc56953caeef3ccadf41d7d0b9e5802c0e145b7e7863bba",
+    "puzzles/fourier/module.js": "00422f5e3449d1d209adf81ed6e718524c6a397307ff5f293186c310f299f8e2",
+    "puzzles/fourier/model.js": "183d786b6a755b596286c9789e671f475510be940f645f3dd0b57e3987b21dc8",
+    "puzzles/fourier/binding.js": "ff1200cf54540cec50775034cfdc0cb6a569d3fe385f9dafeb7f078873aed955",
+    "test-maze.cjs": "d5230f38ba2dc25e670fc6b45c91bce8982cb893544da93df84fbd89df80221b"
+  }
+}

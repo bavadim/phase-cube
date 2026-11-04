@@ -3069,6 +3069,106 @@ lanes.noise = noiseSound(stack(
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Physical ports and reachability. No renderer, DOM or musical state encoding. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.FourierMaze=factory();})(globalThis,function(){
+  'use strict';
+  const radius=.51,liftRange=.50,gains=Object.freeze([0,.5,1,1.5,2]),gainStep=.5,epsilon=1e-7;
+  const nodes=Object.freeze([
+    {x:-1.35,z:.85,height:.70,in:[-1,0],out:[0,-1]},
+    {x:-1.35,z:-.85,height:1.04,in:[0,1],out:[1,0]},
+    {x:0,z:-.85,height:1.04,in:[-1,0],out:[0,1]},
+    {x:0,z:.85,height:.70,in:[0,-1],out:[1,0]},
+    {x:1.35,z:.85,height:.70,in:[-1,0],out:[0,-1]},
+    {x:1.35,z:-.85,height:1.04,in:[0,1],out:[1,0]}
+  ].map(n=>Object.freeze({...n,in:Object.freeze(n.in),out:Object.freeze(n.out)})));
+  const start=Object.freeze({x:-2.40,y:.70,z:.85}),finish=Object.freeze({x:2.40,y:1.04,z:-.85});
+  const snapGain=gain=>{if(!Number.isFinite(gain))throw new Error('Неверная высота платформы');return gains[Math.round(Math.max(0,Math.min(2,gain))/gainStep)];};
+  const height=(i,gain)=>nodes[i].height+(gain-1)*liftRange;
+  function point(i,[x,z],phase=0,gain=1){
+    const n=nodes[i],a=phase*Math.PI/4,c=Math.cos(a),s=Math.sin(a);
+    // Exactly the same Y rotation as Three.js, independently testable.
+    return{x:n.x+x*c+z*s,y:height(i,gain),z:n.z-x*s+z*c};
+  }
+  const port=(i,side,phase=0,gain=1)=>point(i,nodes[i][side].map(n=>n*radius),phase,gain);
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
+  function passage(i,phase=0,gain=1,reverse=false){
+    const n=nodes[i],u=reverse?n.out:n.in,v=reverse?n.in:n.out,result=[point(i,u.map(x=>x*radius),phase,gain),point(i,u.map(x=>x*.18),phase,gain)];
+    for(let j=1;j<=8;j++){const t=j/8;result.push(point(i,[0,1].map(k=>.18*((1-t)**2*u[k]+t*t*v[k])),phase,gain));}
+    result.push(point(i,v.map(x=>x*radius),phase,gain));return result;
+  }
+  const fixedLinks=Object.freeze(Array.from({length:7},(_,i)=>Object.freeze({from:i===0?start:port(i-1,'out'),to:i===6?finish:port(i,'in')})));
+  function analyze(poses){
+    if(poses.length!==nodes.length||poses.some(p=>!Number.isFinite(p.phase)||!Number.isFinite(p.gain)))throw new Error('Неверные положения лабиринта');
+    const adjacency=new Map(),edge=(a,b)=>{if(!adjacency.has(a))adjacency.set(a,new Set());if(!adjacency.has(b))adjacency.set(b,new Set());adjacency.get(a).add(b);adjacency.get(b).add(a);};
+    edge('start','fixed:0:in');edge('fixed:5:out','finish');
+    for(let i=0;i<5;i++)edge('fixed:'+i+':out','fixed:'+(i+1)+':in');
+    const joints=poses.map((p,i)=>{
+      const moving=['in','out'].map(side=>port(i,side,p.phase,p.gain)),fixed=['in','out'].map(side=>port(i,side));
+      const errors=fixed.map(f=>moving.map(m=>distance(f,m))),contacts=errors.map(row=>row.findIndex(d=>d<epsilon));
+      edge('moving:'+i+':0','moving:'+i+':1');
+      contacts.forEach((m,j)=>{if(m>=0)edge('fixed:'+i+':'+(j?'out':'in'),'moving:'+i+':'+m);});
+      return{index:i,moving,fixed,errors,contacts,connected:contacts.every(c=>c>=0)};
+    });
+    const reached=new Set(['start']),queue=['start'];for(let j=0;j<queue.length;j++)for(const v of adjacency.get(queue[j])||[])if(!reached.has(v)){reached.add(v);queue.push(v);}
+    const route=[start,port(0,'in')];let blocked=null,completed=0;
+    for(let i=0;i<nodes.length;i++){
+      const joint=joints[i],pose=poses[i],entry=joint.contacts[0];
+      if(entry<0){blocked={index:i,side:'in',point:joint.fixed[0]};break;}
+      route.push(...passage(i,pose.phase,pose.gain,entry===1));
+      if(joint.contacts[1]!==1-entry){blocked={index:i,side:'out',point:joint.moving[1-entry]};break;}
+      completed++;route.push(fixedLinks[i+1].to);
+    }
+    return{passable:reached.has('finish'),correct:joints.filter(j=>j.connected).length,completed,joints,route,blocked};
+  }
+  return{nodes,radius,liftRange,gains,gainStep,epsilon,start,finish,height,point,port,passage,fixedLinks,snapGain,analyze};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* C8 rotations and five lift positions, using the existing complex-riff action. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('./maze.js'),require('../actions.js'));else root.FourierMazeModel=factory(root.FourierModel,root.FourierMaze,root.PuzzleActions);})(globalThis,function(F,Maze,Actions){
+  'use strict';
+  const levelStep=Maze.gainStep*4;
+  class Model extends F.Model{
+    constructor(){super();this.gains=Maze.gains;}
+    parameters(state=this.current){const p=super.parameters(state);if(p.some(v=>!Maze.gains.includes(F.gain(v))))throw new Error('Высота между уровнями');return p;}
+    maze(state=this.current){return Maze.analyze(this.parameters(state).map((p,i)=>({phase:p.phase-F.homePhase[i],gain:F.gain(p)})));}
+    solved(state=this.current){return this.maze(state).passable;}
+    correct(state=this.current){return this.maze(state).correct;}
+    choices(){return F.keys.map((key,i)=>({key,label:'Платформа '+(i+1)}));}
+    selectionLabel(preview){const i=F.keys.indexOf(this.selected),p=this.parameters()[i];return 'Платформа '+(i+1)+' · '+Math.round((preview?.gain??F.gain(p))*100)+'%';}
+    editPoint(key,{phase,gain},state=this.current){return super.editPoint(key,{phase,gain:Maze.snapGain(gain)},state);}
+    editMove(key,to,state=this.current){if(!Maze.gains.includes(to?.level/4))throw new Error('Высота между уровнями');return super.editMove(key,to,state);}
+    applyTo(state,move){
+      this.parameters(state);
+      if(typeof move!=='string'){this.editMove(move?.key,move?.to,state);return super.applyTo(state,move);}
+      if(!/[+-]$/.test(move))return super.applyTo(state,move);
+      const key=this.moveTarget(move),p=this.parameters(state)[F.keys.indexOf(key)],edit=this.editMove(key,{...p,level:p.level+(move.endsWith('+')?levelStep:-levelStep)},state);
+      return super.applyTo(state,edit);
+    }
+    levelMove(key,direction,state=this.current){const move=key+(direction>0?'+':'-');return this.validMove(move,state)?move:null;}
+    restore(state){this.parameters(state).forEach((p,i)=>this.editMove(F.keys[i],p,0));super.restore(state);}
+    distance(state=this.current){return this.parameters(state).reduce((sum,p,i)=>{const d=((p.phase-F.homePhase[i])%8+8)%8;return sum+Math.min(d,8-d)+Math.abs(p.level-4)/levelStep;},0);}
+    actions(callbacks){
+      const key=this.selected,n=F.keys.indexOf(key)+1;
+      return[
+        {id:'turn-left',label:'Платформа '+n+': повернуть влево',icon:{text:'↶'},group:'Поворот',move:key+"'"},
+        {id:'turn-right',label:'Платформа '+n+': повернуть вправо',icon:{text:'↷'},group:'Поворот',move:key},
+        {id:'magnitude-down',label:'Платформа '+n+': опустить',icon:{text:'−'},group:'Высота',move:this.levelMove(key,-1)},
+        {id:'magnitude-up',label:'Платформа '+n+': поднять',icon:{text:'+'},group:'Высота',move:this.levelMove(key,1)}
+      ].map(a=>Actions.move(this,callbacks,a));
+    }
+    probeStates(){
+      const states=[0];for(const key of F.keys)for(let phase=0;phase<8;phase++)for(const gain of Maze.gains){const move=this.editMove(key,{phase,level:gain*4},0);if(move)states.push(this.applyTo(0,move));}return states;
+    }
+  }
+  return{Model,gains:Maze.gains,gainStep:Maze.gainStep,stateCount:(8*Maze.gains.length)**F.keys.length};
+});
+
+</script>
+<script>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Diagonal C* action on independent periodic riffs, not a PCM Fourier transform. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'),require('../../puzzle-contract.js'));else root.FourierBinding=factory(root.FourierModel,root.PuzzleContract);})(globalThis,function(F,Contract){
   'use strict';
@@ -4589,174 +4689,139 @@ window.TwiddleView = {create({scene,resources,model,game,tween}){
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./model.js'));else root.FourierPuzzle=factory(root.FourierModel);})(globalThis,function(F){
-  return{id:'fourier',title:'Совещание',progressLabel:'рифов\nна месте',create:()=>new F.Model(),
-    manifest:Object.freeze({schema:'music-puzzle/3',id:'fourier',version:7,projection:'complex-riff/3',controls:6,fragments:6,goalPolicy:'single-reference',stateSpace:'C8^6 × [0,2]^6',gridPresetStates:F.stateCount,
-      interaction:{requiresSelection:true,hoverActions:false,selectionPrompt:'Выберите сотрудника'},
-      parameters:{phases:8,magnitudes:{min:0,max:2,continuous:true},gridPresets:F.levels},operations:{phase:{order:8},magnitude:{kind:'bounded-continuous',min:0,max:2},drag:{kind:'coefficient-edit'}}})};
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./maze-model.js'));else root.FourierPuzzle=factory(root.FourierMazeModel);})(globalThis,function(M){
+  return{id:'fourier',title:'Звучащий лабиринт',progressLabel:'узлов\nсоединено',shuffleSteps:6,create:()=>new M.Model(),
+    manifest:Object.freeze({schema:'music-puzzle/3',id:'fourier',version:8,projection:'complex-riff/3',controls:6,fragments:6,goalPolicy:'single-reference',stateSpace:'C8^6 × {0,0.5,1,1.5,2}^6',gridPresetStates:M.stateCount,
+      interaction:{requiresSelection:true,hoverActions:false,selectionPrompt:'Соедините вход и выход'},
+      parameters:{phases:8,magnitudes:{min:0,max:2,continuous:false,step:M.gainStep,values:M.gains}},operations:{phase:{order:8},magnitude:{kind:'bounded-step',step:M.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}}})};
 });
 
 </script>
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* A boardroom: fixed seats identify riffs, swivel is phase, gas lift is gain. */
+/* Six rotary lifts and seven fixed bridges. All input uses the shared stage. */
 window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
-  const T=THREE,F=FourierModel,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
-  const camera=new T.OrthographicCamera(-2.75,2.75,2.75,-2.75,.1,60);camera.position.set(0,9,8);camera.lookAt(0,.85,0);
-  const liftBase=.36,liftRange=.58,spinDistance=2.4;
-  const box=resources.own(new T.BoxGeometry(1,1,1)),ball=resources.own(new T.SphereGeometry(1,12,8));
-  const cylinder=resources.own(new T.CylinderGeometry(1,1,1,12)),materials=new Map();
-  const mat=color=>{if(!materials.has(color))materials.set(color,resources.material(color));return materials.get(color);};
-  function mesh(parent,geometry,color,position,scale){const m=new T.Mesh(geometry,mat(color));m.position.set(...position);m.scale.set(...scale);parent.add(m);return m;}
-  const block=(parent,color,position,scale)=>mesh(parent,box,color,position,scale);
-  const ellipsoid=(parent,color,position,scale)=>mesh(parent,ball,color,position,scale);
-  const tube=(parent,color,position,scale)=>mesh(parent,cylinder,color,position,scale);
-  function label(text,{color='#263e33',background=null,size=.28}={}){
-    const canvas=document.createElement('canvas');canvas.width=256;canvas.height=128;
-    const ctx=canvas.getContext('2d');if(background){ctx.fillStyle=background;ctx.fillRect(0,0,256,128);}
-    ctx.fillStyle=color;ctx.font='700 84px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,128,69);
-    const texture=resources.own(new T.CanvasTexture(canvas));texture.colorSpace=T.SRGBColorSpace;
-    return new T.Mesh(resources.own(new T.PlaneGeometry(size*2,size)),resources.own(new T.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false})));
+  const T=THREE,F=FourierModel,M=FourierMaze,own=x=>resources.own(x),root=new T.Group();scene.add(root);
+  const camera=new T.OrthographicCamera(-2.7,2.7,2.7,-2.7,.1,50);camera.position.set(0,10,8);camera.lookAt(0,.55,0);camera.updateMatrixWorld();
+  const right=new T.Vector3(1,0,0).applyQuaternion(camera.quaternion),up=new T.Vector3(0,1,0).applyQuaternion(camera.quaternion);
+  const box=own(new T.BoxGeometry(1,1,1)),cylinder=own(new T.CylinderGeometry(1,1,1,32)),sphere=own(new T.SphereGeometry(1,16,12)),materials=new Map();
+  const mat=(color,extra={})=>{const k=JSON.stringify([color,extra]);if(!materials.has(k))materials.set(k,resources.material(color,extra));return materials.get(k);};
+  function mesh(parent,geometry,material,position=[0,0,0],scale=[1,1,1]){const m=new T.Mesh(geometry,material);m.position.set(...position);m.scale.set(...scale);parent.add(m);return m;}
+  const block=(p,c,position,scale)=>mesh(p,box,mat(c),position,scale);
+  const round=(p,c,position,scale)=>mesh(p,cylinder,mat(c),position,scale);
+  const ball=(p,c,position,r)=>mesh(p,sphere,mat(c),position,[r,r,r]);
+  const vec=p=>new T.Vector3(p.x,p.y,p.z),road=0xfff5dd,stone=0xcbd4c2,brass=0xba9261,ink=0x405f52;
+  block(root,stone,[0,-.13,0],[5.18,.22,3.55]);block(root,0xe7dfc7,[0,-.005,0],[5.03,.045,3.40]);
+  // Fixed landings have square supports; colored octagons are the moving lifts.
+  const fixed=new T.Group();root.add(fixed);
+  function bridge(a,b){
+    const dx=b.x-a.x,dz=b.z-a.z,n=Math.hypot(dx,dz),px=-dz/n*.12,pz=dx/n*.12;
+    const points=[a,b].flatMap(p=>[[p.x+px,p.y,p.z+pz],[p.x-px,p.y,p.z-pz],[p.x+px,p.y-.09,p.z+pz],[p.x-px,p.y-.09,p.z-pz]]).flat();
+    const geometry=own(new T.BufferGeometry());geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));
+    geometry.setIndex([0,1,4,1,5,4,2,6,3,3,6,7,0,4,2,2,4,6,1,3,5,3,7,5,0,2,1,1,2,3,4,5,6,5,7,6]);geometry.computeVertexNormals();
+    mesh(fixed,geometry,mat(road,{side:T.DoubleSide}));
+    for(const d of [-1,1])fixed.add(resources.stroke([[a.x+px*d,a.y+.045,a.z+pz*d],[b.x+px*d,b.y+.045,b.z+pz*d]],{color:brass,radius:.015}));
+    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2};
+    block(fixed,0xc1cbb8,[mid.x,(mid.y-.10)/2,mid.z],[.20,mid.y-.10,.20]);
+    const landing=block(fixed,stone,[mid.x,mid.y-.06,mid.z],[.38,.09,.38]);landing.rotation.y=Math.atan2(dx,dz);
   }
-  // A single low office plinth makes the six mechanisms one object.
-  block(root,0xc4cfb8,[0,-.10,0],[4.45,.16,3.75]);
-  block(root,0xe4d7b7,[0,-.005,0],[4.32,.05,3.62]);
-  // The shared table stays behind the people, leaving the moving seats exposed.
-  block(root,0x9e7855,[0,.66,-1.91],[4.16,.12,.48]);
-  for(const x of [-1.8,1.8])block(root,0x435749,[x,.30,-1.91],[.09,.62,.30]);
-  const screen=new T.Group();screen.position.set(0,1.2,-2.05);root.add(screen);
-  block(screen,0x334c41,[0,0,0],[1.24,.74,.06]);block(screen,0xc4d4b5,[0,0,.04],[1.10,.60,.02]);
-  const title=label('SYNC',{color:'#263e33',size:.21});title.position.set(0,.13,.06);screen.add(title);
-  for(let i=0;i<3;i++)block(screen,0x729575,[-.32+i*.32,-.13,.065],[.15,.06+i*.065,.025]);
-  const skin=[0xe1ae82,0xbd8766,0xf0c4a0,0xd8a07a,0xb98565,0xf0c39b];
-  const hair=[0x47382c,0x9f543a,0x343d39,0xc99c60,0x574338,0x62534b];
-  const people=model.choices().map((choice,i)=>{
-    const base=new T.Group();base.position.set((i%3-1)*1.35,0,(i<3?-1:1)*.87);root.add(base);
-    const color=game.voices[i].color;
-    // Five-spoke feet remain fixed; the upholstered chair/person swivels above them.
-    tube(base,0x344b42,[0,.06,0],[.11,.12,.11]);
-    for(let j=0;j<5;j++){
-      const a=j*Math.PI*2/5,foot=block(base,0x4c6054,[Math.sin(a)*.18,.04,Math.cos(a)*.18],[.055,.055,.43]);foot.rotation.y=a;
-      ellipsoid(base,0x263b33,[Math.sin(a)*.37,.045,Math.cos(a)*.37],[.065,.05,.065]);
+  M.fixedLinks.forEach(({from,to})=>bridge(from,to));
+  function gate(p,color,exit=false){
+    round(fixed,0xaebbab,[p.x,p.y-.07,p.z],[.23,.12,.23]);
+    for(const dz of [-.16,.16])block(fixed,color,[p.x,p.y+.21,p.z+dz],[.055,.42,.055]);
+    const arch=mesh(fixed,own(new T.TorusGeometry(.16,.03,6,20,Math.PI)),mat(color),[p.x,p.y+.42,p.z]);arch.rotation.y=Math.PI/2;
+    const flag=block(fixed,color,[p.x,p.y+.55,p.z],[.045,.16,.20]);if(exit)flag.material=mat(0xc49c56,{emissive:0x8b682c,emissiveIntensity:.1});
+  }
+  gate(M.start,0x4b8973);gate(M.finish,brass,true);
+  const lifts=M.nodes.map((n,i)=>{
+    const group=new T.Group();group.position.set(n.x,0,n.z);root.add(group);
+    round(group,0xb9c7b1,[0,.035,0],[.31,.07,.31]);round(group,0xe8dfc7,[0,.079,0],[.26,.025,.26]);
+    const post=round(group,brass,[0,n.height/2,0],[.10,n.height,.10]);post.userData={index:i,kind:'lift'};
+    const lift=new T.Group(),rotor=new T.Group();group.add(lift);lift.add(rotor);
+    const color=new T.Color(game.voices[i].color),bodyMaterial=resources.material(color,{emissive:color,emissiveIntensity:0});
+    const body=mesh(rotor,own(new T.CylinderGeometry(.52,.49,.14,8)),bodyMaterial,[0,-.07,0]);body.userData={index:i,kind:'platform'};
+    round(rotor,0xe7dfc8,[0,-.155,0],[.35,.035,.35]);
+    for(const direction of [n.in,n.out]){
+      const [x,z]=direction,a=Math.atan2(x,z),floor=block(rotor,road,[x*M.radius/2,.015,z*M.radius/2],[.23,.03,M.radius]);floor.rotation.y=a;
+      const side=[-z,x];
+      for(const d of [-1,1]){const rail=block(rotor,brass,[x*.34+side[0]*.13*d,.05,z*.34+side[1]*.13*d],[.025,.07,.34]);rail.rotation.y=a;}
     }
-    const post=tube(base,0xa1b0a4,[0,.3,0],[.055,.6,.055]);
-    const seat=new T.Group();base.add(seat);
-    ellipsoid(seat,color,[0,.02,0],[.40,.09,.36]);
-    const back=ellipsoid(seat,color,[0,.37,-.29],[.38,.43,.085]);
-    block(seat,0x334c41,[0,.13,-.30],[.10,.40,.07]);
-    for(const x of [-.37,.37]){
-      block(seat,0x344b42,[x,.15,0],[.045,.30,.045]);block(seat,0x344b42,[x,.31,.015],[.09,.055,.40]);
-    }
-    // Chibi office workers have a real front/back and distinct silhouettes.
-    ellipsoid(seat,color,[0,.37,.015],[.25,.33,.18]);
-    block(seat,0xf2e6cb,[0,.49,.175],[.13,.23,.025]);
-    const tie=block(seat,i%2?0xb96f42:0x334c41,[.015,.38,.20],[.052,.21,.025]);tie.rotation.z=-.10;
-    tube(seat,skin[i],[0,.70,.02],[.085,.12,.085]);
-    ellipsoid(seat,skin[i],[0,.88,.035],[.24,.26,.22]);
-    ellipsoid(seat,hair[i],[0,1.025,-.025],[.25,.145,.22]);
-    if(i%3===1)ellipsoid(seat,hair[i],[.19,1.10,-.10],[.12,.15,.12]);
-    if(i===4)ellipsoid(seat,hair[i],[0,.78,.16],[.18,.075,.07]);
-    for(const x of [-.09,.09]){
-      ellipsoid(seat,0x263c34,[x,.90,.237],[.022,.033,.015]);
-      const brow=block(seat,hair[i],[x,.96,.23],[.065,.018,.025]);brow.rotation.z=x>0?-.13:.13;
-    }
-    ellipsoid(seat,skin[i],[.012,.855,.255],[.045,.05,.06]);
-    block(seat,0x8e5945,[.012,.785,.23],[.073,.015,.017]);
-    if(i%3===0){
-      for(const x of [-.095,.095]){const ring=new T.Mesh(resources.own(new T.TorusGeometry(.066,.012,5,16)),mat(0x263e33));ring.position.set(x,.90,.25);seat.add(ring);}
-      block(seat,0x263e33,[0,.90,.25],[.065,.014,.015]);
-    }
-    const hands=[];
-    for(const x of [-.17,.17]){
-      ellipsoid(seat,0x45544c,[x,-.16,.21],[.10,.23,.10]);ellipsoid(seat,0x263c34,[x,-.34,.29],[.12,.07,.19]);
-      hands.push(ellipsoid(seat,skin[i],[x*1.5,.31,.20],[.07,.075,.09]));
-    }
-    // Different props help identify sound sources without an external legend.
-    if(i%3===0){tube(seat,0xf5ead5,[.29,.39,.22],[.06,.14,.06]);}
-    else if(i%3===1){const laptop=block(seat,0x586c60,[0,.22,.29],[.34,.025,.23]);laptop.rotation.x=.20;}
-    else {const notebook=block(seat,0xd0ae6f,[-.26,.30,.22],[.10,.18,.035]);notebook.rotation.z=.20;}
-    const badge=label(String(i+1),{color:'#ffffff',background:color,size:.17});badge.position.set(0,.47,-.385);badge.rotation.y=Math.PI;seat.add(badge);
-    const number=label(String(i+1),{color:game.voices[i].color,size:.24});number.position.set(0,.07,.51);number.rotation.x=-Math.PI/2;base.add(number);
-    const outline=new T.Mesh(resources.own(new T.TorusGeometry(.49,.027,5,48)),resources.own(new T.MeshBasicMaterial({color:theme.accent})));outline.rotation.x=-Math.PI/2;outline.position.y=.09;base.add(outline);
-    const arrow=new T.Mesh(resources.own(new T.ConeGeometry(.08,.17,3)),mat(0xc69c58));arrow.rotation.x=Math.PI/2;arrow.position.set(0,.08,.42);base.add(arrow);
-    const talk=new T.Group();seat.add(talk);
-    for(let j=0;j<3;j++)ellipsoid(talk,color,[.32+j*.07,1.03+j*.07,.08],[.027,.027,.027]);
-    talk.visible=false;
-    const pick=new T.Mesh(resources.own(new T.PlaneGeometry(1.00,1.15)),resources.own(new T.MeshBasicMaterial({visible:false,side:T.DoubleSide})));base.add(pick);pick.userData.index=i;
-    return{key:choice.key,index:i,base,seat,post,back,number,outline,pick,hands,talk,reaction:0,gain:1,phase:F.homePhase[i]};
-  });
-  let feedback={selected:null,move:null},animating=false,disposed=false,dragging=null,committed=null,display=model.parameters().map(p=>({phase:p.phase,gain:F.gain(p)}));
-  const selected=()=>people.find(p=>p.key===feedback.selected);
-  function draw(values){
-    display=values.map(p=>({...p}));
-    people.forEach((p,i)=>{
-      p.gain=values[i].gain;p.phase=values[i].phase;
-      const height=liftBase+liftRange*p.gain;p.seat.position.y=height;
-      p.seat.rotation.y=(p.phase-F.homePhase[i])*Math.PI/4;
-      p.post.position.y=height/2;p.post.scale.y=height;
-      p.outline.visible=p.key===feedback.selected;
-      // Billboard pick envelopes stay attached to their own chair at every level.
-      p.pick.position.set(0,height+.88,0);p.pick.quaternion.copy(camera.quaternion);
+    round(rotor,road,[0,.018,0],[.14,.035,.14]);
+    // Eight tiny rivets make the angular detents visible on the object.
+    for(let j=0;j<8;j++){const a=j*Math.PI/4;ball(rotor,0xe9dbb9,[Math.cos(a)*.43,.015,Math.sin(a)*.43],.025);}
+    const outline=mesh(lift,own(new T.TorusGeometry(.56,.025,5,8)),mat(brass,{emissive:brass,emissiveIntensity:.15}),[0,-.018,0]);outline.rotation.x=-Math.PI/2;outline.visible=false;
+    const seams=['in','out'].map(side=>{
+      const p=M.port(i,side),direction=n[side],cap=block(fixed,0xe7dfc7,[p.x,p.y+.018,p.z],[.24,.035,.05]);cap.rotation.y=Math.atan2(direction[0],direction[1]);
+      // The line belongs to the real fixed bridge, never to a ghost preview.
+      cap.material=resources.material(0xc17c66);return cap;
     });
+    const pickParts=[post,...rotor.children.filter(o=>o.isMesh)];
+    pickParts.forEach(part=>{part.userData={index:i,kind:part===post?'lift':'platform'};});
+    return{key:F.keys[i],index:i,group,post,lift,rotor,body,bodyMaterial,outline,seams,pickParts,phase:F.homePhase[i],gain:1,reaction:0};
+  });
+  // A warm light travels along the connected route and waits at the first gap.
+  const traveller=ball(root,0x285e4c,[M.start.x,M.start.y+.09,M.start.z],.075);traveller.material=mat(0x285e4c,{emissive:0x4a8760,emissiveIntensity:.25});
+  ball(traveller,0xfff5dd,[-.022,.035,.045],.02);
+  let feedback={selected:null,focus:null},dragging=null,animating=false,committed=null,disposed=false,clock={phase:0,playing:false,rows:[],periodSeconds:8};
+  const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot()),maze=null,path=[],lengths=[],total=0;
+  const routeLength=route=>route.slice(1).reduce((sum,p,i)=>sum+vec(p).distanceTo(vec(route[i])),0),fullLength=routeLength(M.analyze(F.keys.map(()=>({phase:0,gain:1}))).route);
+  function walk(){
+    if(!path.length)return;let d=Math.min(clock.phase*fullLength,Math.max(0,total-.015)),index=1;
+    while(index<lengths.length&&d>lengths[index])index++;
+    if(index>=path.length)index=path.length-1;
+    const start=lengths[index-1]||0,span=(lengths[index]||0)-start,t=span>0?Math.max(0,Math.min(1,(d-start)/span)):0;
+    traveller.position.copy(path[index-1]).lerp(path[index],t);traveller.position.y+=.09;
   }
-  const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));
+  function draw(values){
+    display=values.map(p=>({...p}));maze=M.analyze(display.map((p,i)=>({phase:p.phase-F.homePhase[i],gain:p.gain})));
+    lifts.forEach((p,i)=>{
+      p.phase=display[i].phase;p.gain=display[i].gain;const h=M.height(i,p.gain);
+      p.lift.position.y=h;p.rotor.rotation.y=(p.phase-F.homePhase[i])*Math.PI/4;
+      p.post.position.y=(h-.12)/2;p.post.scale.y=Math.max(.03,h-.12);
+      p.outline.visible=p.key===feedback.selected;
+      p.seams.forEach((cap,j)=>cap.material.color.set(maze.joints[i].contacts[j]>=0?0x83a68a:0xc17c66));
+    });
+    path=maze.route.map(vec);lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+path[i].distanceTo(path[i-1]));total=lengths.at(-1);walk();
+  }
+  const plane=()=>{const i=Math.max(0,F.keys.indexOf(feedback.selected)),n=M.nodes[i];return new T.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new T.Vector3()),new T.Vector3(n.x,M.height(i,valuesAt(model.snapshot())[i].gain),n.z));};
   function sync(){if(!animating&&!dragging&&!committed&&!disposed)draw(valuesAt(model.snapshot()));}
   const view={camera,sync,
     dispose(){disposed=true;dragging=null;},
-    resize(aspect){
-      const extent=Math.max(2.75,2.5/aspect);camera.left=-extent*aspect;camera.right=extent*aspect;camera.top=extent;camera.bottom=-extent;
-      camera.updateMatrixWorld();draw(display);
-    },
-    pickTargets:()=>people.map(p=>p.pick),
-    hit(intersection){
-      const cursor=intersection.point.clone().project(camera);
-      const p=people.map(p=>({p,d:p.pick.getWorldPosition(new T.Vector3()).project(camera).sub(cursor).setZ(0).lengthSq()})).sort((a,b)=>a.d-b.d)[0].p;
-      return{key:p.key,pieceId:p.index,kind:'chair',draggable:true,selectOnly:true};
-    },
-    locations(){root.updateMatrixWorld(true);return people.map(p=>({key:p.key,pieceId:p.index,kind:'chair',draggable:true,selectOnly:true,
-      point:p.pick.getWorldPosition(new T.Vector3()),region:[[-.5,-.575],[.5,-.575],[.5,.575],[-.5,.575]].map(([x,y])=>p.pick.localToWorld(new T.Vector3(x,y,0)))}));},
-    feedback(value){feedback=value;people.forEach(p=>{p.outline.visible=p.key===value.selected;});},
-    updateMusic({phase,playing,rows,periodSeconds}){
-      let changed=false;
-      people.forEach((p,i)=>{
-        let reaction=0;
-        if(playing&&!dragging&&!animating&&!feedback.focus)for(const e of rows[i]||[]){
-          const age=(((phase-e.start)%1+1)%1)*periodSeconds;
-          if(age<.14)reaction=Math.max(reaction,(1-age/.14)*Math.min(1,(e.volume??1)*(e.value.velocity??1)));
-        }
-        if(Math.abs(reaction-p.reaction)>.002){p.reaction=reaction;p.hands.forEach((hand,j)=>hand.position.y=.31+reaction*(j?.07:.12));p.talk.visible=reaction>.1;changed=true;}
-      });
-      return changed;
+    resize(aspect){const extent=Math.max(2.65,2.65/aspect);camera.left=-extent*aspect;camera.right=extent*aspect;camera.top=extent;camera.bottom=-extent;camera.updateMatrixWorld();},
+    inputPlane:()=>dragging?.plane||plane(),
+    pickTargets:()=>lifts.flatMap(p=>p.pickParts),
+    hit({object}){const i=object.userData.index;return{key:F.keys[i],pieceId:i,kind:object.userData.kind,draggable:true,selectOnly:true};},
+    locations(){root.updateMatrixWorld(true);return lifts.map(p=>({key:p.key,pieceId:p.index,kind:'platform',draggable:true,selectOnly:true,point:p.body.localToWorld(new T.Vector3(0,.075,0))}));},
+    feedback(value){feedback=value;lifts.forEach(p=>{p.outline.visible=p.key===value.selected;});},
+    updateMusic(value){
+      clock=value;walk();lifts.forEach((p,i)=>{
+        let hit=0;if(value.playing&&!dragging&&!animating)for(const e of value.rows[i]||[]){const age=(((value.phase-e.start)%1+1)%1)*value.periodSeconds;if(age<.12)hit=Math.max(hit,(1-age/.12)*Math.min(1,(e.volume??1)*(e.value.velocity??1)));}
+        p.bodyMaterial.emissiveIntensity=(p.key===feedback.selected ? .12 : 0)+hit*.18;
+      });return value.playing;
     },
     beginDrag(hit,world){
       if(animating||!world)return false;const index=F.keys.indexOf(hit.key),p=valuesAt(model.snapshot())[index];
-      dragging={key:hit.key,index,before:model.snapshot(),start:world.clone(),mode:null,phase:p.phase,gain:p.gain,move:null};committed=null;return true;
+      dragging={key:hit.key,index,before:model.snapshot(),start:world.clone(),plane:plane(),mode:hit.kind==='lift'?'gain':null,phase:p.phase,gain:p.gain,move:null};committed=null;return true;
     },
     dragTo(world){
-      if(!dragging||!world)return;const d=dragging,dx=world.x-d.start.x,dy=world.y-d.start.y;
-      if(!d.mode)d.mode=Math.abs(dx)>Math.abs(dy)*.70?'phase':'gain';
-      const phase=d.mode==='phase'?d.phase+dx*8/spinDistance:d.phase;
-      const gain=d.mode==='gain'?Math.max(0,Math.min(2,d.gain+dy/liftRange)):d.gain;
-      // A small detent at the reference gain makes the exact target reachable.
-      const finalGain=Math.abs(gain-1)<.025?1:Math.round(gain*1e6)/1e6;
-      const values=valuesAt(d.before);values[d.index]={phase,gain};draw(values);
-      d.move=model.editPoint(d.key,{phase,gain:finalGain},d.before);
-      onEditPreview(d.move,{key:d.key,phase,gain});
+      if(!dragging||!world)return;const d=dragging,delta=world.clone().sub(d.start),dx=delta.dot(right),dy=delta.dot(up);
+      if(!d.mode)d.mode=Math.abs(dx)>Math.abs(dy)*.85?'phase':'gain';
+      const phase=d.mode==='phase'?d.phase-dx*8/2.2:d.phase,gain=d.mode==='gain'?M.snapGain(d.gain+dy/M.liftRange):d.gain,values=valuesAt(d.before);
+      values[d.index]={phase,gain};draw(values);d.move=model.editPoint(d.key,{phase,gain},d.before);onEditPreview(d.move,{key:d.key,phase,gain});
     },
     endDrag(cancelled){
-      if(!dragging)return null;const old=dragging;dragging=null;onEditPreview(null);
-      if(!cancelled&&old.move&&model.validMove(old.move)){committed=JSON.stringify(old.move);return old.move;}
-      sync();return null;
+      if(!dragging)return null;const d=dragging;dragging=null;const move=!cancelled&&d.move&&model.validMove(d.move)?d.move:null;
+      committed=move?JSON.stringify(move):null;draw(valuesAt(move?model.applyTo(d.before,move):d.before));onEditPreview(null);if(!move)sync();return move;
     },
     async animate(move,before,{duration=360}={}){
       const direct=committed===JSON.stringify(move);committed=null;animating=true;
-      const a=direct?display.map(p=>({...p})):valuesAt(before),b=valuesAt(model.applyTo(before,move)),index=F.keys.indexOf(model.moveTarget(move));
-      let delta=((b[index].phase-a[index].phase+4)%8+8)%8-4;
-      if(!direct&&typeof move==='string'&&move.endsWith("'"))delta=1;
-      if(!direct&&typeof move==='string'&&move.length===1)delta=-1;
-      try{await tween('move',direct?140:duration,t=>draw(a.map((p,i)=>i!==index?p:{phase:p.phase+delta*t,gain:p.gain+(b[i].gain-p.gain)*t})));}
-      finally{animating=false;sync();}
-    }
+      const a=display.map(p=>({...p})),b=valuesAt(model.applyTo(before,move)),index=F.keys.indexOf(model.moveTarget(move));let delta=((b[index].phase-a[index].phase+4)%8+8)%8-4;
+      if(!direct&&typeof move==='string'&&move.endsWith("'"))delta=1;if(!direct&&typeof move==='string'&&move.length===1)delta=-1;
+      try{if(direct)draw(b);else await tween('move',duration,t=>draw(a.map((p,i)=>i!==index?p:{phase:p.phase+delta*t,gain:p.gain+(b[i].gain-p.gain)*t})));}finally{animating=false;sync();}
+    },
+    inspect(){root.updateMatrixWorld(true);return{kind:'rotary-lift-maze',selected:feedback.selected,dragging:dragging?.mode??null,display,passable:maze.passable,completed:maze.completed,correct:maze.correct,blocked:maze.blocked,
+      fixedLinks:M.fixedLinks,lifts:lifts.map((p,i)=>({key:p.key,phase:p.phase,gain:p.gain,height:p.lift.position.y,rotation:p.rotor.rotation.y,
+        ports:['in','out'].map(side=>p.rotor.localToWorld(new T.Vector3(M.nodes[i][side][0]*M.radius,0,M.nodes[i][side][1]*M.radius)).toArray()),contacts:maze.joints[i].contacts,errors:maze.joints[i].errors})),traveller:traveller.position.toArray()};}
   };
   sync();return view;
 }};
@@ -5252,7 +5317,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/sizes7';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/maze8';
   const library=new PuzzleCompositions.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});

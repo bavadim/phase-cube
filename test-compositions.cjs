@@ -18,13 +18,14 @@ test('pinned Strudel compiles every score and derives the cube from declared pla
   assert.equal(song.stats.seconds,song.bars*240/song.bpm);
   const expected=attacks(S.stack(...song.playerParts.map(p=>p.pattern)),0,song.periodBars);
   for(const puzzle of puzzles){
-   const game=build(puzzle,song),model=puzzle.create();
+   const game=build(puzzle,song),includesBacking=Object.hasOwn(game,'backing');
    const count=game.count;
    assert.equal(game.voices.length,count);assert.equal(game.targetRows.length,count);
    assert.equal(game.parts.reduce((n,p)=>n+p.pieces,0),count);
-   if(!puzzle.configure)assert.deepEqual([...new Set(game.voices.map(v=>v.part))],song.playerParts.map(p=>p.key));
+   if(!includesBacking)assert.deepEqual([...new Set(game.voices.map(v=>v.part))],song.playerParts.map(p=>p.key));
    for(const rows of game.targetRows)assert(rows.length&&rows.every(e=>e.start>=0&&e.start<1&&e.duration>0));
-   const reference=puzzle.configure?attacks(song.pattern,0,song.bars):expected;
+   // configure() can constrain controls without taking over the backing score.
+   const reference=includesBacking?attacks(song.pattern,0,song.bars):expected;
    assert.equal(game.targetRows.reduce((n,row)=>n+row.length,0),reference.length,'Partition must neither lose nor double notes');
    const signature=events=>events.map(h=>{const v={...h.value};delete v._phaseCubeVoice;delete v._phaseCubePart;return JSON.stringify([Number(h.whole.begin),Number(h.duration),v]);}).sort();
    assert.deepEqual(signature(attacks(S.stack(...game.basePatterns),0,game.periodBars)),signature(reference));
@@ -45,7 +46,7 @@ test('module changes drive all displayed metadata and player rows without a conf
  const base=await loader.load('turkish-circuit');
  const changed=analyze(S,{...base,title:'Другая музыка',bpm:120,playerParts:[{key:'bell',name:'Колокольчик',pattern:S.note('c5 d5 e5 f5 g5 a5 b5 c6').s('sine').duration(.1)}]},'test');
  assert.equal(changed.stats.seconds,128);
- for(const puzzle of puzzles){const game=build(puzzle,changed);if(!puzzle.configure){assert.equal(game.voices.length,puzzle.manifest.fragments);assert(game.voices.every(v=>v.name.startsWith('Колокольчик')));}else assert.equal(game.targetRows.flat().length,changed.stats.attacks);}
+ for(const puzzle of puzzles){const game=build(puzzle,changed);if(!Object.hasOwn(game,'backing')){assert.equal(game.voices.length,puzzle.manifest.fragments);assert(game.voices.every(v=>v.name.startsWith('Колокольчик')));}else assert.equal(game.targetRows.flat().length,changed.stats.attacks);}
  assert.deepEqual(changed.stats.parts.map(p=>p.key),['bell']);
  assert.throws(()=>analyze(S,{...base,playerParts:[]},'test'),/партий/);
  assert.throws(()=>analyze(S,{...base,periodBars:3},'test'),/целое/);

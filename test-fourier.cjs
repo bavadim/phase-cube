@@ -5,7 +5,11 @@ const F=require('./puzzles/fourier/model.js'),Contract=require('./puzzle-contrac
 const {S,palette,registry,library,Music}=require('./test-runtime.cjs'),{Loader}=require('./session-loader.js'),L=require('./composition-contract.js');
 const close=(a,b)=>assert(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const norm=rows=>JSON.stringify(rows.map(row=>row.map(e=>[Math.round(e.start*1e8),Math.round(e.duration*1e8),JSON.stringify(e.value)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))));
-const samples=m=>[...new Set([...m.probeStates().filter(Number.isInteger),...Array.from({length:128},(_,i)=>(Math.imul(i+11,1664525)>>>0)%F.stateCount)])];
+const samples=m=>{
+ if(!m.gains)return [...new Set([...m.probeStates().filter(Number.isInteger),...Array.from({length:128},(_,i)=>(Math.imul(i+11,1664525)>>>0)%F.stateCount)])];
+ let state=0;const walk=Array.from({length:128},(_,i)=>{const moves=m.legalMoves(state);state=m.applyTo(state,moves[(Math.imul(i+11,1664525)>>>0)%moves.length]);return state;});
+ return [...new Set([...m.probeStates(),...walk])];
+};
 
 test('polar Fourier: independent bounded radii, phases of order 8 and exact inverses',()=>{
  const m=new F.Model();assert.equal(F.stateCount,72**6);assert.equal(m.snapshot(),0);assert.equal(m.correct(),6);
@@ -40,7 +44,7 @@ test('drag is one replayable guarded move; undo returns both coordinates and rej
 
 test('all existing scores: polar projection preserves notes/gates and native Strudel emits its event times',async()=>{
  const store=new Map(),storage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v)},loader=new Loader(S,{palette,registry,library,storage});
- const report={schema:'fourier-contracts/5',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
+ const report={schema:'fourier-contracts/6',status:'PASS',pairs:[],acousticAcceptance:'unverified',musicalAcceptance:'unverified'};
  for(const songId of compositionIds){
   const p=await loader.prepareSession({puzzleId:'fourier',songId}),music=new Music(S,p),m=p.model;
   assert.equal(m.count,6);assert.equal(p.fragments.count,6);assert(Projection.validate(p.binding,p.module.manifest));
@@ -61,16 +65,16 @@ test('all existing scores: polar projection preserves notes/gates and native Str
    for(let j=0;j<6;j++)if(j!==id){assert.equal(shift[j],before[j]);assert.equal(quiet[j],before[j]);}
    const phase=music.phases(m.applyTo(0,key))[id];
    for(const event of shift[id]){const source=before[id].find(e=>e.id===event.id);close(((event.start-source.start-phase.period/8)%1+1)%1,0);assert.deepEqual(event.value,source.value);}
-   for(const event of quiet[id]){const source=before[id].find(e=>e.id===event.id);close(event.start,source.start);close(event.value.postgain,(source.value.postgain??1)*.75);}
+   for(const event of quiet[id]){const source=before[id].find(e=>e.id===event.id);close(event.start,source.start);close(event.value.postgain,(source.value.postgain??1)*(1-p.module.manifest.parameters.magnitudes.step));}
    const a=m.applyTo(m.applyTo(0,key),key+'-'),b=m.applyTo(m.applyTo(0,key+'-'),key);assert.equal(a,b,'Rotation and positive scaling commute');
   }
   const again=await new Loader(S,{palette,registry,library,storage}).prepareSession({puzzleId:'fourier',songId});assert.equal(again.diagnostics.cache,'hit');
-  assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.gridPresetStates,F.stateCount);assert.equal(p.diagnostics.continuousGain,true);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(p.diagnostics.independentRiffs,true);
+  assert.equal(p.diagnostics.coverage,'sampled');assert.equal(p.diagnostics.gridPresetStates,p.module.manifest.gridPresetStates);assert.equal(p.diagnostics.continuousGain,p.module.manifest.parameters.magnitudes.continuous);assert.equal(p.diagnostics.silentMoves,0);assert.equal(p.diagnostics.unsolvedGoalRhythmAliases,0);assert.equal(p.diagnostics.independentRiffs,true);
   report.pairs.push({songId,fragments:6,progressUnits:6,bindingFingerprint:p.binding.fingerprint,...p.diagnostics});
  }
  const controller=new AbortController(),cancelled=new Loader(S,{palette,registry,library,storage:null});
  await assert.rejects(()=>cancelled.prepareSession({puzzleId:'fourier',songId:compositionIds[0],signal:controller.signal,onProgress:()=>controller.abort()}),{name:'AbortError'});assert.equal(cancelled.bindings.size,0);
- const files=['puzzles/actions.js','puzzles/fourier/model.js','puzzles/fourier/module.js','puzzles/fourier/binding.js','music-projection.js','music.js','puzzle-contract.js','session-loader.js','controls/pattern-pieces.js','composition-loader.js','composition-contract.js','compositions/catalog.js',...compositionIds.map(id=>'compositions/'+id+'.strudel.mjs')];
+ const files=['puzzles/actions.js','puzzles/fourier/model.js','puzzles/fourier/maze.js','puzzles/fourier/maze-model.js','puzzles/fourier/module.js','puzzles/fourier/binding.js','music-projection.js','music.js','puzzle-contract.js','session-loader.js','controls/pattern-pieces.js','composition-loader.js','composition-contract.js','compositions/catalog.js',...compositionIds.map(id=>'compositions/'+id+'.strudel.mjs')];
  report.sourceSha256=Object.fromEntries(files.map(file=>[file,require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(__dirname,file))).digest('hex')]));
  fs.mkdirSync(path.join(__dirname,'qa/fourier'),{recursive:true});fs.writeFileSync(path.join(__dirname,'qa/fourier/contracts-report.json'),JSON.stringify(report,null,2)+'\n');
 });
@@ -134,7 +138,7 @@ test('changing pitches with identical rhythm invalidates the cached riff periods
  assert.equal(second.diagnostics.cache,'miss');assert.notDeepEqual(first.binding.periods,second.binding.periods);
 });
 
-test('continuous chair gain persists, projects into native audio, reverses exactly and has actionable hints',()=>{
+test('continuous complex-riff core persists, projects into native audio, reverses exactly and has actionable hints',()=>{
  const m=new F.Model(),binding={periods:Array(6).fill(1)},row=[{id:'n',start:.17,duration:.08,value:{note:60,s:'sine'}}],game={targetRows:Array(6).fill(row)};
  for(const gain of [0,.001,.123456,.731,1.006,1.337,1.999999,2]){
   m.reset();const move=m.editMove('A',{phase:3,level:gain*4});m.apply(move);const state=m.snapshot();
