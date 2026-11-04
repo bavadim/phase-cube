@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Три музыкальных кольца, один общий цикл. Вращайте рисунок, меняйте рельеф и слушайте.">
+  <base href="../">
+  <title>Музыкальный диск — Ночная смена</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="disc/style.css?v=disc1">
+</head>
+<body>
+<main class="disc-app">
+  <header><span class="wordmark">НОЧНАЯ СМЕНА</span><button id="open-library" aria-label="Сравнить и сохранить"><span id="song-title">Музыкальный диск</span><span aria-hidden="true">···</span></button><span id="song-tempo">ТРИ ПАРТИИ</span></header>
+  <section id="disc-stage" tabindex="0" aria-label="Музыкальный диск: вращение кольца меняет фазу, высота рельефа — громкость"></section>
+  <div class="instructions"><strong id="part-name">Один оборот — четыре такта</strong><span id="scene-instruction">Крутите кольцо. Тяните захват «%» вверх и вниз. Метки под стрелкой звучат.</span></div>
+  <footer>
+    <button id="undo" class="secondary" disabled aria-label="Отменить изменение"><span aria-hidden="true">↶</span><small>Отмена</small></button>
+    <button id="play" disabled><span id="play-icon" aria-hidden="true">▶</span><span id="play-label">Загрузка…</span></button>
+    <span class="footer-balance" aria-hidden="true"></span>
+  </footer>
+  <p id="notice" role="status"></p>
+</main>
+<dialog id="library" aria-labelledby="library-title">
+  <form method="dialog"><button class="close" aria-label="Закрыть">×</button></form>
+  <h1 id="library-title">Ваше звучание</h1>
+  <p>Бочка, бас и фортепиано из «Моцарта на конвейере». Полный оборот — четыре такта. Настройки сохраняются автоматически.</p>
+  <div class="snapshots"><button id="snapshot-a">Вариант A</button><button id="snapshot-b">Вариант B</button><button id="save-snapshot">Запомнить A</button></div>
+  <div class="file-actions"><button id="save-scene">Сохранить</button><button id="restore-scene">Вернуть сохранённое</button><button id="export-scene">Скачать сборку</button><button id="import-scene">Открыть сборку</button></div>
+  <input id="scene-file" type="file" accept="application/json,.json" hidden>
+  <p>Файл сборки содержит настройки диска. Это не аудиозапись.</p>
+</dialog>
+<script src="vendor/three-0.160.1.min.js"></script>
+<script src="vendor/strudel-web-1.3.0.js"></script>
+<script src="audio-bank.js"></script>
+<script src="composition-contract.js"></script>
+<script src="compositions/catalog.js"></script>
+<script src="composition-loader.js"></script>
+<script src="async-task.js"></script>
+<script src="transport.js"></script>
+<script src="puzzles/actions.js"></script>
+<script src="puzzle-contract.js"></script>
+<script src="graphics/resources.js"></script>
+<script src="graphics/pointer.js"></script>
+<script src="graphics/stage.js"></script>
+<script src="disc/model.js?v=disc1"></script>
+<script src="disc/music.js?v=disc1"></script>
+<script src="disc/three-view.js?v=disc1"></script>
+<script src="disc/controls.js?v=disc1"></script>
+<script src="disc/app.js?v=disc1"></script>
+</body>
+</html>
