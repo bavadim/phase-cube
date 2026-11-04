@@ -9,7 +9,7 @@ const output=join(root,'disc/qa');await mkdir(output,{recursive:true});
 const run=await openBrowser();let page;
 const report={schema:'music-disc-browser/1',engine:run.engine,physicalDevice:false,hardwareAudioLatencyVerified:false,cases:[],errors:[],missingResources:[],startedAt:new Date().toISOString()};
 const frame=p=>p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
-const settled=p=>p.waitForFunction(()=>{const d=discTest.diagnostics();return !d.loading&&!d.starting&&!d.pending;},{},{timeout:30000});
+const settled=p=>p.waitForFunction(()=>{const d=discTest.diagnostics();return !d.loading&&!d.starting&&!d.pending&&!d.graphics.contextLost;},{},{timeout:30000});
 const state=p=>p.evaluate(()=>discTest.state());
 const diagnostics=p=>p.evaluate(()=>discTest.diagnostics());
 const part=(s,key)=>s.parts.find(p=>p.key===key);
@@ -18,7 +18,7 @@ async function ready(p){await p.waitForFunction(()=>window.discTest,{},{timeout:
 async function closeMenu(p){if(await p.locator('#library').evaluate(e=>e.open))await p.locator('#library .close').click();await frame(p);}
 async function menu(p,selector,touch){if(!await p.locator('#library').evaluate(e=>e.open))await click(p,'#open-library',touch);await click(p,selector,touch);await settled(p);}
 async function point(p,key,kind){
- await closeMenu(p);await frame(p);const at=await p.evaluate(({key,kind})=>{const s=discTest.stage,v=discTest.locations().find(v=>v.key===key&&v.kind===kind);if(!v)return null;const hit=s.pick(v.x,v.y);return{...v,hit:{key:hit?.key,kind:hit?.kind},element:document.elementFromPoint(v.x,v.y)?.tagName};},{key,kind});
+ await closeMenu(p);await frame(p);await settled(p);const at=await p.evaluate(({key,kind})=>{const s=discTest.stage,v=discTest.locations().find(v=>v.key===key&&v.kind===kind);if(!v)return null;const hit=s.pick(v.x,v.y);return{...v,hit:{key:hit?.key,kind:hit?.kind},element:document.elementFromPoint(v.x,v.y)?.tagName};},{key,kind});
  assert(at,'Scene target '+key+'/'+kind);assert.deepEqual(at.hit,{key,kind},'Actual raycast '+key+'/'+kind);assert.equal(at.element,'CANVAS');return at;
 }
 async function tap(p,key,kind,touch){const at=await point(p,key,kind);await(touch?p.touchscreen.tap(at.x,at.y):p.mouse.click(at.x,at.y));await frame(p);return at;}

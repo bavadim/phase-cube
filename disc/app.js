@@ -9,7 +9,10 @@
   let loading=true,starting=false,error=null,slots={},activeSlot='a',saved=false,lastClock=null;
   let analysisData=null,previewTimer=null;
   const transport=new PhaseCubeTransport(S,{outputGain:1,onChange:update,onError:fail});
-  const stage=new PuzzleStage($('disc-stage'),{onIssue:message=>{transport.stop();notice(message,true);},onRestore:update});
+  const stage=new PuzzleStage($('disc-stage'),{
+    onIssue:()=>{cancelGesture();transport.stop();notice('Изображение восстанавливается. Настройки сохранены.');},
+    onRestore:()=>{notice('Изображение восстановлено. Можно продолжить.');update();}
+  });
   const visibleState=()=>previewState||model?.snapshot();
   const heardState=()=>transport.running?(transport.active?.meta?.state||visibleState()):visibleState();
   const sameParts=(a,b)=>JSON.stringify(a?.parts)===JSON.stringify(b?.parts);
