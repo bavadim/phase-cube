@@ -6,34 +6,83 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
   const camera=new T.OrthographicCamera(-3,3,3,-3,.1,60);camera.position.set(9,centerY+9,9);camera.lookAt(0,centerY,0);
   const material=(color,extra={})=>resources.material(color,{transparent:true,...extra});
   function mesh(geometry,mat,parent=root){const m=new T.Mesh(geometry,mat);parent.add(m);return m;}
-  const pedestal=mesh(own(new T.CylinderGeometry(2.30,2.39,.18,64)),material(0xd5ddc9));pedestal.position.y=-.24;
-  const foot=mesh(own(new T.CylinderGeometry(2.17,2.26,.07,64)),material(0xf0e6cf));foot.position.y=-.11;
-  const shaft=mesh(own(new T.CylinderGeometry(.14,.14,height(5)+.44,20)),material(0xafa58a,{metalness:.3}));shaft.position.y=centerY;
-  const cap=mesh(own(new T.SphereGeometry(.19,20,12)),material(0xba9160));cap.position.y=height(5)+.27;
+  function fittings(geometry,mat,poses,parent=root){
+    const m=own(new T.InstancedMesh(geometry,mat,poses.length)),transform=new T.Matrix4();
+    poses.forEach(([p,angle=0],i)=>{transform.makeRotationY(angle);transform.setPosition(p.x,p.y,p.z);m.setMatrixAt(i,transform);});
+    m.instanceMatrix.needsUpdate=true;parent.add(m);return m;
+  }
+  // Machined housings are geometry, not painted rings. The only moving/raycasted
+  // surface remains the original gear; all trim shares its layer's transparency.
+  function chamfered(radius,depth,bevel=.025,segments=32){
+    const h=depth/2,b=Math.min(bevel,h,radius);
+    return own(new T.LatheGeometry([[0,-h],[radius-b,-h],[radius,-h+b],[radius,h-b],[radius-b,h],[0,h]].map(p=>new T.Vector2(...p)),segments));
+  }
+  const shell=material(0x243346,{roughness:.68,metalness:.16}),dark=material(0x101824,{roughness:.78}),metal=material(0x667d91,{roughness:.39,metalness:.67});
+  const cyan=material(0x62dce8,{emissive:0x24b9ce,emissiveIntensity:.42,roughness:.4});
+  const pedestal=mesh(chamfered(2.39,.25,.055,48),shell);pedestal.position.y=-.30;
+  const gasket=mesh(chamfered(2.31,.035,.009,48),dark);gasket.position.y=-.162;
+  const deck=mesh(chamfered(2.25,.075,.025,48),metal);deck.position.y=-.112;
+  const inset=mesh(chamfered(2.17,.028,.010,48),dark);inset.position.y=-.067;
+  const shaft=mesh(own(new T.CylinderGeometry(.14,.14,height(5)+.44,20)),metal);shaft.position.y=centerY;
+  const cap=mesh(chamfered(.23,.16,.04,16),shell);cap.position.y=height(5)+.22;
+  const capInset=mesh(chamfered(.155,.018,.006,16),metal);capInset.position.y=height(5)+.307;
+  const footGeometry=chamfered(.24,.12,.025,12),boltGeometry=chamfered(.047,.018,.006,6);
+  const boltSlotGeometry=resources.bevelBox(.039,.005,.009,.002);
+  const ventGeometry=resources.bevelBox(.055,.012,.22,.012);
+  const feet=[],bolts=[],slots=[],vents=[];
+  for(let i=0;i<8;i++){
+    const p=B.point((i+.5)/8,2.04,-.047);bolts.push([p]);slots.push([{...p,y:p.y+.012},-i*B.TAU/8]);
+    if(i%2===0)feet.push([B.point((i+.5)/8,1.80,-.465)]);
+  }
+  for(let i=0;i<12;i++){
+    const t=(i-5.5)*.013+.625;vents.push([B.point(t,1.97,-.048),-t*B.TAU]);
+  }
+  fittings(footGeometry,dark,feet);fittings(boltGeometry,metal,bolts);fittings(boltSlotGeometry,dark,slots);fittings(ventGeometry,dark,vents);
+  const lightGeometry=own(new T.TorusGeometry(2.29,.013,6,32,.36));
+  for(let i=0;i<3;i++){const light=mesh(lightGeometry,cyan);light.rotation.set(-Math.PI/2,0,i*B.TAU/3+.18);light.position.y=-.192;}
   const N=192,inner=.25,base=game.targetRows.map((row,i)=>B.attacks(row,binding.periods[i]));
   const socketGeometry=own(new T.TorusGeometry(.12,.025,7,24));
   const padGeometries=Array.from({length:12},(_,i)=>own(new T.CylinderGeometry(1,1,.075,3+i)));
+  const collarGeometry=chamfered(.34,.095,.025,24),bearingGeometry=chamfered(.265,.12,.018,24);
+  const hubBandGeometry=own(new T.TorusGeometry(.289,.013,6,32));
+  const studGeometry=resources.bevelBox(.025,.025,.055,.004),fluteGeometry=resources.bevelBox(.026,.009,.19,.004);
   const layers=F.keys.map((key,i)=>{
     const group=new T.Group();group.position.y=height(i);root.add(group);
     const rotor=new T.Group(),targets=new T.Group();group.add(rotor,targets);
     const materials=[],makeMat=(color,extra={})=>{const m=material(color,extra);materials.push(m);return m;};
-    const color=new T.Color(game.voices[i].color),bodyMat=makeMat(color),sideMat=makeMat(color.clone().multiplyScalar(.68));
-    const positions=new Float32Array((N+1)*6),indices=[],sidePositions=new Float32Array((N+1)*6);
+    const color=new T.Color(game.voices[i].color),bodyMat=makeMat(new T.Color(0x293a4d).lerp(color,.12),{roughness:.65,metalness:.2});
+    const sideMat=makeMat(0x111c2a,{roughness:.48,metalness:.3}),edgeMat=makeMat(0x657c92,{roughness:.38,metalness:.6});
+    const recessMat=makeMat(0x101824),hubMat=makeMat(0x31455c,{roughness:.48,metalness:.38});
+    const collar=mesh(collarGeometry,hubMat,rotor);collar.position.y=.083;
+    const bearing=mesh(bearingGeometry,edgeMat,rotor);bearing.position.y=.155;
+    const band=mesh(hubBandGeometry,makeMat(color,{emissive:color,emissiveIntensity:.18}),rotor);band.rotation.x=-Math.PI/2;band.position.y=.124;
+    const hubBolts=[],hubSlots=[],flutes=[];
+    for(let n=0;n<4;n++){
+      const p=B.point((n+.5)/4,.43,.056);hubBolts.push([p]);hubSlots.push([{...p,y:.068},-n*Math.PI/2]);flutes.push([B.point(n/4,.67,.049),-n*Math.PI/2]);
+    }
+    fittings(boltGeometry,edgeMat,hubBolts,rotor);fittings(boltSlotGeometry,recessMat,hubSlots,rotor);fittings(fluteGeometry,recessMat,flutes,rotor);
+    const positions=new Float32Array((N+1)*6),indices=[],sidePositions=new Float32Array((N+1)*6),surfaceUV=new Float32Array((N+1)*4),sideUV=new Float32Array((N+1)*4);
     for(let n=0;n<N;n++){const k=2*n;indices.push(k,k+2,k+1,k+1,k+2,k+3);}
-    const geometry=own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(positions,3));geometry.setIndex(indices);
-    const sides=own(new T.BufferGeometry());sides.setAttribute('position',new T.BufferAttribute(sidePositions,3));sides.setIndex(indices);
+    for(let n=0;n<=N;n++)sideUV.set([n/N*4,0,n/N*4,1],n*4);
+    const geometry=own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(positions,3));geometry.setAttribute('uv',new T.BufferAttribute(surfaceUV,2));geometry.setIndex(indices);
+    const sides=own(new T.BufferGeometry());sides.setAttribute('position',new T.BufferAttribute(sidePositions,3));sides.setAttribute('uv',new T.BufferAttribute(sideUV,2));sides.setIndex(indices);
     const body=mesh(geometry,bodyMat,rotor);body.userData={index:i,kind:'gear'};bodyMat.side=T.DoubleSide;
     mesh(sides,sideMat,rotor).material.side=T.DoubleSide;
+    const bevelPositions=new Float32Array((N+1)*6),bevelUV=new Float32Array((N+1)*4),bevelGeometry=own(new T.BufferGeometry());
+    bevelGeometry.setAttribute('position',new T.BufferAttribute(bevelPositions,3));bevelGeometry.setAttribute('uv',new T.BufferAttribute(bevelUV,2));bevelGeometry.setIndex(indices.slice().reverse());
+    mesh(bevelGeometry,edgeMat,rotor);
     const outlineGeometry=own(new T.BufferGeometry()),outlinePositions=new Float32Array(N*3);outlineGeometry.setAttribute('position',new T.BufferAttribute(outlinePositions,3));
-    const outlineMat=own(new T.LineBasicMaterial({color:color.clone().multiplyScalar(.5),transparent:true}));materials.push(outlineMat);
+    const outlineMat=own(new T.LineBasicMaterial({color:color.clone().multiplyScalar(.82),transparent:true}));materials.push(outlineMat);
     rotor.add(new T.LineLoop(outlineGeometry,outlineMat));
+    const noteMaterials=new Map(),studMat=makeMat(0xf7f1d8,{roughness:.5});
     const notes=base[i].map(event=>{
-      const c=B.color(event),pad=mesh(padGeometries[B.noteClass(event)],makeMat(c),rotor);
-      const socket=mesh(socketGeometry,makeMat(c,{emissive:c,emissiveIntensity:.14}),targets);socket.rotation.x=-Math.PI/2;
-      const stud=mesh(own(new T.BoxGeometry(.025,.025,.055)),makeMat(0xfff6df),rotor);
+      const c=B.color(event);if(!noteMaterials.has(c))noteMaterials.set(c,makeMat(c,{emissive:c,emissiveIntensity:.14,roughness:.5}));
+      const pad=mesh(padGeometries[B.noteClass(event)],noteMaterials.get(c),rotor);
+      const socket=mesh(socketGeometry,noteMaterials.get(c),targets);socket.rotation.x=-Math.PI/2;
+      const stud=mesh(studGeometry,studMat,rotor);
       return{event,pad,socket,stud};
     });
-    return{key,index:i,group,rotor,targets,body,geometry,positions,sides,sidePositions,outlineGeometry,outlinePositions,materials,notes,opacity:1,events:base[i],gain:null};
+    return{key,index:i,group,rotor,targets,body,geometry,positions,surfaceUV,sides,sidePositions,bevelGeometry,bevelPositions,bevelUV,outlineGeometry,outlinePositions,materials,notes,opacity:1,events:base[i],gain:null};
   });
   let selected=null,animating=false,dragging=null,committed=null,disposed=false,clock={phase:0,position:0,playing:false,periodSeconds:8};
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot());
@@ -66,9 +115,14 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
         for(let n=0;n<=N;n++){
           const t=n/N,a=B.point(t,inner),b=B.point(t,B.surface(base[i],t,p.gain)),k=n*6;
           layer.positions.set([a.x,.04,a.z,b.x,.04,b.z],k);layer.sidePositions.set([b.x,-.11,b.z,b.x,.04,b.z],k);
-          if(n<N)layer.outlinePositions.set([b.x,.047,b.z],n*3);
+          layer.surfaceUV.set([a.x/4+.5,a.z/4+.5,b.x/4+.5,b.z/4+.5],n*4);
+          const lip=B.point(t,B.surface(base[i],t,p.gain)-.035),rim=B.point(t,B.surface(base[i],t,p.gain)-.006);
+          layer.bevelPositions.set([lip.x,.041,lip.z,rim.x,.047,rim.z],k);
+          layer.bevelUV.set([lip.x/4+.5,lip.z/4+.5,rim.x/4+.5,rim.z/4+.5],n*4);
+          if(n<N)layer.outlinePositions.set([b.x,.048,b.z],n*3);
         }
-        for(const geo of [layer.geometry,layer.sides]){geo.attributes.position.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();}
+        for(const geo of [layer.geometry,layer.sides,layer.bevelGeometry]){geo.attributes.position.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();}
+        layer.geometry.attributes.uv.needsUpdate=true;layer.bevelGeometry.attributes.uv.needsUpdate=true;
         layer.outlineGeometry.attributes.position.needsUpdate=true;layer.outlineGeometry.computeBoundingSphere();
         layer.notes.forEach(note=>{
           const e=note.event,t=e.time,pt=B.point(t,B.crest(e,p.gain),.09),slot=B.point(t,B.crest(e,1),.07);

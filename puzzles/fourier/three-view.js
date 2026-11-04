@@ -4,14 +4,26 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   const T=THREE,F=FourierModel,M=FourierMaze,own=x=>resources.own(x),root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-2.7,2.7,2.7,-2.7,.1,50);camera.position.set(0,10,8);camera.lookAt(0,.55,0);camera.updateMatrixWorld();
   const right=new T.Vector3(1,0,0).applyQuaternion(camera.quaternion),up=new T.Vector3(0,1,0).applyQuaternion(camera.quaternion);
-  const box=own(new T.BoxGeometry(1,1,1)),cylinder=own(new T.CylinderGeometry(1,1,1,32)),sphere=own(new T.SphereGeometry(1,16,12)),materials=new Map();
+  const cylinder=own(new T.CylinderGeometry(1,1,1,32)),sphere=own(new T.SphereGeometry(1,16,12)),materials=new Map();
   const mat=(color,extra={})=>{const k=JSON.stringify([color,extra]);if(!materials.has(k))materials.set(k,resources.material(color,extra));return materials.get(k);};
   function mesh(parent,geometry,material,position=[0,0,0],scale=[1,1,1]){const m=new T.Mesh(geometry,material);m.position.set(...position);m.scale.set(...scale);parent.add(m);return m;}
-  const block=(p,c,position,scale)=>mesh(p,box,mat(c),position,scale);
+  const block=(p,c,position,size)=>mesh(p,resources.bevelBox(...size,.035),mat(c),position);
   const round=(p,c,position,scale)=>mesh(p,cylinder,mat(c),position,scale);
   const ball=(p,c,position,r)=>mesh(p,sphere,mat(c),position,[r,r,r]);
-  const vec=p=>new T.Vector3(p.x,p.y,p.z),road=0xfff5dd,stone=0xcbd4c2,brass=0xba9261,ink=0x405f52;
-  block(root,stone,[0,-.13,0],[5.18,.22,3.55]);block(root,0xe7dfc7,[0,-.005,0],[5.03,.045,3.40]);
+  const vec=p=>new T.Vector3(p.x,p.y,p.z),road=0xd4dedb,stone=0x27364c,brass=0x8b9eaf,ink=0x101b2e;
+  // A recessed instrument chassis; the walking surface remains the model's exact geometry.
+  block(root,ink,[0,-.20,0],[5.18,.26,3.55]);
+  block(root,brass,[0,-.085,0],[5.10,.065,3.47]);
+  block(root,stone,[0,-.035,0],[5.01,.065,3.38]);
+  block(root,0x1b293c,[0,.005,0],[4.82,.025,3.18]);
+  for(const x of [-2.43,2.43])for(const z of [-1.55,1.55]){
+    round(root,0x0e1a2b,[x,.026,z],[.066,.025,.066]);
+    block(root,0x8192a4,[x,.042,z],[.065,.012,.014]);
+  }
+  for(const x of [-1.68,1.68]){
+    block(root,0x091725,[x,-.125,1.779],[.65,.09,.012]);
+    const lamp=block(root,0x65e1d9,[x,-.125,1.788],[.42,.022,.014]);lamp.material=mat(0x65e1d9,{emissive:0x65e1d9,emissiveIntensity:.4});
+  }
   // Fixed landings have square supports; colored octagons are the moving lifts.
   const fixed=new T.Group();root.add(fixed);
   function bridge(a,b){
@@ -22,25 +34,29 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
     mesh(fixed,geometry,mat(road,{side:T.DoubleSide}));
     for(const d of [-1,1])fixed.add(resources.stroke([[a.x+px*d,a.y+.045,a.z+pz*d],[b.x+px*d,b.y+.045,b.z+pz*d]],{color:brass,radius:.015}));
     const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2};
-    block(fixed,0xc1cbb8,[mid.x,(mid.y-.10)/2,mid.z],[.20,mid.y-.10,.20]);
+    block(fixed,0x32465e,[mid.x,(mid.y-.10)/2,mid.z],[.20,mid.y-.10,.20]);
     const landing=block(fixed,stone,[mid.x,mid.y-.06,mid.z],[.38,.09,.38]);landing.rotation.y=Math.atan2(dx,dz);
   }
   M.fixedLinks.forEach(({from,to})=>bridge(from,to));
   function gate(p,color,exit=false){
-    round(fixed,0xaebbab,[p.x,p.y-.07,p.z],[.23,.12,.23]);
+    round(fixed,0x384a61,[p.x,p.y-.07,p.z],[.23,.12,.23]);
     for(const dz of [-.16,.16])block(fixed,color,[p.x,p.y+.21,p.z+dz],[.055,.42,.055]);
     const arch=mesh(fixed,own(new T.TorusGeometry(.16,.03,6,20,Math.PI)),mat(color),[p.x,p.y+.42,p.z]);arch.rotation.y=Math.PI/2;
-    const flag=block(fixed,color,[p.x,p.y+.55,p.z],[.045,.16,.20]);if(exit)flag.material=mat(0xc49c56,{emissive:0x8b682c,emissiveIntensity:.1});
+    const flag=block(fixed,color,[p.x,p.y+.55,p.z],[.045,.16,.20]);flag.material=mat(color,{emissive:color,emissiveIntensity:.25});
   }
-  gate(M.start,0x4b8973);gate(M.finish,brass,true);
+  gate(M.start,0x83d3b5);gate(M.finish,0xffc477,true);
   const lifts=M.nodes.map((n,i)=>{
     const group=new T.Group();group.position.set(n.x,0,n.z);root.add(group);
-    round(group,0xb9c7b1,[0,.035,0],[.31,.07,.31]);round(group,0xe8dfc7,[0,.079,0],[.26,.025,.26]);
-    const post=round(group,brass,[0,n.height/2,0],[.10,n.height,.10]);post.userData={index:i,kind:'lift'};
+    round(group,0x101c2c,[0,.035,0],[.31,.07,.31]);round(group,brass,[0,.079,0],[.26,.025,.26]);
+    round(group,0x1b2b40,[0,.098,0],[.22,.028,.22]);
+    const post=round(group,brass,[0,n.height/2,0],[.10,1,.10]);post.userData={index:i,kind:'lift'};
     const lift=new T.Group(),rotor=new T.Group();group.add(lift);lift.add(rotor);
     const color=new T.Color(game.voices[i].color),bodyMaterial=resources.material(color,{emissive:color,emissiveIntensity:0});
-    const body=mesh(rotor,own(new T.CylinderGeometry(.52,.49,.14,8)),bodyMaterial,[0,-.07,0]);body.userData={index:i,kind:'platform'};
-    round(rotor,0xe7dfc8,[0,-.155,0],[.35,.035,.35]);
+    mesh(rotor,own(new T.CylinderGeometry(.52,.49,.14,8)),mat(0x101c2e),[0,-.07,0]);
+    mesh(rotor,own(new T.CylinderGeometry(.51,.52,.025,8)),mat(brass),[0,-.005,0]);
+    const body=mesh(rotor,own(new T.CylinderGeometry(.49,.50,.035,8)),bodyMaterial,[0,.006,0]);body.userData={index:i,kind:'platform'};
+    round(rotor,0x53657d,[0,-.155,0],[.35,.035,.35]);
+    round(rotor,0x18263a,[0,-.18,0],[.25,.04,.25]);
     for(const direction of [n.in,n.out]){
       const [x,z]=direction,a=Math.atan2(x,z),floor=block(rotor,road,[x*M.radius/2,.015,z*M.radius/2],[.23,.03,M.radius]);floor.rotation.y=a;
       const side=[-z,x];
@@ -48,19 +64,19 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
     }
     round(rotor,road,[0,.018,0],[.14,.035,.14]);
     // Eight tiny rivets make the angular detents visible on the object.
-    for(let j=0;j<8;j++){const a=j*Math.PI/4;ball(rotor,0xe9dbb9,[Math.cos(a)*.43,.015,Math.sin(a)*.43],.025);}
-    const outline=mesh(lift,own(new T.TorusGeometry(.56,.025,5,8)),mat(brass,{emissive:brass,emissiveIntensity:.15}),[0,-.018,0]);outline.rotation.x=-Math.PI/2;outline.visible=false;
+    for(let j=0;j<8;j++){const a=j*Math.PI/4;round(rotor,0x26394e,[Math.cos(a)*.43,.031,Math.sin(a)*.43],[.025,.018,.025]);}
+    const outline=mesh(lift,own(new T.TorusGeometry(.56,.025,5,8)),mat(0xffc477,{emissive:0xffc477,emissiveIntensity:.35}),[0,-.018,0]);outline.rotation.x=-Math.PI/2;outline.visible=false;
     const seams=['in','out'].map(side=>{
-      const p=M.port(i,side),direction=n[side],cap=block(fixed,0xe7dfc7,[p.x,p.y+.018,p.z],[.24,.035,.05]);cap.rotation.y=Math.atan2(direction[0],direction[1]);
+      const p=M.port(i,side),direction=n[side],cap=block(fixed,road,[p.x,p.y+.018,p.z],[.24,.035,.05]);cap.rotation.y=Math.atan2(direction[0],direction[1]);
       // The line belongs to the real fixed bridge, never to a ghost preview.
-      cap.material=resources.material(0xc17c66);return cap;
+      cap.material=resources.material(0xe1937c,{emissive:0x000000});return cap;
     });
     const pickParts=[post,...rotor.children.filter(o=>o.isMesh)];
     pickParts.forEach(part=>{part.userData={index:i,kind:part===post?'lift':'platform'};});
     return{key:F.keys[i],index:i,group,post,lift,rotor,body,bodyMaterial,outline,seams,pickParts,phase:F.homePhase[i],gain:1,reaction:0};
   });
   // A warm light travels along the connected route and waits at the first gap.
-  const traveller=ball(root,0x285e4c,[M.start.x,M.start.y+.09,M.start.z],.075);traveller.material=mat(0x285e4c,{emissive:0x4a8760,emissiveIntensity:.25});
+  const traveller=ball(root,0x83d3b5,[M.start.x,M.start.y+.09,M.start.z],.075);traveller.material=mat(0x83d3b5,{emissive:0x83d3b5,emissiveIntensity:.45});
   ball(traveller,0xfff5dd,[-.022,.035,.045],.02);
   let feedback={selected:null,focus:null},dragging=null,animating=false,committed=null,disposed=false,clock={phase:0,playing:false,rows:[],periodSeconds:8};
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot()),maze=null,path=[],lengths=[],total=0;
@@ -79,7 +95,7 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
       p.lift.position.y=h;p.rotor.rotation.y=(p.phase-F.homePhase[i])*Math.PI/4;
       p.post.position.y=(h-.12)/2;p.post.scale.y=Math.max(.03,h-.12);
       p.outline.visible=p.key===feedback.selected;
-      p.seams.forEach((cap,j)=>cap.material.color.set(maze.joints[i].contacts[j]>=0?0x83a68a:0xc17c66));
+      p.seams.forEach((cap,j)=>{const c=maze.joints[i].contacts[j]>=0?0x83d3b5:0xe1937c;cap.material.color.setHex(c);cap.material.emissive.setHex(c);cap.material.emissiveIntensity=.15;});
     });
     path=maze.route.map(vec);lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+path[i].distanceTo(path[i-1]));total=lengths.at(-1);walk();
   }

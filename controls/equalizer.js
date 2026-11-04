@@ -9,7 +9,7 @@
   const mod=n=>((n%1)+1)%1,delta=(a,b)=>mod(b-a+.5)-.5;
   const level=e=>Math.max(0,Math.min(2,(e.volume??1)*(typeof e.value?.velocity==='number'?e.value.velocity:1)));
   // Multiplying RGB channels changes HSV value while retaining hue/saturation.
-  // Width provides a second level cue on the light paper background.
+  // Width provides a second level cue independently of the presentation palette.
   const brightness=level=>.3+.7*Math.sqrt(Math.max(0,Math.min(1,level/2)));
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){

@@ -38,8 +38,9 @@ window.PuzzleStage = class {
   mount(createView,context){
     this.unmount();
     const resources=new PuzzleGraphics.Resources(),scene=new THREE.Scene();
-    scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x829478,2.3));
-    const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
+    scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x172134,1.5));
+    const light=new THREE.DirectionalLight(0xffeddb,2.7);light.position.set(-3,6,5);scene.add(light);
+    const rim=new THREE.DirectionalLight(0x88bbff,1.6);rim.position.set(4,3,-4);scene.add(rim);
     try{
       const view=PuzzleContract.inspectView(createView({...context,scene,resources,tween:(...args)=>this.tween(...args),invalidate:()=>{this.dirty=true;}}));
       this.active={scene,resources,view,interaction:PuzzleContract.interaction(context.module),onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};

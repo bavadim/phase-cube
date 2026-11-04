@@ -5,18 +5,34 @@ window.RubikView = {create({scene,resources,model,tween}){
   const normals={U:[0,1,0],R:[1,0,0],F:[0,0,1],D:[0,-1,0],L:[-1,0,0],B:[0,0,-1]};
   const root=new T.Group();root.rotation.set(.4,-.56,0);scene.add(root);
   const camera=new T.PerspectiveCamera(34,1,.1,100);camera.position.set(0,0,6);camera.lookAt(0,0,0);
-  const box=resources.own(new T.BoxGeometry(.97,.97,.97)),edges=resources.own(new T.EdgesGeometry(box));
-  const edgeMaterial=resources.own(new T.LineBasicMaterial({color:theme.ink})),bodyMaterial=resources.material(0x425d49);
+  const box=resources.bevelBox(.97,.97,.97,.065),bodyMaterial=resources.material(0x253345,{roughness:.46,metalness:.42});
+  const bezel=resources.bevelBox(.925,.925,.032,.015),bezelMaterial=resources.material(0x60758c,{roughness:.38,metalness:.68});
+  const inset=resources.bevelBox(.875,.875,.018,.008),insetMaterial=resources.material(0x111b2c,{roughness:.56,metalness:.24});
+  const screwGeometry=resources.own(new T.CylinderGeometry(.012,.012,.006,8)),screwMaterial=resources.material(0x9bacc0,{roughness:.36,metalness:.74});
+  const screwRotation=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),Math.PI/2);
   const plane=resources.own(new T.PlaneGeometry(.84,.84));
   const cubies=M.POSITIONS.map((position,slot)=>{
     const group=new T.Group();root.add(group);
-    group.add(new T.Mesh(box,bodyMaterial),new T.LineSegments(edges,edgeMaterial));
+    group.add(new T.Mesh(box,bodyMaterial));
+    const screws=resources.own(new T.InstancedMesh(screwGeometry,screwMaterial,M.CORNER_FACES[slot].length*4)),screwTransform=new T.Object3D();
+    group.add(screws);let screwIndex=0;
     const stickers={};
     for(const face of M.CORNER_FACES[slot]){
       const mesh=new T.Mesh(plane,resources.own(new T.MeshBasicMaterial())),normal=new T.Vector3(...normals[face]);
+      // The machined bezel stays behind the original sticker/picking surface.
+      const mount=new T.Group();mount.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);
+      const rim=new T.Mesh(bezel,bezelMaterial),well=new T.Mesh(inset,insetMaterial);rim.position.z=.470;well.position.z=.482;
+      mount.add(rim,well);
+      for(const x of[-.437,.437])for(const y of[-.437,.437]){
+        screwTransform.position.set(x,y,.488).applyQuaternion(mount.quaternion);
+        screwTransform.quaternion.copy(mount.quaternion).multiply(screwRotation);screwTransform.updateMatrix();
+        screws.setMatrixAt(screwIndex++,screwTransform.matrix);
+      }
+      group.add(mount);
       mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);mesh.position.copy(normal.multiplyScalar(.494));
       group.add(mesh);stickers[face]=mesh;
     }
+    screws.instanceMatrix.needsUpdate=true;screws.computeBoundingSphere();
     return {group,stickers,position:new T.Vector3(...position).multiplyScalar(.53)};
   });
   const pickBox=new T.Mesh(resources.own(new T.BoxGeometry(2.08,2.08,2.08)),resources.own(new T.MeshBasicMaterial({visible:false})));

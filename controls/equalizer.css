@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 #orbit-score { display:block; width:100%; height:100%; overflow:visible; pointer-events:none; }
 .orbit-grid,.orbit-current,.orbit-target { pointer-events:none; }
-.bar-line { stroke:#d4dccb; stroke-width:1; }
-.ruler-tick { stroke:#8da181; stroke-width:1.5; }
+.bar-line { stroke:#263f55; stroke-width:1; }
+.ruler-tick { stroke:#536c82; stroke-width:1.5; }
 .orbit-track { transition:opacity .16s; }
-.orbit-bed { fill:none; stroke:#e7ecde; stroke-width:9; }
-.target-slot { fill:none; stroke:#bdcbb1; stroke-linecap:round; }
-.target-stop { stroke:#8fa17f; stroke-width:1.5; }
+.orbit-bed { fill:none; stroke:#1c3145; stroke-width:9; }
+.target-slot { fill:none; stroke:#455d71; stroke-linecap:round; }
+.target-stop { stroke:#6a859b; stroke-width:1.5; }
 .orbit-track.aligned:not(.will-change) .orbit-target { visibility:hidden; }
-.current-event { fill:none; stroke:var(--track-color); stroke-linecap:round; }
-.event-onset { stroke:var(--track-color); stroke-width:2.5; }
-.event-flash { fill:var(--panel); stroke:var(--track-color); stroke-width:2.5; visibility:hidden; }
+.current-event { fill:none; stroke:color-mix(in srgb,var(--track-color),#edf5ff 45%); stroke-linecap:round; }
+.event-onset { stroke:color-mix(in srgb,var(--track-color),#edf5ff 45%); stroke-width:2.5; }
+.event-flash { fill:var(--panel); stroke:color-mix(in srgb,var(--track-color),#edf5ff 45%); stroke-width:2.5; visibility:hidden; }
 .score-event.sounding .event-flash { visibility:visible; }
 .orbit-sweep { pointer-events:none; }
 .orbit-sweep line { stroke:var(--ink); stroke-width:2; opacity:.45; }
 .orbit-sweep circle { fill:var(--green); stroke:var(--panel); stroke-width:3; }
 .is-playing .orbit-sweep line { opacity:.85; }
-.has-move-preview .orbit-track.will-change .orbit-bed { stroke:#d2dfc5; }
+.has-move-preview .orbit-track.will-change .orbit-bed { stroke:#345268; }
 .orbit-cycles line { stroke:var(--ink); stroke-width:1.4; }
 @media (prefers-reduced-motion:reduce) { .orbit-track { transition:none; } }

@@ -9,21 +9,21 @@
 .puzzle-actions-right { grid-column:3; }
 .puzzle-action-group { display:block; margin-bottom:5px; text-align:center; color:var(--muted); font-size:1rem; }
 .puzzle-action-row { display:flex; flex-wrap:nowrap; gap:6px; }
-.puzzle-action { flex:1 1 44px; min-width:44px; min-height:var(--command-size); display:grid; place-items:center; padding:4px; border:1px solid var(--green); border-radius:clamp(14px,2vmin,24px); color:var(--panel); background:var(--green); font-size:clamp(28px,4vmin,44px); line-height:1; }
+.puzzle-action { flex:1 1 44px; min-width:44px; min-height:var(--command-size); display:grid; place-items:center; padding:4px; border:1px solid #587586; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:linear-gradient(#263e54,#1b3045); box-shadow:inset 0 1px 0 #a5c5d825,0 3px 0 #050f1e; font-size:clamp(28px,4vmin,44px); line-height:1; }
 .puzzle-action-icon { display:block; }
 .puzzle-next { align-content:center; gap:2px; }
 .puzzle-next-label { font-size:.65rem; line-height:1.1; }
 img.puzzle-action-icon { width:1em; height:1em; object-fit:contain; }
-.puzzle-action:hover:not(:disabled) { background:#326c50; }
+.puzzle-action:hover:not(:disabled) { background:#345668; }
 .puzzle-action:active:not(:disabled) { transform:translateY(1px); }
-.puzzle-action.action-focused { background:#b97732; border-color:#9a5e25; box-shadow:0 0 0 3px #d4a65c55; }
+.puzzle-action.action-focused { color:#201b15; background:#ffc477; border-color:#ffe2b4; box-shadow:0 0 0 3px #ffc47730; }
 body[data-phase="shuffling"] .puzzle-action.hinted { opacity:1; }
 .hint-host { display:none; }
 .hint-slot { display:flex; grid-column:2; align-items:stretch; min-width:0; }
-.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #bac9ae; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1rem; }
+.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #587586; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1rem; }
 .secondary-actions { display:flex; justify-content:space-between; gap:.6rem; }
 .secondary-button { display:inline-flex; min-width:44px; min-height:44px; align-items:center; justify-content:center; gap:.5rem; padding:.45rem; border:0; border-radius:8px; color:var(--green); background:transparent; font-size:1rem; }
-.secondary-button:hover:not(:disabled) { background:#e7ecdc; }
+.secondary-button:hover:not(:disabled) { background:#243d4c; }
 .secondary-button>span[aria-hidden] { font-size:1.4rem; line-height:1; }
 #pause-icon { width:1.3rem; font-weight:700; }
 @media (min-width:900px) and (min-aspect-ratio:3/2), (max-height:520px) and (min-aspect-ratio:4/3) {

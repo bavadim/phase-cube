@@ -1,0 +1,74 @@
+{
+  "schema": "puzzle-art-release/1",
+  "build": "atelier9",
+  "createdAt": "2026-11-04T12:53:50.897153+00:00",
+  "status": "PASS",
+  "staticScripts": 54,
+  "publicNativeTestFilesPassed": 15,
+  "sourceNativeTestFilesPassed": 16,
+  "physicalDeviceTested": false,
+  "artisticAcceptance": "owner review",
+  "evidence": [
+    {
+      "file": "chromium-all-report.json",
+      "sha256": "42e5e74ae22a41cb1c6d312b2f4fb3059983e0395e54087db8664074b0a4ca12",
+      "status": "PASS",
+      "scope": "Rubik cases superseded by chromium-all-rubik-report.json after identical-transform instancing",
+      "changedSinceReport": [
+        "puzzles/rubik/three-view.js"
+      ]
+    },
+    {
+      "file": "chromium-all-rubik-report.json",
+      "sha256": "6006c03f8b5d337ef9bb88d15bae671a5bf9dcbf27fba21cc9422843a5930a61",
+      "status": "PASS",
+      "scope": "Current code in report scope",
+      "changedSinceReport": []
+    },
+    {
+      "file": "webkit-390-report.json",
+      "sha256": "e5c9fe27113d8d3cc500ade3108e75911af94e2286ed0fe0f5ee4c6e97c832af",
+      "status": "PASS",
+      "scope": "Current code in report scope",
+      "changedSinceReport": []
+    },
+    {
+      "file": "maze-touch-report.json",
+      "sha256": "70a878c7cbe443627f82dc73138a87e88a46fd20130800ef9357e3316dfb3bb6",
+      "status": "PASS",
+      "scope": "Current code in report scope",
+      "changedSinceReport": []
+    },
+    {
+      "file": "gears-touch-report.json",
+      "sha256": "b6d443696cbc32541c6076713812b9eaa8607087c6b38b1f627523b9828262c6",
+      "status": "PASS",
+      "scope": "Current code in report scope",
+      "changedSinceReport": []
+    },
+    {
+      "file": "picture-touch-report.json",
+      "sha256": "c398ca2e35520e2cb554f01cecf691979c7fbfa8fb56e64b12e7e307ae985191",
+      "status": "PASS",
+      "scope": "Current code in report scope",
+      "changedSinceReport": []
+    },
+    {
+      "file": "offline-report.json",
+      "sha256": "d03deb82da6a497980def16765a6b9a70b673727d3d92aaff1cb6dd4a83e3cd1",
+      "status": "PASS",
+      "scope": "Current code in report scope",
+      "changedSinceReport": []
+    }
+  ],
+  "renderCalls": {
+    "twiddle": 44,
+    "rubik": 91,
+    "fourier": 220,
+    "scratch": 71,
+    "bounce": 254
+  },
+  "maxTriangles": 48736,
+  "offlineBytes": 28529206,
+  "offlineSha256": "8d3de6c239692eda407fd3f41c4224c4f134480bcd6fcd5480d8412ceaf7188a"
+}

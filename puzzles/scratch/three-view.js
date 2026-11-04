@@ -13,22 +13,39 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   image.onerror=()=>{if(!disposed)rejectReady(new Error('Не загрузилась картинка пазла. Повторите загрузку.'));};
   image.src=globalThis.PhaseCubeEmbeddedAssets?.['assets/director-puzzle.png']||'assets/director-puzzle.png?v=picture2';
   function material(color,extra={}){return resources.own(new T.MeshBasicMaterial({color,side:T.DoubleSide,...extra}));}
-  function rect(w,h,color,z){const mesh=new T.Mesh(resources.own(new T.PlaneGeometry(w,h)),material(color));mesh.position.z=z;root.add(mesh);return mesh;}
   // The frame and exposed sockets belong to this single object, not a control panel.
-  rect(size+.18,boardHeight+.18,0x253c36,-.06);rect(size+.10,boardHeight+.10,0xd4b17a,-.05);rect(size+.04,boardHeight+.04,0x293c32,-.04);
+  const shellMaterial=resources.material(0x293a51,{roughness:.48,metalness:.46}),rimMaterial=resources.material(0x71849b,{roughness:.37,metalness:.65});
+  const darkMaterial=resources.material(0x0b1728,{roughness:.65,metalness:.18});
+  function plate(w,h,d,z,mat,bevel){const mesh=new T.Mesh(resources.bevelBox(w,h,d,bevel),mat);mesh.position.z=z;root.add(mesh);return mesh;}
+  plate(size+.18,boardHeight+.18,.12,-.10,shellMaterial,.028);
+  plate(size+.11,boardHeight+.11,.025,-.045,rimMaterial,.010);
+  plate(size+.035,boardHeight+.035,.02,-.025,darkMaterial,.008);
+  const screwGeometry=resources.own(new T.CylinderGeometry(.016,.016,.010,10));
+  for(const x of[-1,1])for(const y of[-1,1]){
+    const screw=new T.Mesh(screwGeometry,rimMaterial);screw.rotation.x=Math.PI/2;screw.position.set(x*(size/2+.061),y*(boardHeight/2+.061),-.030);root.add(screw);
+  }
+  const stripGeometry=resources.bevelBox(.26,.012,.010,.004),stripMaterial=resources.material(0x55d7dc,{roughness:.32,metalness:.25,emissive:0x31b8c3,emissiveIntensity:.45});
+  for(const y of[-1,1]){
+    const strip=new T.Mesh(stripGeometry,stripMaterial);strip.position.set(0,y*(boardHeight/2+.061),-.031);root.add(strip);
+  }
   const artMaterial=material(0xffffff,{map:texture});
   function tile(index){
     const geometry=resources.own(new T.PlaneGeometry(cell,cell)),uv=geometry.attributes.uv,col=index%columns,row=Math.floor(index/columns);
     for(let i=0;i<uv.count;i++)uv.setXY(i,(col+uv.getX(i))/columns,(rows-1-row+uv.getY(i))/rows);
     uv.needsUpdate=true;return new T.Mesh(geometry,artMaterial);
   }
-  for(const index of fixedCells){const mesh=tile(index);mesh.position.copy(position(index));root.add(mesh);}
-  const socketGeometry=resources.own(new T.PlaneGeometry(cell,cell)),socketMaterial=material(0x3c5147);
+  const tileBodyGeometry=resources.bevelBox(cell-.006,cell-.006,.056,.018);
+  for(const index of fixedCells){
+    const center=position(index),body=new T.Mesh(tileBodyGeometry,shellMaterial),mesh=tile(index);
+    body.position.copy(center);body.position.z=-.030;mesh.position.copy(center);root.add(body,mesh);
+  }
+  const socketGeometry=resources.own(new T.PlaneGeometry(cell,cell)),socketMaterial=material(0x101c30);
   centers.forEach(center=>{const mesh=new T.Mesh(socketGeometry,socketMaterial);mesh.position.copy(center);mesh.position.z=-.02;root.add(mesh);});
   const outlineGeometry=resources.own(new T.EdgesGeometry(resources.own(new T.PlaneGeometry(cell-.006,cell-.006))));
   const pieces=cells.map((index,source)=>{
-    const group=new T.Group(),mesh=tile(index);mesh.userData.source=source;group.add(mesh);root.add(group);
-    const shadow=new T.Mesh(resources.own(new T.PlaneGeometry(cell+.025,cell+.025)),material(0x152a23,{transparent:true,opacity:.28}));shadow.position.set(.018,-.025,-.012);group.add(shadow);
+    const group=new T.Group(),mesh=tile(index),body=new T.Mesh(tileBodyGeometry,shellMaterial);body.position.z=-.030;
+    mesh.userData.source=source;group.add(body,mesh);root.add(group);
+    const shadow=new T.Mesh(resources.own(new T.PlaneGeometry(cell+.025,cell+.025)),material(0x050c17,{transparent:true,opacity:.34}));shadow.position.set(.018,-.025,-.060);group.add(shadow);
     const edge=new T.LineSegments(outlineGeometry,resources.own(new T.LineBasicMaterial({color:game.voices[source].color,transparent:true,opacity:.8})));edge.position.z=.018;group.add(edge);
     const gripGeometry=resources.own(new T.RingGeometry(.022*cell,.038*cell,20)),gripMaterial=material(game.voices[source].color);
     const grips=[[-.40,-.40],[.40,-.40],[.40,.40],[-.40,.40]].map(([x,y])=>{const g=new T.Mesh(gripGeometry,gripMaterial);g.position.set(x*cell,y*cell,.022);group.add(g);return g;});

@@ -1,0 +1,66 @@
+{
+  "schema": "scratch-touch/1",
+  "engine": "chromium",
+  "physicalDevice": false,
+  "errors": [],
+  "cases": [
+    {
+      "width": 390,
+      "height": 844,
+      "input": "native CDP touch",
+      "all13TilesSelectable": true,
+      "lastTileTurnUndo": true,
+      "commitUndo": true,
+      "cancel": true,
+      "pause": true,
+      "switch": true,
+      "layout": {
+        "overflow": false,
+        "canvas": {
+          "x": 72.90625,
+          "y": 224.78125,
+          "width": 244.1875,
+          "height": 244.1875,
+          "top": 224.78125,
+          "right": 317.09375,
+          "bottom": 468.96875,
+          "left": 72.90625
+        }
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "input": "native CDP touch",
+      "all13TilesSelectable": true,
+      "lastTileTurnUndo": true,
+      "commitUndo": true,
+      "cancel": true,
+      "pause": true,
+      "switch": true,
+      "layout": {
+        "overflow": false,
+        "canvas": {
+          "x": 167.21875,
+          "y": 73.015625,
+          "width": 243.9375,
+          "height": 243.9375,
+          "top": 73.015625,
+          "right": 411.15625,
+          "bottom": 316.953125,
+          "left": 167.21875
+        }
+      }
+    }
+  ],
+  "status": "PASS",
+  "sourceSha256": {
+    "index.html": "4e7609b0c86ed53d9db20b70fbc102d5bcf7ec3283ac5222a3c6dd7774bb3480",
+    "puzzles/scratch/partition.js": "b55d64f7bff278eedee4020f8037af0900858bc763a9e5ccbafd66964a5a248d",
+    "session-loader.js": "984d24fbee345af3a2ecef3b12192f6821665b04b549f62f3ebf4527e99510ca",
+    "puzzles/scratch/model.js": "ce647fad9237e2ab1940ec6af71cde024d4a55e1f8ced4b6c6ae9477c69dabb4",
+    "puzzles/scratch/three-view.js": "26c4dbb28a57b7c87d1ae436872957a1e55329dae8ceab303548942819fd21da",
+    "graphics/pointer.js": "1bc05eead2a7bb26696a24def3fecc85b5f4e32b90f90b7014420986cb0f3395",
+    "controls/puzzle.js": "85808d9e24851852beb107f79afea0ef1b4796d2d19b667142c8288edb934f92"
+  }
+}

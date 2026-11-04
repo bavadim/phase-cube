@@ -1,0 +1,12 @@
+{
+  "schema": "maze-offline/1",
+  "status": "PASS",
+  "engine": "chromium",
+  "bytes": 28529206,
+  "sha256": "8d3de6c239692eda407fd3f41c4224c4f134480bcd6fcd5480d8412ceaf7188a",
+  "externalRequests": [],
+  "errors": [],
+  "startAudio": true,
+  "hint": true,
+  "undo": true
+}

@@ -4,20 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Музыкальные головоломки из Strudel-композиций.">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="dark">
   <title>Музыкальная головоломка</title>
   <link rel="icon" href="data:,">
   <style>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 :root {
-  --ink:#253b36; --muted:#627266; --paper:#f4f1e6; --panel:#fcfaf2;
-  --line:#d8ddcf; --green:#225a43; --orange:#bd713f;
+  --ink:#e4edf4; --muted:#9aafc1; --paper:#0a1422; --panel:#142238;
+  --line:#34495f; --green:#83d3b5; --orange:#ffc477;
   --space:clamp(10px,1.8vmin,28px); --command-size:clamp(58px,8vmin,88px);
   font:clamp(16px,calc(11px + .75vmin),22px)/1.4 Inter,Arial,sans-serif;
-  color:var(--ink); background:var(--paper); color-scheme:light;
+  color:var(--ink); background:var(--paper); color-scheme:dark;
 }
 * { box-sizing:border-box; }
 html,body { width:100%; height:100%; margin:0; }
+body { background:radial-gradient(ellipse at 44% 42%,#152b41 0,transparent 66%),var(--paper); }
 button,input,select { font:inherit; }
 button,a,input,select { touch-action:manipulation; }
 button,a { -webkit-tap-highlight-color:transparent; }
@@ -36,34 +37,34 @@ button:disabled { opacity:.38; cursor:default; }
 .playfield { flex:1 1 0; width:100%; min-width:0; min-height:0; container-type:size; display:flex; align-items:center; justify-content:center; }
 .orbital-workspace { position:relative; width:min(100cqw,100cqh); aspect-ratio:1; flex:none; isolation:isolate; }
 .orbit-sequencer { position:relative; width:100%; height:100%; }
-.orbit-sequencer::before { content:''; position:absolute; inset:17%; border-radius:50%; background:radial-gradient(circle,#e2e9d9,#eff1e5 68%,transparent 70%); z-index:-1; }
+.orbit-sequencer::before { content:''; position:absolute; inset:17%; border-radius:50%; background:radial-gradient(circle,#1b344a80,#10243870 65%,transparent 70%); z-index:-1; }
 .puzzle-stage { position:absolute; left:50%; top:50%; width:66%; height:66%; transform:translate(-50%,-50%); }
 .puzzle-stage canvas { display:block; width:100%; height:100%; touch-action:none; }
 .puzzle-stage[data-context="lost"]::after { content:'Восстанавливаем изображение…'; position:absolute; inset:0; display:grid; place-items:center; background:var(--panel); text-align:center; }
 .completion { pointer-events:none; }
 .completion { display:flex; align-items:center; gap:.7rem; color:var(--muted); font-size:.95rem; line-height:1.15; }
 #correct-count { font-size:clamp(30px,4.1vmin,62px); color:var(--green); font-weight:750; letter-spacing:-.05em; }
-#correct-count>span { font-size:.66em; color:#7f8d77; font-weight:400; letter-spacing:0; }
+#correct-count>span { font-size:.66em; color:#8ca3b6; font-weight:400; letter-spacing:0; }
 dialog {
   width:min(30rem,calc(100% - 2 * var(--space))); max-height:calc(100dvh - 2 * var(--space));
-  padding:clamp(20px,3vmin,42px); overflow:auto; border:1px solid #c5d0b8; border-radius:clamp(20px,3vmin,32px);
-  background:var(--panel); color:var(--ink); text-align:center; box-shadow:0 16px 70px #253b3624;
+  padding:clamp(20px,3vmin,42px); overflow:auto; border:1px solid var(--line); border-radius:clamp(20px,3vmin,32px);
+  background:var(--panel); color:var(--ink); text-align:center; box-shadow:0 28px 80px #0008,inset 0 1px 0 #90b6ce20;
 }
-dialog::backdrop { background:#f4f1e6b8; backdrop-filter:blur(7px); }
+dialog::backdrop { background:#070f1bc4; backdrop-filter:blur(7px); }
 dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:1.13; letter-spacing:-.035em; text-wrap:balance; }
-.record-mark { width:4.5rem; height:4.5rem; display:grid; place-items:center; margin:0 auto 1.15rem; border:1px solid #c9d4bc; border-radius:50%; background:repeating-radial-gradient(circle,#edf1e4 0 8px,#dce5d0 9px 10px); }
-.record-mark>span { width:2.5rem; height:2.5rem; display:grid; place-items:center; border-radius:50%; color:#e1eaad; background:var(--green); font-size:1.75rem; }
+.record-mark { width:4.5rem; height:4.5rem; display:grid; place-items:center; margin:0 auto 1.15rem; border:1px solid #44647a; border-radius:50%; background:repeating-radial-gradient(circle,#1a3046 0 8px,#38516b 9px 10px); }
+.record-mark>span { width:2.5rem; height:2.5rem; display:grid; place-items:center; border-radius:50%; color:#142238; background:var(--green); font-size:1.75rem; }
 .setup-choices { display:grid; gap:.9rem; margin-bottom:1.2rem; }
 .song-choice { display:grid; gap:.4rem; text-align:left; color:var(--muted); font-size:.9rem; }
-.song-choice select { min-width:0; width:100%; min-height:48px; padding:.65rem .7rem; border:1px solid #b9c8ad; border-radius:12px; color:var(--ink); background:var(--panel); font-size:max(16px,1rem); }
+.song-choice select { min-width:0; width:100%; min-height:48px; padding:.65rem .7rem; border:1px solid #435b73; border-radius:12px; color:var(--ink); background:var(--panel); font-size:max(16px,1rem); }
 .song-meta { margin:1rem 0 1.4rem; color:var(--muted); font-size:1rem; text-wrap:balance; }
 .session-feedback { margin:0 0 1rem; font-size:1rem; }
 .session-feedback:empty { display:none; }
 .primary-button,.outline-button { display:flex; width:100%; min-height:clamp(56px,7.5vmin,76px); align-items:center; justify-content:center; padding:.75rem; border:1px solid var(--green); border-radius:14px; font-size:1.1rem; font-weight:650; text-decoration:none; }
-.primary-button { color:white; background:var(--green); }
-.primary-button:hover:not(:disabled) { background:#326c50; }
+.primary-button { color:#0d2925; background:var(--green); box-shadow:inset 0 1px 0 #ffffff50,0 4px 0 #142c32; }
+.primary-button:hover:not(:disabled) { background:#a1e6cc; }
 .outline-button { margin-top:.7rem; color:var(--green); background:transparent; }
-.outline-button:hover { background:#e9efdf; }
+.outline-button:hover { background:#243d4c; }
 .report-button { display:block; width:100%; min-height:44px; margin-top:.35rem; padding:.4rem; border:0; background:transparent; color:var(--muted); font-size:.9rem; }
 .result-dialog .report-button { grid-column:1 / -1; }
 .result-caption { margin:0 0 .55rem; color:var(--green); font-size:1rem; }
@@ -103,22 +104,22 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 #orbit-score { display:block; width:100%; height:100%; overflow:visible; pointer-events:none; }
 .orbit-grid,.orbit-current,.orbit-target { pointer-events:none; }
-.bar-line { stroke:#d4dccb; stroke-width:1; }
-.ruler-tick { stroke:#8da181; stroke-width:1.5; }
+.bar-line { stroke:#263f55; stroke-width:1; }
+.ruler-tick { stroke:#536c82; stroke-width:1.5; }
 .orbit-track { transition:opacity .16s; }
-.orbit-bed { fill:none; stroke:#e7ecde; stroke-width:9; }
-.target-slot { fill:none; stroke:#bdcbb1; stroke-linecap:round; }
-.target-stop { stroke:#8fa17f; stroke-width:1.5; }
+.orbit-bed { fill:none; stroke:#1c3145; stroke-width:9; }
+.target-slot { fill:none; stroke:#455d71; stroke-linecap:round; }
+.target-stop { stroke:#6a859b; stroke-width:1.5; }
 .orbit-track.aligned:not(.will-change) .orbit-target { visibility:hidden; }
-.current-event { fill:none; stroke:var(--track-color); stroke-linecap:round; }
-.event-onset { stroke:var(--track-color); stroke-width:2.5; }
-.event-flash { fill:var(--panel); stroke:var(--track-color); stroke-width:2.5; visibility:hidden; }
+.current-event { fill:none; stroke:color-mix(in srgb,var(--track-color),#edf5ff 45%); stroke-linecap:round; }
+.event-onset { stroke:color-mix(in srgb,var(--track-color),#edf5ff 45%); stroke-width:2.5; }
+.event-flash { fill:var(--panel); stroke:color-mix(in srgb,var(--track-color),#edf5ff 45%); stroke-width:2.5; visibility:hidden; }
 .score-event.sounding .event-flash { visibility:visible; }
 .orbit-sweep { pointer-events:none; }
 .orbit-sweep line { stroke:var(--ink); stroke-width:2; opacity:.45; }
 .orbit-sweep circle { fill:var(--green); stroke:var(--panel); stroke-width:3; }
 .is-playing .orbit-sweep line { opacity:.85; }
-.has-move-preview .orbit-track.will-change .orbit-bed { stroke:#d2dfc5; }
+.has-move-preview .orbit-track.will-change .orbit-bed { stroke:#345268; }
 .orbit-cycles line { stroke:var(--ink); stroke-width:1.4; }
 @media (prefers-reduced-motion:reduce) { .orbit-track { transition:none; } }
 
@@ -135,21 +136,21 @@ dialog h1,dialog h2 { margin:0; font-size:clamp(28px,3.3vmin,44px); line-height:
 .puzzle-actions-right { grid-column:3; }
 .puzzle-action-group { display:block; margin-bottom:5px; text-align:center; color:var(--muted); font-size:1rem; }
 .puzzle-action-row { display:flex; flex-wrap:nowrap; gap:6px; }
-.puzzle-action { flex:1 1 44px; min-width:44px; min-height:var(--command-size); display:grid; place-items:center; padding:4px; border:1px solid var(--green); border-radius:clamp(14px,2vmin,24px); color:var(--panel); background:var(--green); font-size:clamp(28px,4vmin,44px); line-height:1; }
+.puzzle-action { flex:1 1 44px; min-width:44px; min-height:var(--command-size); display:grid; place-items:center; padding:4px; border:1px solid #587586; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:linear-gradient(#263e54,#1b3045); box-shadow:inset 0 1px 0 #a5c5d825,0 3px 0 #050f1e; font-size:clamp(28px,4vmin,44px); line-height:1; }
 .puzzle-action-icon { display:block; }
 .puzzle-next { align-content:center; gap:2px; }
 .puzzle-next-label { font-size:.65rem; line-height:1.1; }
 img.puzzle-action-icon { width:1em; height:1em; object-fit:contain; }
-.puzzle-action:hover:not(:disabled) { background:#326c50; }
+.puzzle-action:hover:not(:disabled) { background:#345668; }
 .puzzle-action:active:not(:disabled) { transform:translateY(1px); }
-.puzzle-action.action-focused { background:#b97732; border-color:#9a5e25; box-shadow:0 0 0 3px #d4a65c55; }
+.puzzle-action.action-focused { color:#201b15; background:#ffc477; border-color:#ffe2b4; box-shadow:0 0 0 3px #ffc47730; }
 body[data-phase="shuffling"] .puzzle-action.hinted { opacity:1; }
 .hint-host { display:none; }
 .hint-slot { display:flex; grid-column:2; align-items:stretch; min-width:0; }
-.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #bac9ae; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1rem; }
+.hint-slot #hint { width:100%; min-height:var(--command-size); padding:.5rem .25rem; border:1px solid #587586; border-radius:clamp(14px,2vmin,24px); color:var(--green); background:var(--panel); font-size:1rem; }
 .secondary-actions { display:flex; justify-content:space-between; gap:.6rem; }
 .secondary-button { display:inline-flex; min-width:44px; min-height:44px; align-items:center; justify-content:center; gap:.5rem; padding:.45rem; border:0; border-radius:8px; color:var(--green); background:transparent; font-size:1rem; }
-.secondary-button:hover:not(:disabled) { background:#e7ecdc; }
+.secondary-button:hover:not(:disabled) { background:#243d4c; }
 .secondary-button>span[aria-hidden] { font-size:1.4rem; line-height:1; }
 #pause-icon { width:1.3rem; font-weight:700; }
 @media (min-width:900px) and (min-aspect-ratio:3/2), (max-height:520px) and (min-aspect-ratio:4/3) {
@@ -3753,7 +3754,7 @@ window.PuzzleAsync={
   const mod=n=>((n%1)+1)%1,delta=(a,b)=>mod(b-a+.5)-.5;
   const level=e=>Math.max(0,Math.min(2,(e.volume??1)*(typeof e.value?.velocity==='number'?e.value.velocity:1)));
   // Multiplying RGB channels changes HSV value while retaining hue/saturation.
-  // Width provides a second level cue on the light paper background.
+  // Width provides a second level cue independently of the presentation palette.
   const brightness=level=>.3+.7*Math.sqrt(Math.max(0,Math.min(1,level/2)));
   function point(radius,phase){const a=phase*Math.PI*2-Math.PI/2;return [CENTER+Math.cos(a)*radius,CENTER+Math.sin(a)*radius];}
   function arc(radius,start,end){
@@ -3917,22 +3918,46 @@ window.PuzzleAsync={
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Only Three.js GPU objects live here. Music/session resources have their own owners. */
 window.PuzzleGraphics = (() => {
-  const theme = Object.freeze({ink:0x263e33, accent:0xb46f32, hover:0x73976a, paper:0xfcfaf2, light:0xfff9e9});
+  // The same material language for all instruments. Semantic part colours stay in game.voices.
+  const theme = Object.freeze({ink:0x101b2e, accent:0xffc477, hover:0x65e1d9, paper:0xe7eee9, light:0xd9eaff,
+    shell:0x27344e, rim:0x63748d, dark:0x09121e, cyan:0x65e1d9});
   class Resources {
-    constructor(){ this.items=new Set(); this.labels=new Map(); }
+    constructor(){ this.items=new Set(); this.labels=new Map();this.shapes=new Map(); }
     own(value){ this.items.add(value); return value; }
+    // Seeded powder-coat grain: one small texture per mounted view, no download or live noise.
+    surface(){
+      if(this.grain)return this.grain;
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+      const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(128,128);let seed=137;
+      for(let i=0;i<pixels.data.length;i+=4){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const c=240+(seed%16);pixels.data.set([c,c,c,255],i);}
+      ctx.putImageData(pixels,0,0);
+      this.grain=this.own(new THREE.CanvasTexture(canvas));this.grain.colorSpace=THREE.SRGBColorSpace;
+      this.grain.wrapS=this.grain.wrapT=THREE.RepeatWrapping;this.grain.anisotropy=4;return this.grain;
+    }
+    // Native ExtrudeGeometry gives real chamfers and exact nominal bounds, including the bevel.
+    bevelBox(width,height,depth,bevel=.04){
+      const b=Math.min(bevel,width/4,height/4,depth/4),key=[width,height,depth,b].join(':');
+      if(this.shapes.has(key))return this.shapes.get(key);
+      const x=width/2-b,y=height/2-b,shape=new THREE.Shape();
+      shape.moveTo(-x,-y);shape.lineTo(x,-y);shape.lineTo(x,y);shape.lineTo(-x,y);shape.closePath();
+      const geo=this.own(new THREE.ExtrudeGeometry(shape,{depth:depth-2*b,steps:1,bevelEnabled:true,bevelThickness:b,bevelSize:b,bevelSegments:2,curveSegments:1}));
+      geo.translate(0,0,-depth/2+b);this.shapes.set(key,geo);return geo;
+    }
     label(color,number){
       const key=color+':'+number;
       if(this.labels.has(key))return this.labels.get(key);
       const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
       const ctx=canvas.getContext('2d');
-      ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(2,2,252,252,20);ctx.fill();
-      ctx.strokeStyle='#263e33';ctx.lineWidth=6;ctx.stroke();
-      ctx.fillStyle='#20382d';ctx.font='650 114px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,128,132);
+      ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(3,3,250,250,26);ctx.fill();
+      const sheen=ctx.createLinearGradient(0,0,0,256);sheen.addColorStop(0,'#ffffff35');sheen.addColorStop(.45,'#ffffff00');sheen.addColorStop(1,'#07132225');ctx.fillStyle=sheen;ctx.fill();
+      ctx.strokeStyle='#0b1829';ctx.lineWidth=7;ctx.stroke();
+      ctx.strokeStyle='#ffffff65';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(29,14);ctx.lineTo(227,14);ctx.stroke();
+      ctx.fillStyle='#132337';ctx.font='650 114px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(number,128,132);
+      for(const x of [22,234])for(const y of [22,234]){ctx.fillStyle='#13233745';ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();}
       const texture=this.own(new THREE.CanvasTexture(canvas));texture.colorSpace=THREE.SRGBColorSpace;
       texture.anisotropy=4;this.labels.set(key,texture);return texture;
     }
-    material(color,extra={}){ return this.own(new THREE.MeshStandardMaterial({color,roughness:.87,metalness:0,...extra})); }
+    material(color,extra={}){ return this.own(new THREE.MeshStandardMaterial({color,map:this.surface(),roughness:.52,metalness:.16,...extra})); }
     stroke(points,{color=theme.accent,radius=.016,closed=false}={}){
       const vertices=points.map(p=>new THREE.Vector3(...p));if(closed)vertices.push(vertices[0]);
       const curve=new THREE.CurvePath();
@@ -3947,7 +3972,7 @@ window.PuzzleGraphics = (() => {
       const end=new THREE.Vector3(...points.at(-1)),direction=end.clone().sub(new THREE.Vector3(...points.at(-2))).normalize();
       cone.position.copy(end);cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);group.add(cone);return group;
     }
-    dispose(){ for(const item of this.items)item.dispose();this.items.clear();this.labels.clear(); }
+    dispose(){ for(const item of this.items)item.dispose();this.items.clear();this.labels.clear();this.shapes.clear();this.grain=null; }
   }
   return {Resources,theme};
 })();
@@ -4064,8 +4089,9 @@ window.PuzzleStage = class {
   mount(createView,context){
     this.unmount();
     const resources=new PuzzleGraphics.Resources(),scene=new THREE.Scene();
-    scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x829478,2.3));
-    const light=new THREE.DirectionalLight(0xfff5df,2.5);light.position.set(-3,6,5);scene.add(light);
+    scene.add(new THREE.HemisphereLight(PuzzleGraphics.theme.light,0x172134,1.5));
+    const light=new THREE.DirectionalLight(0xffeddb,2.7);light.position.set(-3,6,5);scene.add(light);
+    const rim=new THREE.DirectionalLight(0x88bbff,1.6);rim.position.set(4,3,-4);scene.add(rim);
     try{
       const view=PuzzleContract.inspectView(createView({...context,scene,resources,tween:(...args)=>this.tween(...args),invalidate:()=>{this.dirty=true;}}));
       this.active={scene,resources,view,interaction:PuzzleContract.interaction(context.module),onSelect:context.onSelect,onHover:context.onHover,onMove:context.onMove};
@@ -4487,18 +4513,34 @@ window.RubikView = {create({scene,resources,model,tween}){
   const normals={U:[0,1,0],R:[1,0,0],F:[0,0,1],D:[0,-1,0],L:[-1,0,0],B:[0,0,-1]};
   const root=new T.Group();root.rotation.set(.4,-.56,0);scene.add(root);
   const camera=new T.PerspectiveCamera(34,1,.1,100);camera.position.set(0,0,6);camera.lookAt(0,0,0);
-  const box=resources.own(new T.BoxGeometry(.97,.97,.97)),edges=resources.own(new T.EdgesGeometry(box));
-  const edgeMaterial=resources.own(new T.LineBasicMaterial({color:theme.ink})),bodyMaterial=resources.material(0x425d49);
+  const box=resources.bevelBox(.97,.97,.97,.065),bodyMaterial=resources.material(0x253345,{roughness:.46,metalness:.42});
+  const bezel=resources.bevelBox(.925,.925,.032,.015),bezelMaterial=resources.material(0x60758c,{roughness:.38,metalness:.68});
+  const inset=resources.bevelBox(.875,.875,.018,.008),insetMaterial=resources.material(0x111b2c,{roughness:.56,metalness:.24});
+  const screwGeometry=resources.own(new T.CylinderGeometry(.012,.012,.006,8)),screwMaterial=resources.material(0x9bacc0,{roughness:.36,metalness:.74});
+  const screwRotation=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),Math.PI/2);
   const plane=resources.own(new T.PlaneGeometry(.84,.84));
   const cubies=M.POSITIONS.map((position,slot)=>{
     const group=new T.Group();root.add(group);
-    group.add(new T.Mesh(box,bodyMaterial),new T.LineSegments(edges,edgeMaterial));
+    group.add(new T.Mesh(box,bodyMaterial));
+    const screws=resources.own(new T.InstancedMesh(screwGeometry,screwMaterial,M.CORNER_FACES[slot].length*4)),screwTransform=new T.Object3D();
+    group.add(screws);let screwIndex=0;
     const stickers={};
     for(const face of M.CORNER_FACES[slot]){
       const mesh=new T.Mesh(plane,resources.own(new T.MeshBasicMaterial())),normal=new T.Vector3(...normals[face]);
+      // The machined bezel stays behind the original sticker/picking surface.
+      const mount=new T.Group();mount.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);
+      const rim=new T.Mesh(bezel,bezelMaterial),well=new T.Mesh(inset,insetMaterial);rim.position.z=.470;well.position.z=.482;
+      mount.add(rim,well);
+      for(const x of[-.437,.437])for(const y of[-.437,.437]){
+        screwTransform.position.set(x,y,.488).applyQuaternion(mount.quaternion);
+        screwTransform.quaternion.copy(mount.quaternion).multiply(screwRotation);screwTransform.updateMatrix();
+        screws.setMatrixAt(screwIndex++,screwTransform.matrix);
+      }
+      group.add(mount);
       mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal);mesh.position.copy(normal.multiplyScalar(.494));
       group.add(mesh);stickers[face]=mesh;
     }
+    screws.instanceMatrix.needsUpdate=true;screws.computeBoundingSphere();
     return {group,stickers,position:new T.Vector3(...position).multiplyScalar(.53)};
   });
   const pickBox=new T.Mesh(resources.own(new T.BoxGeometry(2.08,2.08,2.08)),resources.own(new T.MeshBasicMaterial({visible:false})));
@@ -4638,16 +4680,33 @@ window.RubikView = {create({scene,resources,model,tween}){
 window.TwiddleView = {create({scene,resources,model,game,tween}){
   const T=THREE,theme=PuzzleGraphics.theme,root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-1.9,1.9,1.9,-1.9,.1,100);camera.position.set(4,6,5);camera.lookAt(0,0,0);
-  const base=new T.Mesh(resources.own(new T.BoxGeometry(3.16,.16,2.16)),resources.material(0xbdcbb0));base.position.y=-.2;root.add(base);
-  const box=resources.own(new T.BoxGeometry(.93,.2,.93)),edges=resources.own(new T.EdgesGeometry(box));
-  const edgeMaterial=resources.own(new T.LineBasicMaterial({color:theme.ink})),top=resources.own(new T.PlaneGeometry(.88,.88));
+  const shellMaterial=resources.material(0x26364b,{roughness:.50,metalness:.42}),darkMaterial=resources.material(0x0d1929,{roughness:.73,metalness:.15});
+  const rimMaterial=resources.material(0x5c7188,{roughness:.37,metalness:.65}),fastenerMaterial=resources.material(0xa1b1c3,{roughness:.33,metalness:.72});
+  const base=new T.Mesh(resources.bevelBox(3.16,.16,2.16,.045),shellMaterial);base.position.y=-.2;root.add(base);
+  const underside=new T.Mesh(resources.bevelBox(3.07,.075,2.07,.025),darkMaterial);underside.position.y=-.30;root.add(underside);
+  const socketGeometry=resources.bevelBox(.985,.035,.985,.016);
+  for(let slot=0;slot<6;slot++){
+    const socket=new T.Mesh(socketGeometry,darkMaterial);socket.position.set(slot%3-1,-.113,Math.floor(slot/3)-.5);root.add(socket);
+  }
+  const screwGeometry=resources.own(new T.CylinderGeometry(.021,.021,.012,10));
+  for(const x of[-1.52,1.52])for(const z of[-1.02,1.02]){
+    const screw=new T.Mesh(screwGeometry,fastenerMaterial);screw.position.set(x,-.115,z);root.add(screw);
+  }
+  const ventGeometry=resources.bevelBox(.13,.018,.008,.003);
+  for(let i=-2;i<=2;i++){
+    const vent=new T.Mesh(ventGeometry,darkMaterial);vent.position.set(i*.18,-.205,1.079);root.add(vent);
+  }
+  const box=resources.bevelBox(.93,.2,.93,.045),capGeometry=resources.bevelBox(.907,.032,.907,.014);
+  const trimGeometry=resources.bevelBox(.935,.022,.935,.009),top=resources.own(new T.PlaneGeometry(.88,.88));
   const hitGeometry=resources.own(new T.BoxGeometry(.99,.04,.99)),hitMaterial=resources.own(new T.MeshBasicMaterial({visible:false}));
   const pieces=game.voices.map((voice,id)=>{
-    const group=new T.Group(),body=new T.Mesh(box,resources.material(voice.color));
+    const group=new T.Group(),body=new T.Mesh(box,shellMaterial);
+    const trim=new T.Mesh(trimGeometry,resources.material(voice.color,{roughness:.42,metalness:.3,emissive:voice.color,emissiveIntensity:.16}));trim.position.y=-.025;
+    const cap=new T.Mesh(capGeometry,rimMaterial);cap.position.y=.079;
     const label=new T.Mesh(top,resources.own(new T.MeshBasicMaterial({map:resources.label(voice.color,id+1)})));
     label.rotation.x=-Math.PI/2;label.position.y=.104;
     const hit=new T.Mesh(hitGeometry,hitMaterial);hit.position.y=.14;hit.userData.pieceId=id;
-    group.add(body,new T.LineSegments(edges,edgeMaterial),label,hit);root.add(group);return{group,hit,slot:id};
+    group.add(body,trim,cap,label,hit);root.add(group);return{group,hit,slot:id};
   });
   const frames=['A','B'].map((key,i)=>{
     const left=i-1.5,frame=resources.stroke([[left,.16,-1],[left+2,.16,-1],[left+2,.16,1],[left,.16,1]],{radius:.022,closed:true});
@@ -4704,14 +4763,26 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
   const T=THREE,F=FourierModel,M=FourierMaze,own=x=>resources.own(x),root=new T.Group();scene.add(root);
   const camera=new T.OrthographicCamera(-2.7,2.7,2.7,-2.7,.1,50);camera.position.set(0,10,8);camera.lookAt(0,.55,0);camera.updateMatrixWorld();
   const right=new T.Vector3(1,0,0).applyQuaternion(camera.quaternion),up=new T.Vector3(0,1,0).applyQuaternion(camera.quaternion);
-  const box=own(new T.BoxGeometry(1,1,1)),cylinder=own(new T.CylinderGeometry(1,1,1,32)),sphere=own(new T.SphereGeometry(1,16,12)),materials=new Map();
+  const cylinder=own(new T.CylinderGeometry(1,1,1,32)),sphere=own(new T.SphereGeometry(1,16,12)),materials=new Map();
   const mat=(color,extra={})=>{const k=JSON.stringify([color,extra]);if(!materials.has(k))materials.set(k,resources.material(color,extra));return materials.get(k);};
   function mesh(parent,geometry,material,position=[0,0,0],scale=[1,1,1]){const m=new T.Mesh(geometry,material);m.position.set(...position);m.scale.set(...scale);parent.add(m);return m;}
-  const block=(p,c,position,scale)=>mesh(p,box,mat(c),position,scale);
+  const block=(p,c,position,size)=>mesh(p,resources.bevelBox(...size,.035),mat(c),position);
   const round=(p,c,position,scale)=>mesh(p,cylinder,mat(c),position,scale);
   const ball=(p,c,position,r)=>mesh(p,sphere,mat(c),position,[r,r,r]);
-  const vec=p=>new T.Vector3(p.x,p.y,p.z),road=0xfff5dd,stone=0xcbd4c2,brass=0xba9261,ink=0x405f52;
-  block(root,stone,[0,-.13,0],[5.18,.22,3.55]);block(root,0xe7dfc7,[0,-.005,0],[5.03,.045,3.40]);
+  const vec=p=>new T.Vector3(p.x,p.y,p.z),road=0xd4dedb,stone=0x27364c,brass=0x8b9eaf,ink=0x101b2e;
+  // A recessed instrument chassis; the walking surface remains the model's exact geometry.
+  block(root,ink,[0,-.20,0],[5.18,.26,3.55]);
+  block(root,brass,[0,-.085,0],[5.10,.065,3.47]);
+  block(root,stone,[0,-.035,0],[5.01,.065,3.38]);
+  block(root,0x1b293c,[0,.005,0],[4.82,.025,3.18]);
+  for(const x of [-2.43,2.43])for(const z of [-1.55,1.55]){
+    round(root,0x0e1a2b,[x,.026,z],[.066,.025,.066]);
+    block(root,0x8192a4,[x,.042,z],[.065,.012,.014]);
+  }
+  for(const x of [-1.68,1.68]){
+    block(root,0x091725,[x,-.125,1.779],[.65,.09,.012]);
+    const lamp=block(root,0x65e1d9,[x,-.125,1.788],[.42,.022,.014]);lamp.material=mat(0x65e1d9,{emissive:0x65e1d9,emissiveIntensity:.4});
+  }
   // Fixed landings have square supports; colored octagons are the moving lifts.
   const fixed=new T.Group();root.add(fixed);
   function bridge(a,b){
@@ -4722,25 +4793,29 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
     mesh(fixed,geometry,mat(road,{side:T.DoubleSide}));
     for(const d of [-1,1])fixed.add(resources.stroke([[a.x+px*d,a.y+.045,a.z+pz*d],[b.x+px*d,b.y+.045,b.z+pz*d]],{color:brass,radius:.015}));
     const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2};
-    block(fixed,0xc1cbb8,[mid.x,(mid.y-.10)/2,mid.z],[.20,mid.y-.10,.20]);
+    block(fixed,0x32465e,[mid.x,(mid.y-.10)/2,mid.z],[.20,mid.y-.10,.20]);
     const landing=block(fixed,stone,[mid.x,mid.y-.06,mid.z],[.38,.09,.38]);landing.rotation.y=Math.atan2(dx,dz);
   }
   M.fixedLinks.forEach(({from,to})=>bridge(from,to));
   function gate(p,color,exit=false){
-    round(fixed,0xaebbab,[p.x,p.y-.07,p.z],[.23,.12,.23]);
+    round(fixed,0x384a61,[p.x,p.y-.07,p.z],[.23,.12,.23]);
     for(const dz of [-.16,.16])block(fixed,color,[p.x,p.y+.21,p.z+dz],[.055,.42,.055]);
     const arch=mesh(fixed,own(new T.TorusGeometry(.16,.03,6,20,Math.PI)),mat(color),[p.x,p.y+.42,p.z]);arch.rotation.y=Math.PI/2;
-    const flag=block(fixed,color,[p.x,p.y+.55,p.z],[.045,.16,.20]);if(exit)flag.material=mat(0xc49c56,{emissive:0x8b682c,emissiveIntensity:.1});
+    const flag=block(fixed,color,[p.x,p.y+.55,p.z],[.045,.16,.20]);flag.material=mat(color,{emissive:color,emissiveIntensity:.25});
   }
-  gate(M.start,0x4b8973);gate(M.finish,brass,true);
+  gate(M.start,0x83d3b5);gate(M.finish,0xffc477,true);
   const lifts=M.nodes.map((n,i)=>{
     const group=new T.Group();group.position.set(n.x,0,n.z);root.add(group);
-    round(group,0xb9c7b1,[0,.035,0],[.31,.07,.31]);round(group,0xe8dfc7,[0,.079,0],[.26,.025,.26]);
-    const post=round(group,brass,[0,n.height/2,0],[.10,n.height,.10]);post.userData={index:i,kind:'lift'};
+    round(group,0x101c2c,[0,.035,0],[.31,.07,.31]);round(group,brass,[0,.079,0],[.26,.025,.26]);
+    round(group,0x1b2b40,[0,.098,0],[.22,.028,.22]);
+    const post=round(group,brass,[0,n.height/2,0],[.10,1,.10]);post.userData={index:i,kind:'lift'};
     const lift=new T.Group(),rotor=new T.Group();group.add(lift);lift.add(rotor);
     const color=new T.Color(game.voices[i].color),bodyMaterial=resources.material(color,{emissive:color,emissiveIntensity:0});
-    const body=mesh(rotor,own(new T.CylinderGeometry(.52,.49,.14,8)),bodyMaterial,[0,-.07,0]);body.userData={index:i,kind:'platform'};
-    round(rotor,0xe7dfc8,[0,-.155,0],[.35,.035,.35]);
+    mesh(rotor,own(new T.CylinderGeometry(.52,.49,.14,8)),mat(0x101c2e),[0,-.07,0]);
+    mesh(rotor,own(new T.CylinderGeometry(.51,.52,.025,8)),mat(brass),[0,-.005,0]);
+    const body=mesh(rotor,own(new T.CylinderGeometry(.49,.50,.035,8)),bodyMaterial,[0,.006,0]);body.userData={index:i,kind:'platform'};
+    round(rotor,0x53657d,[0,-.155,0],[.35,.035,.35]);
+    round(rotor,0x18263a,[0,-.18,0],[.25,.04,.25]);
     for(const direction of [n.in,n.out]){
       const [x,z]=direction,a=Math.atan2(x,z),floor=block(rotor,road,[x*M.radius/2,.015,z*M.radius/2],[.23,.03,M.radius]);floor.rotation.y=a;
       const side=[-z,x];
@@ -4748,19 +4823,19 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
     }
     round(rotor,road,[0,.018,0],[.14,.035,.14]);
     // Eight tiny rivets make the angular detents visible on the object.
-    for(let j=0;j<8;j++){const a=j*Math.PI/4;ball(rotor,0xe9dbb9,[Math.cos(a)*.43,.015,Math.sin(a)*.43],.025);}
-    const outline=mesh(lift,own(new T.TorusGeometry(.56,.025,5,8)),mat(brass,{emissive:brass,emissiveIntensity:.15}),[0,-.018,0]);outline.rotation.x=-Math.PI/2;outline.visible=false;
+    for(let j=0;j<8;j++){const a=j*Math.PI/4;round(rotor,0x26394e,[Math.cos(a)*.43,.031,Math.sin(a)*.43],[.025,.018,.025]);}
+    const outline=mesh(lift,own(new T.TorusGeometry(.56,.025,5,8)),mat(0xffc477,{emissive:0xffc477,emissiveIntensity:.35}),[0,-.018,0]);outline.rotation.x=-Math.PI/2;outline.visible=false;
     const seams=['in','out'].map(side=>{
-      const p=M.port(i,side),direction=n[side],cap=block(fixed,0xe7dfc7,[p.x,p.y+.018,p.z],[.24,.035,.05]);cap.rotation.y=Math.atan2(direction[0],direction[1]);
+      const p=M.port(i,side),direction=n[side],cap=block(fixed,road,[p.x,p.y+.018,p.z],[.24,.035,.05]);cap.rotation.y=Math.atan2(direction[0],direction[1]);
       // The line belongs to the real fixed bridge, never to a ghost preview.
-      cap.material=resources.material(0xc17c66);return cap;
+      cap.material=resources.material(0xe1937c,{emissive:0x000000});return cap;
     });
     const pickParts=[post,...rotor.children.filter(o=>o.isMesh)];
     pickParts.forEach(part=>{part.userData={index:i,kind:part===post?'lift':'platform'};});
     return{key:F.keys[i],index:i,group,post,lift,rotor,body,bodyMaterial,outline,seams,pickParts,phase:F.homePhase[i],gain:1,reaction:0};
   });
   // A warm light travels along the connected route and waits at the first gap.
-  const traveller=ball(root,0x285e4c,[M.start.x,M.start.y+.09,M.start.z],.075);traveller.material=mat(0x285e4c,{emissive:0x4a8760,emissiveIntensity:.25});
+  const traveller=ball(root,0x83d3b5,[M.start.x,M.start.y+.09,M.start.z],.075);traveller.material=mat(0x83d3b5,{emissive:0x83d3b5,emissiveIntensity:.45});
   ball(traveller,0xfff5dd,[-.022,.035,.045],.02);
   let feedback={selected:null,focus:null},dragging=null,animating=false,committed=null,disposed=false,clock={phase:0,playing:false,rows:[],periodSeconds:8};
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot()),maze=null,path=[],lengths=[],total=0;
@@ -4779,7 +4854,7 @@ window.FourierView={create({scene,resources,model,game,tween,onEditPreview}){
       p.lift.position.y=h;p.rotor.rotation.y=(p.phase-F.homePhase[i])*Math.PI/4;
       p.post.position.y=(h-.12)/2;p.post.scale.y=Math.max(.03,h-.12);
       p.outline.visible=p.key===feedback.selected;
-      p.seams.forEach((cap,j)=>cap.material.color.set(maze.joints[i].contacts[j]>=0?0x83a68a:0xc17c66));
+      p.seams.forEach((cap,j)=>{const c=maze.joints[i].contacts[j]>=0?0x83d3b5:0xe1937c;cap.material.color.setHex(c);cap.material.emissive.setHex(c);cap.material.emissiveIntensity=.15;});
     });
     path=maze.route.map(vec);lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+path[i].distanceTo(path[i-1]));total=lengths.at(-1);walk();
   }
@@ -4902,22 +4977,39 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
   image.onerror=()=>{if(!disposed)rejectReady(new Error('Не загрузилась картинка пазла. Повторите загрузку.'));};
   image.src=globalThis.PhaseCubeEmbeddedAssets?.['assets/director-puzzle.png']||'assets/director-puzzle.png?v=picture2';
   function material(color,extra={}){return resources.own(new T.MeshBasicMaterial({color,side:T.DoubleSide,...extra}));}
-  function rect(w,h,color,z){const mesh=new T.Mesh(resources.own(new T.PlaneGeometry(w,h)),material(color));mesh.position.z=z;root.add(mesh);return mesh;}
   // The frame and exposed sockets belong to this single object, not a control panel.
-  rect(size+.18,boardHeight+.18,0x253c36,-.06);rect(size+.10,boardHeight+.10,0xd4b17a,-.05);rect(size+.04,boardHeight+.04,0x293c32,-.04);
+  const shellMaterial=resources.material(0x293a51,{roughness:.48,metalness:.46}),rimMaterial=resources.material(0x71849b,{roughness:.37,metalness:.65});
+  const darkMaterial=resources.material(0x0b1728,{roughness:.65,metalness:.18});
+  function plate(w,h,d,z,mat,bevel){const mesh=new T.Mesh(resources.bevelBox(w,h,d,bevel),mat);mesh.position.z=z;root.add(mesh);return mesh;}
+  plate(size+.18,boardHeight+.18,.12,-.10,shellMaterial,.028);
+  plate(size+.11,boardHeight+.11,.025,-.045,rimMaterial,.010);
+  plate(size+.035,boardHeight+.035,.02,-.025,darkMaterial,.008);
+  const screwGeometry=resources.own(new T.CylinderGeometry(.016,.016,.010,10));
+  for(const x of[-1,1])for(const y of[-1,1]){
+    const screw=new T.Mesh(screwGeometry,rimMaterial);screw.rotation.x=Math.PI/2;screw.position.set(x*(size/2+.061),y*(boardHeight/2+.061),-.030);root.add(screw);
+  }
+  const stripGeometry=resources.bevelBox(.26,.012,.010,.004),stripMaterial=resources.material(0x55d7dc,{roughness:.32,metalness:.25,emissive:0x31b8c3,emissiveIntensity:.45});
+  for(const y of[-1,1]){
+    const strip=new T.Mesh(stripGeometry,stripMaterial);strip.position.set(0,y*(boardHeight/2+.061),-.031);root.add(strip);
+  }
   const artMaterial=material(0xffffff,{map:texture});
   function tile(index){
     const geometry=resources.own(new T.PlaneGeometry(cell,cell)),uv=geometry.attributes.uv,col=index%columns,row=Math.floor(index/columns);
     for(let i=0;i<uv.count;i++)uv.setXY(i,(col+uv.getX(i))/columns,(rows-1-row+uv.getY(i))/rows);
     uv.needsUpdate=true;return new T.Mesh(geometry,artMaterial);
   }
-  for(const index of fixedCells){const mesh=tile(index);mesh.position.copy(position(index));root.add(mesh);}
-  const socketGeometry=resources.own(new T.PlaneGeometry(cell,cell)),socketMaterial=material(0x3c5147);
+  const tileBodyGeometry=resources.bevelBox(cell-.006,cell-.006,.056,.018);
+  for(const index of fixedCells){
+    const center=position(index),body=new T.Mesh(tileBodyGeometry,shellMaterial),mesh=tile(index);
+    body.position.copy(center);body.position.z=-.030;mesh.position.copy(center);root.add(body,mesh);
+  }
+  const socketGeometry=resources.own(new T.PlaneGeometry(cell,cell)),socketMaterial=material(0x101c30);
   centers.forEach(center=>{const mesh=new T.Mesh(socketGeometry,socketMaterial);mesh.position.copy(center);mesh.position.z=-.02;root.add(mesh);});
   const outlineGeometry=resources.own(new T.EdgesGeometry(resources.own(new T.PlaneGeometry(cell-.006,cell-.006))));
   const pieces=cells.map((index,source)=>{
-    const group=new T.Group(),mesh=tile(index);mesh.userData.source=source;group.add(mesh);root.add(group);
-    const shadow=new T.Mesh(resources.own(new T.PlaneGeometry(cell+.025,cell+.025)),material(0x152a23,{transparent:true,opacity:.28}));shadow.position.set(.018,-.025,-.012);group.add(shadow);
+    const group=new T.Group(),mesh=tile(index),body=new T.Mesh(tileBodyGeometry,shellMaterial);body.position.z=-.030;
+    mesh.userData.source=source;group.add(body,mesh);root.add(group);
+    const shadow=new T.Mesh(resources.own(new T.PlaneGeometry(cell+.025,cell+.025)),material(0x050c17,{transparent:true,opacity:.34}));shadow.position.set(.018,-.025,-.060);group.add(shadow);
     const edge=new T.LineSegments(outlineGeometry,resources.own(new T.LineBasicMaterial({color:game.voices[source].color,transparent:true,opacity:.8})));edge.position.z=.018;group.add(edge);
     const gripGeometry=resources.own(new T.RingGeometry(.022*cell,.038*cell,20)),gripMaterial=material(game.voices[source].color);
     const grips=[[-.40,-.40],[.40,-.40],[.40,.40],[-.40,.40]].map(([x,y])=>{const g=new T.Mesh(gripGeometry,gripMaterial);g.position.set(x*cell,y*cell,.022);group.add(g);return g;});
@@ -5069,7 +5161,7 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
 <script>
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Gear rules: seats fit the authored rhythm; five exact size/gain levels. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/module.js'),require('../fourier/model.js'),require('../fourier/binding.js'),require('./terrain.js'),require('../../controls/pattern-pieces.js'));else root.BouncePuzzle=factory(root.FourierPuzzle,root.FourierModel,root.FourierBinding,root.BounceTerrain,root.PuzzleParts);})(globalThis,function(Base,F,Binding,B,Parts){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/model.js'),require('../fourier/binding.js'),require('./terrain.js'),require('../../controls/pattern-pieces.js'));else root.BouncePuzzle=factory(root.FourierModel,root.FourierBinding,root.BounceTerrain,root.PuzzleParts);})(globalThis,function(F,Binding,B,Parts){
   'use strict';
   const mod=n=>((n%8)+8)%8,levelStep=B.gainStep*4;
   class Model extends F.Model{
@@ -5111,10 +5203,11 @@ window.ScratchView={create({scene,resources,model,game,tween,invalidate,onEditPr
       return result;
     }
   }
-  const manifest=steps=>({...Base.manifest,id:'bounce',version:5,stateSpace:'rhythm seats × {0,0.5,1,1.5,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*B.gains.length,1),
+  // Share the complex-riff algebra, never another puzzle's rules or manifest.
+  const manifest=steps=>({schema:'music-puzzle/3',id:'bounce',version:5,projection:'complex-riff/3',controls:F.keys.length,fragments:F.keys.length,goalPolicy:'single-reference',stateSpace:'rhythm seats × {0,0.5,1,1.5,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*B.gains.length,1),
+    interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'},
     parameters:{phases:steps.map(s=>8/s),seatSteps:[...steps],magnitudes:{min:0,max:2,step:B.gainStep,values:B.gains,continuous:false}},
-    operations:{phase:{orders:steps.map(s=>8/s)},magnitude:{kind:'bounded-step',step:B.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}},
-    interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'}});
+    operations:{phase:{orders:steps.map(s=>8/s)},magnitude:{kind:'bounded-step',step:B.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}}});
   return{id:'bounce',title:'Шестерёнки ритма',progressLabel:'партий\nв ритме',shuffleSteps:6,create:()=>new Model(),manifest:Object.freeze(manifest(F.keys.map(()=>1))),
     configure(S,song,options){
       const game=Parts.build(S,song,{...options,count:F.keys.length}),steps=game.targetRows.map(row=>B.seatStep(B.attacks(row,Binding.period(row))));
@@ -5132,34 +5225,83 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
   const camera=new T.OrthographicCamera(-3,3,3,-3,.1,60);camera.position.set(9,centerY+9,9);camera.lookAt(0,centerY,0);
   const material=(color,extra={})=>resources.material(color,{transparent:true,...extra});
   function mesh(geometry,mat,parent=root){const m=new T.Mesh(geometry,mat);parent.add(m);return m;}
-  const pedestal=mesh(own(new T.CylinderGeometry(2.30,2.39,.18,64)),material(0xd5ddc9));pedestal.position.y=-.24;
-  const foot=mesh(own(new T.CylinderGeometry(2.17,2.26,.07,64)),material(0xf0e6cf));foot.position.y=-.11;
-  const shaft=mesh(own(new T.CylinderGeometry(.14,.14,height(5)+.44,20)),material(0xafa58a,{metalness:.3}));shaft.position.y=centerY;
-  const cap=mesh(own(new T.SphereGeometry(.19,20,12)),material(0xba9160));cap.position.y=height(5)+.27;
+  function fittings(geometry,mat,poses,parent=root){
+    const m=own(new T.InstancedMesh(geometry,mat,poses.length)),transform=new T.Matrix4();
+    poses.forEach(([p,angle=0],i)=>{transform.makeRotationY(angle);transform.setPosition(p.x,p.y,p.z);m.setMatrixAt(i,transform);});
+    m.instanceMatrix.needsUpdate=true;parent.add(m);return m;
+  }
+  // Machined housings are geometry, not painted rings. The only moving/raycasted
+  // surface remains the original gear; all trim shares its layer's transparency.
+  function chamfered(radius,depth,bevel=.025,segments=32){
+    const h=depth/2,b=Math.min(bevel,h,radius);
+    return own(new T.LatheGeometry([[0,-h],[radius-b,-h],[radius,-h+b],[radius,h-b],[radius-b,h],[0,h]].map(p=>new T.Vector2(...p)),segments));
+  }
+  const shell=material(0x243346,{roughness:.68,metalness:.16}),dark=material(0x101824,{roughness:.78}),metal=material(0x667d91,{roughness:.39,metalness:.67});
+  const cyan=material(0x62dce8,{emissive:0x24b9ce,emissiveIntensity:.42,roughness:.4});
+  const pedestal=mesh(chamfered(2.39,.25,.055,48),shell);pedestal.position.y=-.30;
+  const gasket=mesh(chamfered(2.31,.035,.009,48),dark);gasket.position.y=-.162;
+  const deck=mesh(chamfered(2.25,.075,.025,48),metal);deck.position.y=-.112;
+  const inset=mesh(chamfered(2.17,.028,.010,48),dark);inset.position.y=-.067;
+  const shaft=mesh(own(new T.CylinderGeometry(.14,.14,height(5)+.44,20)),metal);shaft.position.y=centerY;
+  const cap=mesh(chamfered(.23,.16,.04,16),shell);cap.position.y=height(5)+.22;
+  const capInset=mesh(chamfered(.155,.018,.006,16),metal);capInset.position.y=height(5)+.307;
+  const footGeometry=chamfered(.24,.12,.025,12),boltGeometry=chamfered(.047,.018,.006,6);
+  const boltSlotGeometry=resources.bevelBox(.039,.005,.009,.002);
+  const ventGeometry=resources.bevelBox(.055,.012,.22,.012);
+  const feet=[],bolts=[],slots=[],vents=[];
+  for(let i=0;i<8;i++){
+    const p=B.point((i+.5)/8,2.04,-.047);bolts.push([p]);slots.push([{...p,y:p.y+.012},-i*B.TAU/8]);
+    if(i%2===0)feet.push([B.point((i+.5)/8,1.80,-.465)]);
+  }
+  for(let i=0;i<12;i++){
+    const t=(i-5.5)*.013+.625;vents.push([B.point(t,1.97,-.048),-t*B.TAU]);
+  }
+  fittings(footGeometry,dark,feet);fittings(boltGeometry,metal,bolts);fittings(boltSlotGeometry,dark,slots);fittings(ventGeometry,dark,vents);
+  const lightGeometry=own(new T.TorusGeometry(2.29,.013,6,32,.36));
+  for(let i=0;i<3;i++){const light=mesh(lightGeometry,cyan);light.rotation.set(-Math.PI/2,0,i*B.TAU/3+.18);light.position.y=-.192;}
   const N=192,inner=.25,base=game.targetRows.map((row,i)=>B.attacks(row,binding.periods[i]));
   const socketGeometry=own(new T.TorusGeometry(.12,.025,7,24));
   const padGeometries=Array.from({length:12},(_,i)=>own(new T.CylinderGeometry(1,1,.075,3+i)));
+  const collarGeometry=chamfered(.34,.095,.025,24),bearingGeometry=chamfered(.265,.12,.018,24);
+  const hubBandGeometry=own(new T.TorusGeometry(.289,.013,6,32));
+  const studGeometry=resources.bevelBox(.025,.025,.055,.004),fluteGeometry=resources.bevelBox(.026,.009,.19,.004);
   const layers=F.keys.map((key,i)=>{
     const group=new T.Group();group.position.y=height(i);root.add(group);
     const rotor=new T.Group(),targets=new T.Group();group.add(rotor,targets);
     const materials=[],makeMat=(color,extra={})=>{const m=material(color,extra);materials.push(m);return m;};
-    const color=new T.Color(game.voices[i].color),bodyMat=makeMat(color),sideMat=makeMat(color.clone().multiplyScalar(.68));
-    const positions=new Float32Array((N+1)*6),indices=[],sidePositions=new Float32Array((N+1)*6);
+    const color=new T.Color(game.voices[i].color),bodyMat=makeMat(new T.Color(0x293a4d).lerp(color,.12),{roughness:.65,metalness:.2});
+    const sideMat=makeMat(0x111c2a,{roughness:.48,metalness:.3}),edgeMat=makeMat(0x657c92,{roughness:.38,metalness:.6});
+    const recessMat=makeMat(0x101824),hubMat=makeMat(0x31455c,{roughness:.48,metalness:.38});
+    const collar=mesh(collarGeometry,hubMat,rotor);collar.position.y=.083;
+    const bearing=mesh(bearingGeometry,edgeMat,rotor);bearing.position.y=.155;
+    const band=mesh(hubBandGeometry,makeMat(color,{emissive:color,emissiveIntensity:.18}),rotor);band.rotation.x=-Math.PI/2;band.position.y=.124;
+    const hubBolts=[],hubSlots=[],flutes=[];
+    for(let n=0;n<4;n++){
+      const p=B.point((n+.5)/4,.43,.056);hubBolts.push([p]);hubSlots.push([{...p,y:.068},-n*Math.PI/2]);flutes.push([B.point(n/4,.67,.049),-n*Math.PI/2]);
+    }
+    fittings(boltGeometry,edgeMat,hubBolts,rotor);fittings(boltSlotGeometry,recessMat,hubSlots,rotor);fittings(fluteGeometry,recessMat,flutes,rotor);
+    const positions=new Float32Array((N+1)*6),indices=[],sidePositions=new Float32Array((N+1)*6),surfaceUV=new Float32Array((N+1)*4),sideUV=new Float32Array((N+1)*4);
     for(let n=0;n<N;n++){const k=2*n;indices.push(k,k+2,k+1,k+1,k+2,k+3);}
-    const geometry=own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(positions,3));geometry.setIndex(indices);
-    const sides=own(new T.BufferGeometry());sides.setAttribute('position',new T.BufferAttribute(sidePositions,3));sides.setIndex(indices);
+    for(let n=0;n<=N;n++)sideUV.set([n/N*4,0,n/N*4,1],n*4);
+    const geometry=own(new T.BufferGeometry());geometry.setAttribute('position',new T.BufferAttribute(positions,3));geometry.setAttribute('uv',new T.BufferAttribute(surfaceUV,2));geometry.setIndex(indices);
+    const sides=own(new T.BufferGeometry());sides.setAttribute('position',new T.BufferAttribute(sidePositions,3));sides.setAttribute('uv',new T.BufferAttribute(sideUV,2));sides.setIndex(indices);
     const body=mesh(geometry,bodyMat,rotor);body.userData={index:i,kind:'gear'};bodyMat.side=T.DoubleSide;
     mesh(sides,sideMat,rotor).material.side=T.DoubleSide;
+    const bevelPositions=new Float32Array((N+1)*6),bevelUV=new Float32Array((N+1)*4),bevelGeometry=own(new T.BufferGeometry());
+    bevelGeometry.setAttribute('position',new T.BufferAttribute(bevelPositions,3));bevelGeometry.setAttribute('uv',new T.BufferAttribute(bevelUV,2));bevelGeometry.setIndex(indices.slice().reverse());
+    mesh(bevelGeometry,edgeMat,rotor);
     const outlineGeometry=own(new T.BufferGeometry()),outlinePositions=new Float32Array(N*3);outlineGeometry.setAttribute('position',new T.BufferAttribute(outlinePositions,3));
-    const outlineMat=own(new T.LineBasicMaterial({color:color.clone().multiplyScalar(.5),transparent:true}));materials.push(outlineMat);
+    const outlineMat=own(new T.LineBasicMaterial({color:color.clone().multiplyScalar(.82),transparent:true}));materials.push(outlineMat);
     rotor.add(new T.LineLoop(outlineGeometry,outlineMat));
+    const noteMaterials=new Map(),studMat=makeMat(0xf7f1d8,{roughness:.5});
     const notes=base[i].map(event=>{
-      const c=B.color(event),pad=mesh(padGeometries[B.noteClass(event)],makeMat(c),rotor);
-      const socket=mesh(socketGeometry,makeMat(c,{emissive:c,emissiveIntensity:.14}),targets);socket.rotation.x=-Math.PI/2;
-      const stud=mesh(own(new T.BoxGeometry(.025,.025,.055)),makeMat(0xfff6df),rotor);
+      const c=B.color(event);if(!noteMaterials.has(c))noteMaterials.set(c,makeMat(c,{emissive:c,emissiveIntensity:.14,roughness:.5}));
+      const pad=mesh(padGeometries[B.noteClass(event)],noteMaterials.get(c),rotor);
+      const socket=mesh(socketGeometry,noteMaterials.get(c),targets);socket.rotation.x=-Math.PI/2;
+      const stud=mesh(studGeometry,studMat,rotor);
       return{event,pad,socket,stud};
     });
-    return{key,index:i,group,rotor,targets,body,geometry,positions,sides,sidePositions,outlineGeometry,outlinePositions,materials,notes,opacity:1,events:base[i],gain:null};
+    return{key,index:i,group,rotor,targets,body,geometry,positions,surfaceUV,sides,sidePositions,bevelGeometry,bevelPositions,bevelUV,outlineGeometry,outlinePositions,materials,notes,opacity:1,events:base[i],gain:null};
   });
   let selected=null,animating=false,dragging=null,committed=null,disposed=false,clock={phase:0,position:0,playing:false,periodSeconds:8};
   const valuesAt=state=>model.parameters(state).map(p=>({phase:p.phase,gain:F.gain(p)}));let display=valuesAt(model.snapshot());
@@ -5192,9 +5334,14 @@ window.BounceView={create({scene,resources,model,game,binding,tween,onEditPrevie
         for(let n=0;n<=N;n++){
           const t=n/N,a=B.point(t,inner),b=B.point(t,B.surface(base[i],t,p.gain)),k=n*6;
           layer.positions.set([a.x,.04,a.z,b.x,.04,b.z],k);layer.sidePositions.set([b.x,-.11,b.z,b.x,.04,b.z],k);
-          if(n<N)layer.outlinePositions.set([b.x,.047,b.z],n*3);
+          layer.surfaceUV.set([a.x/4+.5,a.z/4+.5,b.x/4+.5,b.z/4+.5],n*4);
+          const lip=B.point(t,B.surface(base[i],t,p.gain)-.035),rim=B.point(t,B.surface(base[i],t,p.gain)-.006);
+          layer.bevelPositions.set([lip.x,.041,lip.z,rim.x,.047,rim.z],k);
+          layer.bevelUV.set([lip.x/4+.5,lip.z/4+.5,rim.x/4+.5,rim.z/4+.5],n*4);
+          if(n<N)layer.outlinePositions.set([b.x,.048,b.z],n*3);
         }
-        for(const geo of [layer.geometry,layer.sides]){geo.attributes.position.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();}
+        for(const geo of [layer.geometry,layer.sides,layer.bevelGeometry]){geo.attributes.position.needsUpdate=true;geo.computeVertexNormals();geo.computeBoundingSphere();}
+        layer.geometry.attributes.uv.needsUpdate=true;layer.bevelGeometry.attributes.uv.needsUpdate=true;
         layer.outlineGeometry.attributes.position.needsUpdate=true;layer.outlineGeometry.computeBoundingSphere();
         layer.notes.forEach(note=>{
           const e=note.event,t=e.time,pt=B.point(t,B.crest(e,p.gain),.09),slot=B.point(t,B.crest(e,1),.07);
@@ -5317,7 +5464,7 @@ window.PhaseCubeCelebration=(()=>{
 /* Session/audio orchestration only. Puzzle rules, views, controls and partitioning live in modules. */
 (() => {
   'use strict';
-  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/maze8';
+  const C=PhaseCubeConfig,S=PhaseCubeSession,$=id=>document.getElementById(id),params=new URLSearchParams(location.search),debug=params.has('debug'),build='music-puzzles/atelier9';
   const library=new PuzzleCompositions.Loader(strudel);
   const loader=new PuzzleSessionLoader.Loader(strudel,{library,palette:C.palette,registry:PuzzleRegistry,preload:PhaseCubeBank.preload});
   const mix=()=>({foundation:true,solo:-1,muted:[]});

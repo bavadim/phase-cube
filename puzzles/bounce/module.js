@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Gear rules: seats fit the authored rhythm; five exact size/gain levels. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/module.js'),require('../fourier/model.js'),require('../fourier/binding.js'),require('./terrain.js'),require('../../controls/pattern-pieces.js'));else root.BouncePuzzle=factory(root.FourierPuzzle,root.FourierModel,root.FourierBinding,root.BounceTerrain,root.PuzzleParts);})(globalThis,function(Base,F,Binding,B,Parts){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('../fourier/model.js'),require('../fourier/binding.js'),require('./terrain.js'),require('../../controls/pattern-pieces.js'));else root.BouncePuzzle=factory(root.FourierModel,root.FourierBinding,root.BounceTerrain,root.PuzzleParts);})(globalThis,function(F,Binding,B,Parts){
   'use strict';
   const mod=n=>((n%8)+8)%8,levelStep=B.gainStep*4;
   class Model extends F.Model{
@@ -42,10 +42,11 @@
       return result;
     }
   }
-  const manifest=steps=>({...Base.manifest,id:'bounce',version:5,stateSpace:'rhythm seats × {0,0.5,1,1.5,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*B.gains.length,1),
+  // Share the complex-riff algebra, never another puzzle's rules or manifest.
+  const manifest=steps=>({schema:'music-puzzle/3',id:'bounce',version:5,projection:'complex-riff/3',controls:F.keys.length,fragments:F.keys.length,goalPolicy:'single-reference',stateSpace:'rhythm seats × {0,0.5,1,1.5,2}^6',gridPresetStates:steps.reduce((n,s)=>n*(8/s)*B.gains.length,1),
+    interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'},
     parameters:{phases:steps.map(s=>8/s),seatSteps:[...steps],magnitudes:{min:0,max:2,step:B.gainStep,values:B.gains,continuous:false}},
-    operations:{phase:{orders:steps.map(s=>8/s)},magnitude:{kind:'bounded-step',step:B.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}},
-    interaction:{requiresSelection:true,allowDeselect:true,hoverActions:false,buttonPreview:false,selectionPrompt:'Выберите шестерёнку'}});
+    operations:{phase:{orders:steps.map(s=>8/s)},magnitude:{kind:'bounded-step',step:B.gainStep,min:0,max:2},drag:{kind:'coefficient-edit'}}});
   return{id:'bounce',title:'Шестерёнки ритма',progressLabel:'партий\nв ритме',shuffleSteps:6,create:()=>new Model(),manifest:Object.freeze(manifest(F.keys.map(()=>1))),
     configure(S,song,options){
       const game=Parts.build(S,song,{...options,count:F.keys.length}),steps=game.targetRows.map(row=>B.seatStep(B.attacks(row,Binding.period(row))));

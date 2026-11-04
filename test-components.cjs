@@ -9,6 +9,25 @@ test('game rules and composition contracts load without DOM, graphics or the aud
  assert.equal(Composition.inspectModule(good),good);
  for(const bad of [{...good,default:null},{...good,metadata:{...good.metadata,bpm:NaN}},{...good,metadata:{...good.metadata,schema:'other'}}])assert.throws(()=>Composition.inspectModule(bad),/композиции/);
 });
+test('each puzzle owns its module and only depends on shared pure domain code',()=>{
+ // Inspect actual CommonJS dependencies, including transitive imports. This
+ // catches accidental manifest inheritance even when all runtime tests pass.
+ const relative=file=>path.relative(__dirname,file).split(path.sep).join('/');
+ for(const game of games.modules){
+  const entry=require.resolve('./puzzles/'+game.id+'/module.js'),seen=new Set(),queue=[require.cache[entry]];
+  while(queue.length){
+   const dependency=queue.pop();if(seen.has(dependency.id))continue;seen.add(dependency.id);
+   const file=relative(dependency.filename);
+   if(/^puzzles\/[^/]+\/module\.js$/.test(file))assert.equal(dependency.filename,entry,game.id+' depends on another puzzle module: '+file);
+   assert(!file.startsWith('graphics/')&&!file.endsWith('/three-view.js'),game.id+' imports presentation: '+file);
+   // This legacy filename is a pure native-event partitioner, not a UI control.
+   if(file.startsWith('controls/'))assert.equal(file,'controls/pattern-pieces.js',game.id+' imports a UI control: '+file);
+   assert(!['app.js','transport.js','composition-loader.js','session-loader.js'].includes(file),game.id+' imports application lifecycle: '+file);
+   queue.push(...dependency.children);
+  }
+  assert(seen.size>1,'Inspect a real dependency graph for '+game.id);
+ }
+});
 test('presentation factories are independently registered for every rules module',()=>{
  const context={window:{}},factories=new Map();
  for(const id of games.modules.map(g=>g.id)){const name=id[0].toUpperCase()+id.slice(1)+'View',create=()=>id;context[name]={create};factories.set(id,create);}
