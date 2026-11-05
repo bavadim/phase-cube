@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {openBrowser} from '../../qa/modules/browser.mjs';
 
-const output = process.env.BELT_QA_DIR || join(tmpdir(), 'biba-conveyor-qa');
+const output = process.env.BOXES_QA_DIR || join(tmpdir(), 'biba-boxes-qa');
 await mkdir(output, {recursive:true});
 const browser = await openBrowser();
 const report = {engine:browser.engine, cases:[], errors:[], missing:[], physicalDevice:false};
@@ -136,228 +136,348 @@ async function checkControls(width,height) {
   return ui;
 }
 
-async function gear(rate) {
-  const at=await page.locator('#machine [data-speed="'+rate+'"]').evaluate(el=>{
-    const r=el.getBoundingClientRect(), x=r.x+r.width/2, y=r.y+r.height-11;
-    if(document.elementFromPoint(x,y)?.closest('[data-speed]')!==el)throw Error('Gear control occluded');
-    return {x,y};
-  });
-  // The stationary socket also accepts taps near its lower edge.
-  await tap(at);
-}
-const bar = index => page.locator('#machine [data-bar="'+index+'"]');
-const cellPoint = (step,pitch) => page.evaluate(([s,p])=>conveyorTest.cellPoint(s,p),[step,pitch]);
+const mode = name => press(page.locator('[data-representation="'+name+'"]'));
+const bar = index => press(page.locator('[data-bar="'+index+'"]').first());
+const cellPoint = step => page.evaluate(s=>conveyorTest.cellPoint(s),step);
 const notePoint = (id,kind='body') => page.evaluate(([id,k])=>conveyorTest.notePoint(id,k),[id,kind]);
-const shiftedPoint=(origin,oldCell,newCell)=>({x:origin.x+newCell.x-oldCell.x,y:origin.y+newCell.y-oldCell.y});
+const note = (score,key,id) => track(score,key).notes.find(n=>n.id===id);
+const boxTools = () => page.locator('[data-box-tools]');
+const changeField = (field,direction) => press(boxTools().locator('[data-field="'+field+'"][data-delta="'+direction+'"]'));
 
-async function editScore() {
-  await part('hook'); await press(bar(0));
-  const before=await state(), original=track(before,'hook');
-  const pitches=[original.notes[0].pitch,original.notes[1].pitch];
-  const at=await cellPoint(5,pitches[0]);
-  // Sample the audition orbit throughout the click (also covers its asynchronous warm-up).
-  await page.evaluate(() => { window.qaAudition=(async()=>{
-    let peak=0;
-    for (let i=0;i<45;i++){
-      await new Promise(requestAnimationFrame);
-      const meter=conveyorTest.auditionMeter();
-      if(!meter)continue;
-      const samples=new Float32Array(meter.fftSize);
-      meter.getFloatTimeDomainData(samples);
-      for(const s of samples)peak=Math.max(peak,Math.abs(s));
+async function gear(rate) {
+  const socket=page.locator('#machine [data-speed="'+rate+'"]:visible').first();
+  await press(socket);
+}
+async function inspectBox(id) {
+  return page.evaluate(id=>{
+    const group=[...document.querySelectorAll('[data-crate-id]')].find(el=>el.dataset.crateId===id && el.checkVisibility() && el.getBoundingClientRect().width);
+    if (!group) throw Error('Cannot see crate '+id);
+    const face=group.querySelector('[data-face="front"]'), b=face.getBBox();
+    const fill=getComputedStyle(face).fill;
+    const ctx=document.createElement('canvas').getContext('2d');
+    ctx.fillStyle=fill;
+    return {width:b.width,height:b.height,color:ctx.fillStyle};
+  },id);
+}
+async function inspector() {
+  if(!await boxTools().isVisible()) await press(page.locator('[data-edit-box]'));
+}
+async function saveLegacyAndReload() {
+  const before=await state();
+  const raw=await page.evaluate(fresh=>{
+    const legacy=JSON.parse(JSON.stringify(fresh));
+    for(const p of legacy.parts){ delete p.phase; delete p.level; for(const n of p.notes)delete n.gain; }
+    const hook=legacy.parts.find(p=>p.key==='hook');
+    hook.notes[0].length=2.375;
+    localStorage.setItem('biba.conveyor.turkish-circuit.v1',JSON.stringify({selected:'hook',bar:0,state:legacy}));
+    return legacy;
+  },before);
+  await page.reload();
+  await ready();
+  const migrated=await state();
+  for(const p of raw.parts){
+    const current=track(migrated,p.key);
+    assert.equal(current.phase,0);
+    assert.equal(current.level,1);
+    assert.equal(current.notes.length,p.notes.length);
+    for(const n of p.notes){
+      const saved=note(migrated,p.key,n.id);
+      assert.ok(Number.isFinite(saved.gain) && saved.gain>=0 && saved.gain<=2);
+      assert.deepEqual({...saved,gain:undefined},{...n,gain:undefined});
     }
-    return peak;
-  })(); });
-  await tap(at);
-  const auditionPeak=await page.evaluate(()=>window.qaAudition);
-  assert.ok(auditionPeak>.0001,'Attaching a tile on pause must sound the chosen instrument');
-  assert.equal(await page.evaluate(()=>conveyorTest.transport.running),false);
-  const added=track(await state(),'hook').notes.find(n=>!original.notes.some(p=>p.id===n.id));
-  assert.ok(added,'Tap on empty conveyor cell must attach a tile');
-  assert.equal(added.step,5);
-  assert.equal(added.pitch,pitches[0]);
-
-  const a=await cellPoint(added.step,added.pitch), b=await cellPoint(7,pitches[1]);
-  let from=await notePoint(added.id);
-  if (touch) {
-    const last=await state();
-    await drag(from,shiftedPoint(from,a,b),true);
-    assert.deepEqual(await state(),last,'Cancelled drag must leave the note in place');
   }
-  await drag(from,shiftedPoint(from,a,b));
-  let tile=track(await state(),'hook').notes.find(n=>n.id===added.id);
-  assert.equal(tile.step,7); assert.equal(tile.pitch,pitches[1]);
-  const priorLength=tile.length;
-
-  await tap(await notePoint(tile.id));
-  from=await notePoint(tile.id,'length');
-  const oldCell=await cellPoint(7,tile.pitch), newCell=await cellPoint(10,tile.pitch);
-  await drag(from,shiftedPoint(from,oldCell,newCell));
-  tile=track(await state(),'hook').notes.find(n=>n.id===added.id);
-  assert.ok(tile.length>priorLength,'Dragging the end of the note must extend its duration');
-  assert.equal(tile.step,7);assert.equal(tile.pitch,pitches[1]);
-
-  const saved=await state();
-  await press(page.locator('#machine [data-eject]'));
-  await page.waitForFunction(id=>!conveyorTest.state().parts.find(p=>p.key==='hook').notes.some(n=>n.id===id),added.id,{timeout:1200});
-  await press(page.locator('#undo'));
-  assert.deepEqual(await state(),saved,'Undo must restore the deleted tile with its edited length');
-  for(const key of ['kick','bass']) assert.deepEqual(track(saved,key),track(before,key));
-
-  // Move a single tile across the folded four-bar strip using the physical page tabs.
-  const tab=await bar(3).boundingBox();
-  await drag(await notePoint(tile.id),{x:tab.x+tab.width/2,y:tab.y+tab.height/2});
-  const moved=track(await state(),'hook').notes.find(n=>n.id===tile.id);
-  assert.equal(moved.step,48+tile.step);
-  assert.equal(moved.pitch,tile.pitch);
-  await press(page.locator('#undo'));
-  assert.deepEqual(await state(),saved);
-  await press(bar(3));
-  const lastNotes=track(saved,'hook').notes.filter(n=>n.step>=48);
-  assert.ok(lastNotes.length>0);
-  const witness=page.locator('#machine [data-note-id="'+lastNotes[0].id+'"]');
-  assert.ok(await witness.isVisible(),'Fourth bar must expose its authored notes');
-  await press(bar(0));
-  return {id:tile.id,step:tile.step,pitch:tile.pitch,length:tile.length,auditionPeak};
+  return migrated;
 }
 
-async function checkRunningBelt() {
-  // Capture the actual mechanical slot or moving tile under a held pointer.
-  // The sound continues throughout this gesture and the belt advances several steps.
-  const point=await page.evaluate(()=>{
-    const drive=document.querySelector('.cv-drive'), head=drive.querySelector('[data-reader-line]');
-    const x=head.x1.baseVal.value+conveyorTest.view().tileSpacing*1.4, y=head.y2.baseVal.value-13;
-    const client=new DOMPoint(x,y).matrixTransform(drive.getScreenCTM());
-    drive.addEventListener('pointerdown',event=>{
-      const v=conveyorTest.view();
-      const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(drive.getScreenCTM().inverse());
-      window.qaLatch={id:event.target.closest('[data-running-id]')?.dataset.runningId,
-        step:((Math.floor(v.step+(p.x-head.x1.baseVal.value)/v.tileSpacing)%64)+64)%64,
-        time:v.step};
-    },{capture:true,once:true});
-    return {x:client.x,y:client.y};
+async function monitorAudition(action) {
+  await page.evaluate(()=>{
+    window.qaAudition=(async()=>{
+      let peak=0;
+      for(let i=0;i<55;i++){
+        await new Promise(requestAnimationFrame);
+        const meter=conveyorTest.auditionMeter();
+        if(!meter)continue;
+        const samples=new Float32Array(meter.fftSize);
+        meter.getFloatTimeDomainData(samples);
+        for(const s of samples)peak=Math.max(peak,Math.abs(s));
+      }
+      return peak;
+    })();
   });
-  if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:0,...point}]});
-  else {await page.mouse.move(point.x,point.y);await page.mouse.down();}
-  await page.waitForFunction(()=>window.qaLatch && (conveyorTest.view().step-window.qaLatch.time+64)%64>2);
+  await action();
+  return page.evaluate(()=>window.qaAudition);
+}
+
+async function checkParallelLanes() {
+  const initial=await state();
+  const [lead,neighbour]=track(initial,'hook').notes;
+  assert.ok(lead.step+lead.length<=neighbour.step);
+  const before=await inspectBox(neighbour.id);
+  await tap(await notePoint(lead.id));
+  const handle=await notePoint(lead.id,'length');
+  const spacing=(await cellPoint(1)).x-(await cellPoint(0)).x;
+  await drag(handle,{x:handle.x+2*spacing,y:handle.y});
+  const stateWithOverlap=await state();
+  const elongated=note(stateWithOverlap,'hook',lead.id);
+  assert.ok(elongated.step+elongated.length>neighbour.step,'Second rail must now carry simultaneous notes');
+  assert.deepEqual(note(stateWithOverlap,'hook',neighbour.id),neighbour);
+  const polyphonic=await inspectBox(neighbour.id);
+  assert.ok(Math.abs(polyphonic.height-before.height)<1e-3,
+    'A neighbour taking another rail must not change the height scale of its boxes');
+  await press(page.locator('#undo'));
+  assert.deepEqual(await state(),initial);
+  const restored=await inspectBox(neighbour.id);
+  assert.equal(restored.height,before.height);
+  return {heightBefore:before.height,heightWithOverlap:polyphonic.height,heightAfter:restored.height};
+}
+
+async function exerciseCrate() {
+  const before=await state(), original=track(before,'hook');
+  const clear=Array.from({length:16},(_,i)=>i).filter(s=>!original.notes.some(n=>n.step===s));
+  assert.ok(clear.length>=2);
+  const first=clear[0], second=clear[1];
+  const at=await cellPoint(first);
+  const peak=await monitorAudition(()=>tap(at));
+  assert.ok(peak>.0001,'A placed box must audition its sampled note');
+  const added=track(await state(),'hook').notes.find(n=>!original.notes.some(old=>old.id===n.id));
+  assert.ok(added, 'Tapping the tread should attach a box');
+  assert.equal(added.step,first);
+  assert.equal(await page.evaluate(()=>conveyorTest.transport.running),false);
+  const id=added.id;
+  const originalBox=await inspectBox(id);
+  let pos=await notePoint(id), d=(await cellPoint(second)).x-at.x;
+  if(touch){
+    const saved=await state();
+    await drag(pos,{x:pos.x+d,y:pos.y},true);
+    assert.deepEqual(await state(),saved,'Cancelled drag must leave the note in place');
+  }
+  await drag(pos,{x:pos.x+d,y:pos.y});
+  let current=note(await state(),'hook',id);
+  assert.equal(current.step,second);
+  assert.equal(current.pitch,added.pitch);
+  assert.equal(current.gain,added.gain);
+  const beforeLift=await inspectBox(id);
+  pos=await notePoint(id,'body');
+  const up=current.gain>1.35?35:-35;
+  await drag(pos,{x:pos.x,y:pos.y+up});
+  let lifted=note(await state(),'hook',id);
+  assert.ok((lifted.gain-current.gain)*up<0,'Higher physical boxes should play louder');
+  assert.equal(lifted.step,second);
+  const afterLift=await inspectBox(id);
+  const louder=await monitorAudition(async()=>tap(await notePoint(id)));
+  assert.ok(louder>0 && peak>0);
+  // Same piano patch, pitch and note length; only this box's velocity changed.
+  const amplitudeRatio=louder/peak, gainRatio=lifted.gain/added.gain;
+  assert.ok(Math.abs(amplitudeRatio-gainRatio)<.14*gainRatio,
+    'Measured amplitude does not follow box height: '+JSON.stringify({peak,louder,amplitudeRatio,gainRatio}));
+  assert.ok((afterLift.height-beforeLift.height)*up<0);
+  assert.equal(afterLift.color,beforeLift.color);
+  assert.equal(afterLift.width,beforeLift.width);
+
+  pos=await notePoint(id,'length');
+  const cellWidth=(await cellPoint(2)).x-(await cellPoint(1)).x;
+  await drag(pos,{x:pos.x+2*cellWidth,y:pos.y});
+  current=note(await state(),'hook',id);
+  assert.ok(current.length>added.length);
+  let changed=await inspectBox(id);
+  assert.ok(changed.width>afterLift.width);
+  assert.equal(changed.height,afterLift.height);
+  assert.equal(changed.color,afterLift.color);
+
+  await inspector();
+  const target=(current.pitch+1)%12;
+  await press(boxTools().locator('[data-pitch="'+target+'"]'));
+  current=note(await state(),'hook',id);
+  assert.equal(current.pitch%12,target);
+  changed=await inspectBox(id);
+  assert.notEqual(changed.color,originalBox.color,'A semitone should change the box colour');
+  await inspector();
+  const prevPitch=current.pitch;
+  await press(boxTools().locator('[data-octave="1"]'));
+  current=note(await state(),'hook',id);
+  assert.equal(current.pitch,prevPitch+12);
+  assert.equal((await inspectBox(id)).color,changed.color,'Octaves share a pitch-class colour');
+  await inspector();
+  await changeField('gain',current.gain<1.9?1:-1);
+  assert.notEqual(note(await state(),'hook',id).gain,current.gain);
+  const saved=await state();
+  await inspector();
+  await press(page.locator('[data-eject]:visible').first());
+  assert.ok(!note(await state(),'hook',id));
+  await press(page.locator('#undo'));assert.deepEqual(await state(),saved);
+  for(const key of ['kick','bass'])assert.deepEqual(track(saved,key),track(before,key));
+  return {id,peak,louder,amplitudeRatio,gainRatio,gain:lifted.gain,length:current.length,pitch:current.pitch};
+}
+
+async function exerciseCog(id) {
+  const previous=await state();
+  await mode('gear');
+  assert.deepEqual(await state(),previous,'Representation must not change music');
+  const pos=await notePoint(id);
+  await tap(pos);
+  assert.equal(await page.evaluate(()=>conveyorTest.view().selectedId),id);
+  const p=await page.evaluate(()=>{
+    const cog=conveyorTest.component();
+    return {start:cog.phasePoint(.12),end:cog.phasePoint(.245),hub:cog.hubPoint()};
+  });
+  await drag(p.start,p.end);
+  const afterPhase=await state();
+  const original=track(previous,'hook'), shifted=track(afterPhase,'hook');
+  const delta=(shifted.phase-original.phase+64)%64;
+  assert.ok(Math.abs(delta-8)<=1,'Dragging one eighth turn must delay a sample by eight sixteenths, got '+delta);
+  assert.deepEqual(shifted.notes,original.notes);
+  assert.equal(shifted.level,original.level);
+  await drag(p.hub,{x:p.hub.x,y:p.hub.y-32});
+  const after=await state();
+  const enhanced=track(after,'hook');
+  assert.ok(enhanced.level>original.level);
+  assert.deepEqual(enhanced.notes,original.notes);
+  for(const key of ['kick','bass'])assert.deepEqual(track(after,key),track(previous,key));
+  await mode('belt');
+  assert.deepEqual(await state(),after);
+  await mode('gear');
+  await screenshot('gear-'+(await page.viewportSize()).width);
+  await part('bass');
+  assert.equal(await page.locator('[data-representation="belt"]').getAttribute('aria-pressed'),'true');
+  await part('hook');
+  assert.equal(await page.locator('[data-representation="gear"]').getAttribute('aria-pressed'),'true');
+  await page.reload();await ready();
+  assert.deepEqual(await state(),after);
+  assert.equal(await page.locator('[data-representation="gear"]').getAttribute('aria-pressed'),'true');
+  return {phase:enhanced.phase,level:enhanced.level};
+}
+
+async function movingBoxes() {
+  return page.evaluate(async()=>{
+    const t=conveyorTest.transport;
+    const evidence={frames:0,visible:0,cycles:0,pixelError:0,clockError:0};
+    const first=conveyorTest.view().step;
+    for(let i=0;i<50;i++){
+      await new Promise(requestAnimationFrame);
+      const v=conveyorTest.view();
+      const p=t.active.meta.state.parts.find(p=>p.key===conveyorTest.selected());
+      const expected=ConveyorScore.stepAt(p,t.clock());
+      const delta=v.step-expected;
+      evidence.clockError=Math.max(evidence.clockError,Math.abs(delta-64*Math.round(delta/64)));
+      const beam=document.querySelector('[data-reader-line]');
+      const head=new DOMPoint(beam.x1.baseVal.value,0).matrixTransform(beam.getCTM()).x;
+      for(const group of document.querySelectorAll('[data-crate-id]')){
+        if(group.style.display==='none')continue;
+        const n=p.notes.find(note=>note.id===group.dataset.crateId);
+        const measured=new DOMPoint(0,0).matrixTransform(group.getCTM()).x-head;
+        const rootScale=beam.closest('svg').getCTM().a;
+        const error=measured-(n.step-v.step)*v.tileSpacing*rootScale;
+        const size=64*v.tileSpacing*rootScale;
+        evidence.pixelError=Math.max(evidence.pixelError,Math.abs(error-size*Math.round(error/size)));
+        evidence.visible++;
+      }
+      evidence.frames++;
+    }
+    evidence.cycles=(conveyorTest.view().step-first+64)%64;
+    if(evidence.cycles===0 || evidence.clockError>1 || evidence.visible<1 || evidence.pixelError>.1)
+      throw Error('Audio clock and box geometry disagree '+JSON.stringify(evidence));
+    return evidence;
+  });
+}
+
+async function runningTap() {
+  const at=await page.evaluate(()=>{
+    const c=conveyorTest.component(),v=conveyorTest.view();
+    const p=conveyorTest.state().parts.find(p=>p.key===conveyorTest.selected());
+    for(const n of p.notes) {
+      const distance=(n.step-v.origin+64)%64;
+      if(distance<2||distance>14)continue;
+      const at=c.notePoint(n.id), hit=at && document.elementFromPoint(at.x,at.y);
+      if(!hit?.closest('[data-crate-id]'))continue;
+      document.querySelector('.crate-belt').addEventListener('pointerdown',e=>{
+        window.qaHeld={id:e.target.closest('[data-crate-id]')?.dataset.crateId, step:conveyorTest.view().step};
+      },{capture:true,once:true});
+      return at;
+    }
+    throw Error('No visible box to pick');
+  });
+  if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:0,...at}]});
+  else{await page.mouse.move(at.x,at.y);await page.mouse.down();}
+  await page.waitForFunction(()=>window.qaHeld?.id && (conveyorTest.view().step-qaHeld.step+64)%64>2);
   if(touch)await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   else await page.mouse.up();
   await frame();
-  const result=await page.evaluate(()=>{
-    const id=conveyorTest.view().selectedId, n=conveyorTest.state().parts.find(p=>p.key===conveyorTest.selected()).notes.find(n=>n.id===id);
-    return {at:window.qaLatch,chosen:n?.id,step:n?.step,playing:conveyorTest.transport.running,bar:conveyorTest.bar()};
-  });
-  assert.ok(result.playing && result.chosen);
-  if(result.at.id)assert.equal(result.chosen,result.at.id);
-  else assert.equal(result.step,result.at.step);
-  assert.equal(result.bar,Math.floor(result.step/16));
-  return result;
+  const held=await page.evaluate(()=>({...qaHeld,selected:conveyorTest.view().selectedId,playing:conveyorTest.transport.running}));
+  assert.equal(held.id,held.selected);
+  assert.equal(held.playing,true);
+  return held;
 }
 
 async function runDevice(width,height,isTouch) {
   touch=isTouch;
   const context=await browser.browser.newContext({viewport:{width,height},hasTouch:touch,isMobile:touch});
   page=await context.newPage();
-  if (process.env.BELT_TRACE) await page.addInitScript(() => {
-    window.beltTrace=[];
-    for (const type of ['click','pointerdown','pointerup','pointercancel']) document.addEventListener(type,e=>{
-      window.beltTrace.push({type,at:performance.now(),x:e.clientX,y:e.clientY,tag:e.target.tagName,data:{...e.target.dataset},parent:{...e.target.parentElement?.dataset}});
-    },true);
-  });
   page.on('pageerror',e=>report.errors.push(e.stack || e.message));
   page.on('response',r=>{if(r.status()>=400)report.missing.push([r.status(),r.url()]);});
-  page.on('dialog',d=>d.dismiss());
   if(touch)cdp=await context.newCDPSession(page);
   await page.goto(browser.url+'/disc/conveyor/index.html');
   await ready();
-  const item={width,height,input:touch?'CDP touch':'mouse',ui:await checkControls(width,height)};
-  assert.deepEqual((await state()).parts.map(p=>p.notes.length),[16,24,35]);
-  await screenshot(width+'-initial');
-  item.edited=await editScore();
-  await part('kick');
-  for(const rate of speeds){
-    await gear(rate); assert.equal(track(await state(),'kick').speed,rate);
-  }
-  const edited=await state();
-  assert.equal(track(edited,'hook').speed,1);
-  assert.equal(track(edited,'bass').speed,1);
-  await page.reload();
-  await ready();
-  assert.deepEqual(await state(),edited,'Composition and gearing must survive a reload');
-  await part('hook');
+  await screenshot('belt-'+width);
+  const rails=await checkParallelLanes();
+  const initial=await saveLegacyAndReload();
+  const result={width,height,input:touch?'CDP touch':'mouse',ui:await checkControls(width,height)};
+  assert.deepEqual(initial.parts.map(p=>p.notes.length),[16,24,35]);
+  assert.equal(await page.locator('.cv-grid,.cv-cassette').count(),0);
+  result.rails=rails;
+  result.crate=await exerciseCrate();
+  result.gear=await exerciseCog(result.crate.id);
+  await mode('belt');
   await press(page.locator('#play'));
-  item.schedule=await checkSchedule();
-  item.peak=await signal();
-  assert.ok(item.peak>.0001,'The transport did not produce a digital audio signal');
-  const old=await page.evaluate(()=>conveyorTest.transport.active.meta.state);
+  await page.waitForFunction(()=>conveyorTest.transport.running);
+  result.schedule=await checkSchedule();
+  result.peak=await signal();
+  assert.ok(result.peak>.0001);
+  const startRevision=await page.evaluate(()=>conveyorTest.transport.active.id);
+  await mode('gear');
+  await page.waitForFunction(()=>conveyorTest.view().playing);
+  assert.equal(await page.evaluate(()=>conveyorTest.transport.active.id),startRevision);
+  const pair=await page.evaluate(()=>{
+    const c=conveyorTest.component();
+    return [c.phasePoint(.12),c.phasePoint(.1825)];
+  });
+  await drag(...pair);
+  const requested=track(await state(),'hook').phase;
+  assert.equal((requested-result.gear.phase+64)%64,4);
+  await page.waitForFunction(phase=>
+    conveyorTest.transport.active.meta.state.parts.find(p=>p.key==='hook').phase===phase,requested);
+  result.livePhase=requested;
+  await mode('belt');
+  const old=await page.evaluate(()=>({id:conveyorTest.transport.active.id,state:conveyorTest.transport.active.meta.state}));
   await gear(.5);
   await page.waitForFunction(()=>conveyorTest.transport.active?.meta.state.parts.find(p=>p.key==='hook').speed===.5);
-  item.shift=await page.evaluate(old=>{
+  result.speed=await page.evaluate(old=>{
     const t=conveyorTest.transport;
-    const p1=old.parts.find(p=>p.key==='hook'), p2=t.active.meta.state.parts.find(p=>p.key==='hook');
-    const oldAt=ConveyorScore.stepAt(p1,t.active.begin), newAt=ConveyorScore.stepAt(p2,t.active.begin);
-    return {boundary:t.active.begin,oldAt,newAt};
+    const p1=old.state.parts.find(p=>p.key==='hook'),p2=t.active.meta.state.parts.find(p=>p.key==='hook');
+    return {at:t.active.begin,before:ConveyorScore.stepAt(p1,t.active.begin),after:ConveyorScore.stepAt(p2,t.active.begin)};
   },old);
-  assert.ok(Math.abs(item.shift.oldAt-item.shift.newAt)<.0001,'Changing gears jumps to another tile');
-  item.shiftedSchedule=await checkSchedule();
-  item.visual=await visualPlayback();
-  item.runningBelt=await checkRunningBelt();
-  await screenshot(width+'-running');
+  const delta=result.speed.after-result.speed.before;
+  assert.ok(Math.abs(delta-64*Math.round(delta/64))<1e-5,'Shifting speed should keep the sample phase continuous');
+  result.shiftedSchedule=await checkSchedule();
+  result.visual=await movingBoxes();
+  result.livePick=await runningTap();
   await press(page.locator('#play'));
   assert.equal(await page.evaluate(()=>conveyorTest.transport.running),false);
-  report.cases.push(item);
+  report.cases.push(result);
   await context.close();
-  console.log('PASS',width,JSON.stringify(item));
+  console.log('PASS',width,JSON.stringify(result));
 }
-
-async function visualPlayback() {
-  return page.evaluate(async()=>{
-    const t=conveyorTest.transport, check={frames:0,litFrames:0,stepError:0,tilesChecked:0,pixelError:0};
-    const cursorStart=conveyorTest.view().step;
-    let moved=false;
-    for(let i=0;i<90;i++){
-      await new Promise(requestAnimationFrame);
-      const view=conveyorTest.view();
-      const p=t.active.meta.state.parts.find(p=>p.key===conveyorTest.selected());
-      const expected=ConveyorScore.stepAt(p,t.clock()), diff=view.step-expected;
-      check.stepError=Math.max(check.stepError,Math.abs(diff-64*Math.round(diff/64)));
-      if(!view.playing || view.rate!==p.speed)throw Error('Displayed gear differs from the sounding part');
-      const expectedNotes=p.notes.filter(n=>(view.step-n.step+64)%64<n.length).map(n=>n.id).sort();
-      if(JSON.stringify([...view.activeIds].sort())!==JSON.stringify(expectedNotes))throw Error('Reader lamps do not match sounding notes');
-      const head=document.querySelector('[data-reader-line]').x1.baseVal.value;
-      for (const g of document.querySelectorAll('[data-running-id]')) {
-        if (g.style.display==='none') continue;
-        const n=p.notes.find(n=>n.id===g.dataset.runningId);
-        const steps=((n.step-view.step+96)%64)-32;
-        const measured=g.transform.baseVal.getItem(0).matrix.e;
-        const error=measured-(head+steps*view.tileSpacing), cycleWidth=64*view.tileSpacing;
-        check.pixelError=Math.max(check.pixelError,Math.abs(error-Math.round(error/cycleWidth)*cycleWidth));
-        check.tilesChecked++;
-      }
-      if(view.activeIds.length)check.litFrames++;
-      if(view.step!==cursorStart)moved=true;
-      check.frames++;
-    }
-    // Allow a rendering frame between the sample and the corresponding audio time.
-    if(!moved || check.stepError>1 || !check.litFrames || !check.tilesChecked || !(check.pixelError<.02))throw Error('Belt motion/reader failed: '+JSON.stringify(check));
-    return check;
-  });
-}
-
 try {
   for(const [width,height,touch] of [[1280,800,false],[390,844,true]]){
-    if(process.env.BELT_WIDTH && Number(process.env.BELT_WIDTH)!==width)continue;
+    if(process.env.BOXES_WIDTH && Number(process.env.BOXES_WIDTH)!==width)continue;
     await runDevice(width,height,touch);
   }
-  assert.deepEqual(report.errors,[]);
-  assert.deepEqual(report.missing,[]);
+  assert.deepEqual(report.errors,[]);assert.deepEqual(report.missing,[]);
   report.status='PASS';
-} catch(error) {
-  report.status='FAIL';
-  report.failure=error.stack;
+} catch(error){
+  report.status='FAIL';report.failure=error.stack;
   if(page && !page.isClosed()){
     await screenshot('failure').catch(()=>{});
-    report.last=await page.evaluate(()=>({state:window.conveyorTest?.state(),view:window.conveyorTest?.view(),body:document.body.innerText,trace:window.beltTrace})).catch(()=>null);
+    report.last=await page.evaluate(()=>({state:window.conveyorTest?.state(),view:window.conveyorTest?.view(),body:document.body.innerText})).catch(()=>null);
   }
   throw error;
 } finally {

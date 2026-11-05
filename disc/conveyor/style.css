@@ -22,9 +22,8 @@ h1 {font-size:clamp(28px,4.3vw,65px);line-height:.97;letter-spacing:-.065em;marg
 .parts {gap:4px;border:1px solid var(--line);padding:4px;border-radius:12px;background:#e3e6db}
 .parts button {border:0;border-radius:8px;display:flex;align-items:center;gap:8px;background:transparent;color:#40504a;padding:9px clamp(9px,1.4vw,21px);min-height:38px;font-size:clamp(13px,1.2vw,16px);font-weight:600}
 .parts button[aria-pressed=true] {background:var(--ink);color:#fff9e7}
-.parts i {width:.65em;height:.65em;border-radius:50%;background:#dd9454;box-shadow:0 0 0 1px #0002}
-.parts [data-part=bass] i {background:#58aca0}
-.parts [data-part=hook] i {background:#b793de}
+.parts i {display:inline-flex;width:16px;height:16px;color:inherit}
+.parts i svg {width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
 .transport {gap:8px}
 .transport button {min-height:47px;border:1px solid var(--line);border-radius:10px;display:inline-flex;gap:8px;align-items:center;justify-content:center}
 #undo {width:47px;background:transparent;color:var(--ink)}
@@ -59,3 +58,5 @@ footer a {color:#324d41;text-underline-offset:3px;white-space:nowrap}
   #undo {width:33px}
   #play {min-width:72px;padding:0 5px}
 }
+
+@media(max-width:400px){.parts i{width:12px;height:12px}.parts button{padding-inline:5px}}

@@ -14,7 +14,7 @@
   const SCHEMA = 'conveyor/1';
   const wrap = (n, period) => n - Math.floor(n / period) * period;
   const clone = state => ({...state, parts: state.parts.map(p => ({...p, notes: p.notes.map(n => ({...n}))}))});
-  const stepAt = (part, time) => wrap(time * part.speed + part.offset, BARS) * STEPS_PER_BAR;
+  const stepAt = (part, time) => wrap((time * part.speed + part.offset) * STEPS_PER_BAR - (part.phase ?? 0), STEPS);
   const offsetAt = (from, speed, time) => wrap(from.offset + (from.speed - speed) * time, BARS);
 
   // The outgoing belt and its replacement must pass the same point at the
@@ -32,6 +32,7 @@
   const validPitch = n => Number.isInteger(n) && n >= 0 && n <= 127;
   const validStep = n => Number.isInteger(n) && n >= 0 && n < STEPS;
   const validLength = n => Number.isFinite(n) && n > 0 && n <= STEPS;
+  const validGain = n => Number.isFinite(n) && n >= 0 && n <= 2;
   const byPosition = (a,b) => a.step - b.step || a.pitch - b.pitch || a.id.localeCompare(b.id);
 
   function create(S, prepared) {
@@ -45,11 +46,11 @@
         const step = Number(hap.whole.begin) * STEPS_PER_BAR;
         const length = Number(hap.duration) * STEPS_PER_BAR;
         if (!validStep(step) || !validPitch(pitch) || !validLength(length)) throw Error('Нота вне сетки ленты');
-        return {step, pitch, length, span: Number(hap.whole.duration), value};
+        return {step, pitch, length, gain:value.velocity ?? 1, span:Number(hap.whole.duration), value};
       });
       sources.set(m.key, templates);
-      const notes = templates.map(({step,pitch,length},source) => ({id:m.key+'-'+source, step,pitch,length,source}));
-      return {key:m.key, speed:1, offset:0, notes:notes.sort(byPosition)};
+      const notes = templates.map(({step,pitch,length,gain},source) => ({id:m.key+'-'+source, step,pitch,length,gain,source}));
+      return {key:m.key, speed:1, offset:0, phase:0, level:1, notes:notes.sort(byPosition)};
     });
     const original = {schema:SCHEMA, songId:prepared.song.id, parts};
     let current = original, serial = 0;
@@ -80,6 +81,8 @@
         if (!p || !SPEEDS.includes(p.speed) || !Number.isFinite(p.offset) || !Array.isArray(p.notes) || p.notes.length > 1024) {
           throw Error('Повреждена партия конвейера');
         }
+        const level=p.level ?? 1, phase=p.phase ?? 0;
+        if (!validGain(level) || !validStep(phase)) throw Error('Повреждены настройки сэмпла');
         const ids = new Set(), cells = new Set();
         const notes = p.notes.map(n => {
           if (!n || typeof n.id !== 'string' || !n.id || n.id.length > 96 || ids.has(n.id) ||
@@ -88,9 +91,11 @@
             throw Error('Повреждена плитка конвейера');
           }
           ids.add(n.id); cells.add(n.step+'@'+n.pitch);
-          return {id:n.id,step:n.step,pitch:n.pitch,length:n.length,source:n.source};
+          const gain = n.gain ?? sources.get(key)[n.source].gain;
+          if (!validGain(gain)) throw Error('Повреждена громкость ноты');
+          return {id:n.id,step:n.step,pitch:n.pitch,length:n.length,gain,source:n.source};
         });
-        next.parts.push({key,speed:p.speed,offset:wrap(p.offset,BARS),notes:notes.sort(byPosition)});
+        next.parts.push({key,speed:p.speed,offset:wrap(p.offset,BARS),phase,level,notes:notes.sort(byPosition)});
       }
       return next;
     }
@@ -98,10 +103,14 @@
       const src = sources.get(p.key)[note.source];
       const changedLength = src.length !== note.length;
       const gate = note.length / (STEPS_PER_BAR * p.speed);
-      const start = S.Fraction(wrap(note.step / STEPS_PER_BAR - p.offset, BARS)).div(p.speed);
+      const start = S.Fraction(wrap((note.step + p.phase) / STEPS_PER_BAR - p.offset, BARS)).div(p.speed);
       const span = changedLength ? gate : src.span / p.speed;
       const whole = new S.TimeSpan(start, start.add(span));
       const value = {...src.value};
+      // Preserve the authored patch and its dynamics at the original height.
+      if (src.gain === 0 && note.gain > 0) value.velocity = 1;
+      const multiplier = note.gain === src.gain ? p.level : note.gain / (src.gain || 1) * p.level;
+      if (multiplier !== 1) value.postgain = (value.postgain ?? 1) * multiplier;
       if (note.pitch !== src.pitch) value.note = note.pitch;
       // The authored gates are explicit Strudel durations; fast() alone
       // would leave them at their old length.
@@ -128,10 +137,24 @@
           p.offset = offsetAt(p,speed,time); p.speed = speed; return true;
         });
       },
-      add(key, {step, pitch, length=1}) {
+      shiftPhase(key, delta) {
+        return change(key, p => {
+          if (!Number.isInteger(delta)) return false;
+          p.phase = wrap(p.phase + delta, STEPS);
+          return true;
+        });
+      },
+      setLevel(key, level) {
+        return change(key, p => {
+          if (!validGain(level)) return false;
+          p.level = level;
+          return true;
+        });
+      },
+      add(key, {step, pitch, length=1, gain}) {
         let id = null;
         change(key, p => {
-          if (!validStep(step) || !validPitch(pitch) || !validLength(length) || p.notes.length >= 1024 ||
+          if (!validStep(step) || !validPitch(pitch) || !validLength(length) || (gain !== undefined && !validGain(gain)) || p.notes.length >= 1024 ||
               p.notes.some(n => n.step === step && n.pitch === pitch)) return false;
           const templates = sources.get(key);
           // Borrow the nearest authored attack's patch and dynamics.
@@ -139,7 +162,7 @@
           const distance = t => Math.min(wrap(step-t.step,STEPS), wrap(t.step-step,STEPS));
           for (let i=1; i<templates.length; i++) if (distance(templates[i]) < distance(templates[source])) source = i;
           do { id = 'u'+(++serial); } while (p.notes.some(n => n.id === id));
-          p.notes.push({id,step,pitch,length,source}); return true;
+          p.notes.push({id,step,pitch,length,gain:gain ?? templates[source].gain,source}); return true;
         });
         return id;
       },
@@ -147,10 +170,10 @@
         return change(key,p => {
           const n = p.notes.find(n => n.id === id);
           if (!n) return false;
-          const {step=n.step, pitch=n.pitch, length=n.length} = patch;
-          if (!validStep(step) || !validPitch(pitch) || !validLength(length) ||
+          const {step=n.step, pitch=n.pitch, length=n.length, gain=n.gain} = patch;
+          if (!validStep(step) || !validPitch(pitch) || !validLength(length) || !validGain(gain) ||
               p.notes.some(other => other !== n && other.step === step && other.pitch === pitch)) return false;
-          Object.assign(n,{step,pitch,length}); return true;
+          Object.assign(n,{step,pitch,length,gain}); return true;
         });
       },
       remove(key,id) {

@@ -176,3 +176,53 @@ test('paused audition plays one bounded native note and invalidates stale starts
     assert.deepEqual(mixer.nodes,{});
   } finally { audition.stop(); }
 });
+
+test('earlier conveyor saves recover the native box heights and identical sound', async () => {
+  const score=Conveyor.create(S,await fixture);
+  const original=score.snapshot(), native=signature(Composition.attacks(score.pattern(),0,4));
+  const legacy=score.snapshot();
+  for (const part of legacy.parts) {
+    delete part.level;
+    delete part.phase;
+    for (const note of part.notes) delete note.gain;
+  }
+  score.setLevel('hook',0);
+  score.restore(legacy);
+  assert.deepEqual(score.snapshot(), original);
+  assert.deepEqual(signature(Composition.attacks(score.pattern(),0,4)), native);
+});
+
+test('box height and gear lift independently scale the same note in the mix and audition', async () => {
+  const score=Conveyor.create(S,await fixture), source=voice(score,'hook').notes[0];
+  const next=voice(score,'hook').notes[1], other=score.noteEvent('hook',next.id).value.postgain;
+  const original=score.noteEvent('hook',source.id).value.postgain;
+  assert.equal(score.edit('hook',source.id,{gain:source.gain/2}),true);
+  near(score.noteEvent('hook',source.id).value.postgain,original/2);
+  near(score.noteEvent('hook',next.id).value.postgain,other);
+  score.setLevel('hook',.5);
+  const event=score.noteEvent('hook',source.id);
+  near(event.value.postgain,original/4);
+  assert.ok(Composition.attacks(score.pattern(),0,4).some(h=>h.whole.begin.equals(event.whole.begin)&&h.value.note===event.value.note&&h.value.postgain===event.value.postgain));
+  assert.equal(score.edit('hook',source.id,{gain:2.1}),false);
+  score.edit('hook',source.id,{gain:0});
+  assert.equal(score.noteEvent('hook',source.id).value.postgain,0);
+  score.undo();
+  near(score.noteEvent('hook',source.id).value.postgain,original/4);
+});
+
+test('rim phase delays the phrase and survives a queued change of speed', async () => {
+  const score=Conveyor.create(S,await fixture), original=score.snapshot();
+  const first=voice(score,'hook').notes[0], start=Number(score.noteEvent('hook',first.id).whole.begin);
+  score.shiftPhase('hook',-1);
+  assert.equal(voice(score,'hook').phase,63);
+  score.shiftPhase('hook',4);
+  near(Number(score.noteEvent('hook',first.id).whole.begin),start+3/16);
+  assert.equal(score.shiftPhase('hook',64),false);
+  score.setSpeed('hook',2,0);
+  const aligned=Conveyor.alignSpeeds(score.snapshot(),original,2.5);
+  score.restore(aligned,{record:false});
+  const part=voice(score,'hook');
+  near(Conveyor.stepAt(part,2.5),2.5*16-3);
+  near(Conveyor.stepAt(part,Number(score.noteEvent('hook',first.id).whole.begin)),first.step);
+  assert.deepEqual(voice(score,'bass'),original.parts[1]);
+});

@@ -8,6 +8,8 @@
   const transport = new PhaseCubeTransport(S, {outputGain:1, onChange:updateControls, onError:fail});
   let song, score, snapshot, view, audition;
   let selected = 'hook', bar = 0, selectedId = null;
+  const forms = {kick:'belt',bass:'belt',hook:'belt'};
+  const brush = {kick:36,bass:45,hook:71};
   let ready = false, starting = false, frameId = 0;
   const partOf = (state, key) => state.parts.find(part => part.key === key);
 
@@ -24,6 +26,12 @@
     for (const button of element('parts').querySelectorAll('button')) {
       button.disabled = !ready;
       button.setAttribute('aria-pressed', String(button.dataset.part === selected));
+      const form=forms[button.dataset.part], symbol=button.querySelector('i');
+      if (symbol.dataset.form!==form) {
+        symbol.dataset.form=form;
+        symbol.innerHTML=ConveyorView.icon(form);
+        button.title=button.textContent.trim()+' · '+(form==='gear'?'Шестерёнка':'Лента');
+      }
     }
   }
   function fail(error) {
@@ -35,7 +43,7 @@
   }
   function persist() {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({state:snapshot, selected, bar}));
+      localStorage.setItem(storageKey, JSON.stringify({state:snapshot, selected, bar, forms, brush}));
     } catch {
       notice('Браузер не смог сохранить правки. Они доступны до закрытия страницы.');
     }
@@ -48,6 +56,11 @@
       score.restore(saved.state, {record:false});
       if (partOf(saved.state, saved.selected)) selected = saved.selected;
       if (Number.isInteger(saved.bar) && saved.bar >= 0 && saved.bar < 4) bar = saved.bar;
+      for (const key of Object.keys(forms)) {
+        if (saved.forms?.[key] === 'gear') forms[key] = 'gear';
+        const pitch=saved.brush?.[key];
+        if (Number.isInteger(pitch) && pitch>=0 && pitch<=127) brush[key]=pitch;
+      }
     } catch {
       notice('Открыта исходная партия — сохранённую сборку прочитать не удалось.');
     }
@@ -59,8 +72,8 @@
     const heard = transport.active?.meta?.state || snapshot;
     const part = partOf(heard, selected);
     const step = ConveyorScore.stepAt(part, bars);
-    const activeIds = transport.running ? part.notes.filter(note =>
-      (step - note.step + 64) % 64 < note.length
+    const activeIds = transport.running && part.level>0 ? part.notes.filter(note =>
+      note.gain>0 && (step - note.step + 64) % 64 < note.length
     ).map(note => note.id) : [];
     view.clock({step, playing:transport.running, activeIds, rate:part.speed, driveTurns:bars, part});
   }
@@ -73,7 +86,10 @@
   function refreshView() {
     const part = partOf(snapshot, selected);
     if (!part.notes.some(note => note.id === selectedId)) selectedId = null;
-    view.update({part, selectedId, bar});
+    view.update({part, selectedId, bar, form:forms[selected], brushPitch:brush[selected]});
+    element('gesture-help').textContent = forms[selected]==='gear'
+      ? 'Поверните обод для сдвига всей фразы. Поднимите или опустите втулку, чтобы изменить громкость сэмпла.'
+      : 'Касание ставит коробку. Тяните её вдоль ленты для сдвига, вверх для громкости, за край для длины. Цвет выбирается в палитре.';
     paintClock();
     updateControls();
   }
@@ -107,6 +123,14 @@
     selectedId = null;
     refreshView();
     persist();
+  }
+  function editBox(id, patch) {
+    if (!score.edit(selected,id,patch)) return false;
+    selectedId=id;
+    if (patch.pitch!==undefined) brush[selected]=patch.pitch;
+    if (!transport.running && patch.step!==undefined) bar=Math.floor(patch.step/16);
+    notice(); commit(); soundTile(id);
+    return true;
   }
   function pause() {
     // If pause overtakes an upcoming gear change, engage the requested gear
@@ -158,18 +182,33 @@
     await wait(PhaseCubeBank.preload(S, S.stack(original, score.pattern(snapshot)), 8), 'Не удалось загрузить инструменты.', 30000);
     view = ConveyorView.create(element('machine'), {
       onRate:setRate, onBar:setBar,
+      onForm:form=>{
+        if (!['belt','gear'].includes(form)||forms[selected]===form) return;
+        forms[selected]=form;
+        refreshView();persist();
+      },
+      onPhase:delta=>{if (score.shiftPhase(selected,delta)) commit();},
+      onLevel:level=>{if (score.setLevel(selected,level)) commit();},
+      onPaint:pitch=>{
+        if (!Number.isInteger(pitch)||pitch<0||pitch>127) return;
+        if (selectedId) {
+          const current=partOf(snapshot,selected).notes.find(n=>n.id===selectedId);
+          if (current?.pitch!==pitch&&!editBox(selectedId,{pitch})) notice('На этом шаге уже стоит коробка этой ноты.');
+        } else { brush[selected]=pitch; refreshView(); persist(); }
+      },
       onSelect:id => {
         selectedId = id;
+        const n=partOf(snapshot,selected).notes.find(n=>n.id===id);
+        if (n) { brush[selected]=n.pitch; bar=Math.floor(n.step/16); }
         refreshView();
         soundTile(id);
       },
       onAdd:note => {
-        const id = score.add(selected, note);
-        if (id) { selectedId = id; commit(); soundTile(id); }
+        const pitch=note.pitch??brush[selected];
+        const id = score.add(selected, {...note,pitch});
+        if (id) { selectedId = id; brush[selected]=pitch; bar=Math.floor(note.step/16); commit(); soundTile(id); }
       },
-      onEdit:(id, patch) => {
-        if (score.edit(selected, id, patch)) { selectedId = id; commit(); soundTile(id); }
-      },
+      onEdit:editBox,
       onDelete:id => {
         if (score.remove(selected, id)) { audition.stop(); selectedId = null; commit(); }
       }
@@ -211,7 +250,8 @@
     state:() => score?.snapshot(), selected:() => selected, bar:() => bar,
     view:() => view?.inspect(), clock:() => transport.clock(), transport,
     auditionMeter:() => audition?.analyser,
-    cellPoint:(...args) => view.cellPoint(...args), notePoint:(...args) => view.notePoint(...args),
+    component:()=>view?.component(),
+    cellPoint:(...args) => view.component().cellPoint?.(...args), notePoint:(...args) => view.component().notePoint(...args),
     ready:init().catch(error => { element('machine').setAttribute('aria-busy','false'); fail(error); element('play').querySelector('span').textContent='Ошибка загрузки'; })
   };
 })();
