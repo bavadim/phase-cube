@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+.cv-machine {
+  --cv-ink: #183733;
+  --cv-paper: #ede8d6;
+  --cv-gold: #f7c168;
+  --tile: #bfa8ef;
+  --tile-dark: #6c5793;
+  --cv-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  width: 100%;
+  min-width: 0;
+  overflow: clip;
+  isolation: isolate;
+  background: #253f39;
+  border: 1px solid #172d27;
+  border-radius: 18px;
+  color: var(--cv-paper);
+  box-shadow: 0 6px 0 #1c332e, 0 13px 23px #283b3323;
+}
+.cv-machine * { box-sizing: border-box; }
+.cv-machine svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
+.cv-drive { background: linear-gradient(#324f47,#2b453e); }
+.cv-machine text { font-family: var(--cv-mono); user-select: none; pointer-events:none; }
+.cv-machine [role=button], .cv-machine button { cursor:pointer; }
+.cv-drive [data-speed] { outline:none; }
+.cv-drive [data-speed]:is(:focus-visible,:hover) { stroke: #ffebbe; stroke-width:1.9; }
+
+.cv-machine .cv-cassette { padding: 11px 15px 15px; background: linear-gradient(#cfccbb, #b5b5a5); border-top: 2px solid #203930; color: var(--cv-ink); }
+.cv-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:8px; min-height:34px; }
+.cv-title { font-size:12px; font-weight:700; letter-spacing:.045em; }
+.cv-pages { display:flex; gap:3px; align-items:center; }
+.cv-machine button { font:600 13px var(--cv-mono); color:var(--cv-ink); border:1px solid #899384; background:#e9e7da; border-radius:5px; min-width:32px; min-height:32px; padding:2px 8px; line-height:1.1; }
+.cv-machine button:hover:not(:disabled),.cv-machine button:focus-visible { outline:2px solid #486457; outline-offset:1px; }
+.cv-machine button:disabled { opacity:.45; cursor:default; }
+.cv-machine button[aria-pressed=true] { background:#23423a; color:#fff5d8; border-color:#19362d; }
+.cv-eject { margin-left:auto; display:inline-flex; gap:5px; align-items:center; }
+.cv-machine .cv-eject svg { width:15px; height:15px; }
+.cv-grid { background:#e7e6d7; border:1px solid #7c8b7b; border-radius:7px; touch-action:none; }
+.cv-grid [data-note-id] { cursor:grab; }
+.cv-grid [data-length-id] { cursor:ew-resize; }
+.cv-grid:focus-visible { outline:3px solid #397362; outline-offset:2px; }
+@media (max-width:600px) {
+  .cv-machine {border-radius:12px;}
+  .cv-machine .cv-cassette {padding:8px 6px 7px;}
+  .cv-toolbar {gap:6px; margin-bottom:5px;}
+  .cv-machine button {min-width:35px;min-height:38px;padding:2px 6px;}
+  .cv-title {font-size:11px;}
+  .cv-eject span {display:none;}
+}
+.cv-machine button > svg {pointer-events:none}

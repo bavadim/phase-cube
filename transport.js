@@ -180,6 +180,9 @@
       // Schedule beyond native lookahead: no already-queued old onset can
       // cross the transaction. Commit on a quarter-note boundary.
       const cycle=Math.max(0,Math.ceil((Math.max(this.clock(),(this.repl.scheduler.lastEnd||0)+this.baseCycle)+.025)*4)/4), at=this.timeAt(cycle);
+      // A speed-dependent pattern must anchor to the actual switch bar.
+      // Resolve it before disarming the currently scheduled revision.
+      if(typeof pattern==='function')({pattern,meta}=pattern(cycle));
       if(this.pending){this.silence(this.pending);this.entries=this.entries.filter(e=>e!==this.pending);}
       const previous=this.active, next=this.entry(pattern,cycle,meta);
       previous.end=cycle;previous.audioEnd=at+.010;this.gate(previous);
