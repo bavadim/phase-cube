@@ -28,37 +28,11 @@ window.IsoScene = (() => {
     walk('source');
     return active;
   }
-  function fallback(host,callbacks){
-    const panel=make('div','iso-fallback');host.append(panel);
-    let frame,patch=null,insert=null;
-    function setPatch(key){if(key&&insert)setInsert(null);patch=key;callbacks.patchChanged?.(patch);draw();}
-    function setInsert(id){if(id&&patch)setPatch(null);insert=id;callbacks.insertChanged?.(insert);draw();}
-    function cancelMode(){if(patch)setPatch(null);if(insert)setInsert(null);}
-    function draw(){
-      if(!frame)return;
-      const state=frame.editState||frame.state;panel.replaceChildren();
-      function choice(name,click){const b=document.createElement('button');b.type='button';b.textContent=name;b.onclick=click;panel.append(b);}
-      if(insert){
-        for(const [from,to] of Object.entries(state.links)){
-          const edit={type:'insert',from,node:insert};
-          if(allowed(state,edit))choice(stations[from.split(':')[0]].label+' → '+stations[to].label,()=>{if(callbacks.act(edit)!==false)cancelMode();});
-        }
-      }else for(const [id,s] of Object.entries(stations)){
-        if(!patch)choice(s.label,()=>callbacks.select(id));
-        else if(allowed(state,{type:'connect',from:patch,to:id}))choice(s.label,()=>{if(callbacks.connect(patch,id)!==false)cancelMode();});
-      }
-    }
-    callbacks.notice?.('Трёхмерный стол недоступен. Выберите деталь, чтобы открыть управление.');
-    return {render(next){
-      const changed=!frame || (frame.editState||frame.state)!==(next.editState||next.state);
-      frame=next;if(changed)draw();
-    },setPatch,setInsert,cancelMode,inspect(){return {webgl:false};},dispose(){panel.remove();}};
-  }
   function mount(host,callbacks){
     host.classList.add('iso-board');
     let renderer;
     try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'});}
-    catch(error){return fallback(host,callbacks);}
+    catch{return null;}
     const canvas=renderer.domElement;canvas.setAttribute('aria-hidden','true');host.append(canvas);
     renderer.setClearColor(0xedeadd,1);renderer.outputColorSpace=THREE.SRGBColorSpace;
     renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
@@ -68,7 +42,9 @@ window.IsoScene = (() => {
     const fill=new THREE.DirectionalLight(0xb7e5f3,.65);fill.position.set(4,5,-6);scene.add(fill);
     const physical=color=>new THREE.MeshStandardMaterial({color,roughness:.76,metalness:.08,side:THREE.DoubleSide});
     const materials={belt:physical(0x365a52),rail:physical(0xb09b6e),tread:physical(0x728b76),
-      target:physical(0x229071),pick:physical(0x9cce9e),a:physical(0x247e77),b:physical(0xc46437)};
+      target:physical(0x229071),pick:physical(0x9cce9e),a:physical(0x247e77),b:physical(0xc46437),
+      chosenA:physical(0x168e7f),chosenB:physical(0xe47a3c),quiet:physical(0x8d998b),
+      arrow:new THREE.MeshBasicMaterial({color:0xfff5d2,side:THREE.DoubleSide})};
     const table=new THREE.Group(),belts=new THREE.Group(),boxes=new THREE.Group(),marks=new THREE.Group();
     scene.add(table,belts,boxes,marks);
     const overlay=make('div','iso-overlay');host.append(overlay);
@@ -96,6 +72,8 @@ window.IsoScene = (() => {
     const vec=(x,y,z)=>new THREE.Vector3(x,y,z);
     let patch=null,insert=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
     let disposed=false,width=0,height=0,activeStation=null,lastPointerAt=-Infinity,modeState=null;
+    let face=null,overview=null,pose=null,focusId=null,transition=null,litOutlet=null;
+    const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     let targetStations=new Set(),targetBelts=new Set(),activeStations=new Set();
     // Touch can synthesize a click with detail=0. Pointer-up has already
     // committed that action. Keyboard and assistive activation still use click.
@@ -122,7 +100,7 @@ window.IsoScene = (() => {
         b.disabled=!!insert || (!!patch && !targetStations.has(id));
         b.setAttribute('aria-label',(patch?'Соединить с деталью ':'Выбрать: ')+stations[id].label);
       }
-      markBelt(null);dirty=true;
+      placeInsertButtons();markBelt(null);dirty=true;
     }
     function clearPatch(){if(patch)setPatch(null);}
     function setPatch(key){
@@ -151,11 +129,34 @@ window.IsoScene = (() => {
       for(const [id,part] of Object.entries(pieces)){
         const s=stations[id],c=part.group.position.clone();
         c.z+=s.d*.54;c.y=-.03;
-        const p=project(c),button=buttons[id];
-        const w=button.offsetWidth;
+        const button=buttons[id];
+        button.hidden=!!focusId||!!transition;
+        if(button.hidden)continue;
+        const p=project(c),w=button.offsetWidth;
         button.style.left=Math.max(w/2+2,Math.min(width-w/2-2,p.x))+'px';
         button.style.top=Math.max(22,Math.min(height-22,p.y+8))+'px';
       }
+    }
+    function placeInsertButtons(){
+      const occupied=[];
+      for(const [key,r] of routes){
+        const b=r.mountButton;
+        b.hidden=!insert||!!transition||!targetBelts.has(key);
+        if(b.hidden)continue;
+        const n=r.samples.length-1;
+        let point=r.samples[Math.floor(n/2)],best=-Infinity;
+        for(let i=1;i<n;i++){
+          const p=r.samples[i],screenSpace=Math.min(p.x,width-p.x,p.y,height-p.y);
+          const gap=Math.min(65,...occupied.map(q=>Math.hypot(q.x-p.x,q.y-p.y)));
+          const score=gap+Math.min(28,screenSpace)-Math.abs(i/n-.5)*23;
+          if(score>best){best=score;point=p;}
+        }
+        const x=Math.max(24,Math.min(width-24,point.x)),y=Math.max(24,Math.min(height-24,point.y));
+        b.style.left=x+'px';b.style.top=y+'px';occupied.push({x,y});
+      }
+    }
+    function projectLocal(id,x,y,z){
+      return project(pieces[id].group.localToWorld(vec(x,y,z)));
     }
     function clearGeometry(group,ownMaterials=false){
       const shapes=new Set(),mats=new Set();
@@ -198,13 +199,70 @@ window.IsoScene = (() => {
         return {left:x-w/2-.04,right:x+w/2+.04,top:z-d/2-.04,bottom:z+d/2+.04};
       });
     }
+    const framingCamera=new THREE.OrthographicCamera();
+    function orient(cam,yaw,alt){
+      cam.position.set(20*yaw,20*alt,20);cam.lookAt(0,0,0);cam.updateMatrixWorld();
+    }
+    function fit(id){
+      const yaw=id ? .055 : (portrait ? .23 : .35);
+      const alt=id ? 1.83 : (portrait ? 1.45 : 1.2);
+      orient(framingCamera,yaw,alt);
+      const rect=new THREE.Box2(),point=new THREE.Vector2();
+      function corner(local,station){
+        const world=pieces[station].group.localToWorld(local).applyMatrix4(framingCamera.matrixWorldInverse);
+        rect.expandByPoint(point.set(world.x,world.y));
+      }
+      for(const station of id?[id]:Object.keys(pieces)){
+        const {w,d}=stations[station];
+        const bounds=id&&face?.focusBounds(id);
+        const min=bounds?.[0]||[-w*.52-.24,-.4,-d*.56-.38];
+        const max=bounds?.[1]||[w*.52+.48,1.76,d*.56+.48];
+        for(const x of [min[0],max[0]])for(const y of [min[1],max[1]])for(const z of [min[2],max[2]])corner(vec(x,y,z),station);
+      }
+      const center=rect.getCenter(point),cx=center.x,cy=center.y,size=rect.getSize(point);
+      const insetX=id?Math.min(32,width*.045):width*.01;
+      const insetY=id?Math.max(24,Math.min(50,height*.065)):height*.01;
+      const sy=height/Math.max(1,height-2*insetY),sx=width/Math.max(1,width-2*insetX);
+      const half=Math.max(size.x*height/width*sx,size.y*sy)/2;
+      // A tall phone has space below the step keys for the outgoing belt.
+      // Spend the spare headroom there while keeping the full keypad in view.
+      const pixel=2*half/height;
+      const lift=id==='router'&&height>width
+        ? Math.min(64,Math.max(0,((half-size.y/2)/pixel-20)*.62))
+        : 0;
+      return {cx,cy:cy-lift*pixel,half,yaw,alt};
+    }
+    function placeCamera(next){
+      pose=next;
+      orient(camera,pose.yaw,pose.alt);
+      const dx=pose.half*width/height;
+      camera.left=pose.cx-dx;camera.right=pose.cx+dx;
+      camera.top=pose.cy+pose.half;camera.bottom=pose.cy-pose.half;
+      camera.updateProjectionMatrix();
+      for(const route of routes.values())route.samples=route.worldSamples.map(project);
+      placeDOM();placeInsertButtons();dirty=true;
+    }
+    function aim(id,animate=true){
+      focusId=id;host.toggleAttribute('data-detail',!!id);
+      const target=id?fit(id):overview;
+      if(animate&&pose&&!reduceMotion.matches){
+        transition={from:pose,to:target,begin:performance.now()};
+      }else{transition=null;placeCamera(target);}
+      dirty=true;
+    }
+    function moveCamera(){
+      if(!transition)return;
+      const {from,to,begin}=transition,k=Math.min(1,(performance.now()-begin)/330),blend=k*k*(3-2*k);
+      if(k===1){transition=null;placeCamera(to);return;}
+      const result={};
+      for(const key of Object.keys(to))result[key]=THREE.MathUtils.lerp(from[key],to[key],blend);
+      placeCamera(result);
+    }
     function resize(){
       if(disposed)return;
       width=Math.max(1,host.clientWidth);height=Math.max(1,host.clientHeight);
-      renderer.setSize(width,height,false);
-      portrait=width/height<1.18;
+      renderer.setSize(width,height,false);portrait=width/height<1.18;
       const yaw=portrait?.23:.35;
-      camera.position.set(yaw*20,portrait?29:24,20);camera.lookAt(0,0,0);camera.updateMatrixWorld(true);
       for(const [id,p] of Object.entries(pieces)){
         const [x,z]=stations[id][portrait?'tall':'wide'];
         p.group.position.set(x+(portrait?yaw*z:0),0,z-(portrait?0:.25*x));
@@ -212,20 +270,30 @@ window.IsoScene = (() => {
       const footprintsAll=footprints();
       const bounds={left:Math.min(...footprintsAll.map(o=>o.left))-.87,right:Math.max(...footprintsAll.map(o=>o.right))+.87,
         top:Math.min(...footprintsAll.map(o=>o.top))-.91,bottom:Math.max(...footprintsAll.map(o=>o.bottom))+.91};
-      skinTable(bounds);
-      let left=Infinity,right=-Infinity,top=-Infinity,bottom=Infinity;
-      function fit(p){p.applyMatrix4(camera.matrixWorldInverse);left=Math.min(left,p.x);right=Math.max(right,p.x);top=Math.max(top,p.y);bottom=Math.min(bottom,p.y);}
-      for(const [id,p] of Object.entries(pieces)){
-        const s=stations[id];
-        for(const dx of [-s.w*.52-.24,s.w*.52+.48])for(const dz of [-s.d*.56-.38,s.d*.56+.48])for(const h of [-.4,1.76]) fit(p.group.position.clone().add(vec(dx,h,dz)));
-      }
-      const cx=(left+right)/2,cy=(top+bottom)/2,aspect=width/height;
-      const half=Math.max((right-left)/(2*aspect),(top-bottom)/2)*1.02;
-      camera.left=cx-half*aspect;camera.right=cx+half*aspect;camera.top=cy+half;camera.bottom=cy-half;camera.updateProjectionMatrix();
-      linksKey=null;dirty=true;placeDOM();
+      skinTable(bounds);scene.updateMatrixWorld(true);
+      overview=fit(null);
+      aim(frame?.selected&&!patch&&!insert?frame.selected:null,false);
+      linksKey=null;dirty=true;
       if(frame)render(frame);
     }
+    function travelArrows(carrier,path){
+      // A line of raised arrows identifies the chosen belt even with the motor stopped.
+      const shape=new THREE.Shape();
+      shape.moveTo(-.125,-.08);shape.lineTo(0,.075);shape.lineTo(.125,-.08);
+      shape.lineTo(.125,-.01);shape.lineTo(0,.145);shape.lineTo(-.125,-.01);shape.closePath();
+      const geo=new THREE.ShapeGeometry(shape);geo.rotateX(Math.PI/2);
+      const length=path.getLength(),count=Math.max(1,Math.round(length/.61));
+      const arrows=new THREE.InstancedMesh(geo,materials.arrow,count),stamp=new THREE.Object3D();
+      for(let i=0;i<count;i++){
+        const t=(i+.5)/count,dir=path.getTangentAt(t);
+        stamp.position.copy(path.getPointAt(t));stamp.position.y+=.036;
+        stamp.rotation.y=Math.atan2(dir.x,dir.z);stamp.updateMatrix();arrows.setMatrixAt(i,stamp.matrix);
+      }
+      carrier.add(arrows);arrows.visible=false;
+      return arrows;
+    }
     function rebuild(links){
+      for(const route of routes.values())route.mountButton.remove();
       clearGeometry(belts);routes.clear();const prior=[],obstacles=footprints();
       for(const [key,id] of Object.entries(links)){
         if(!sockets[key]||!sockets[id+':in'])continue;
@@ -233,7 +301,8 @@ window.IsoScene = (() => {
         const carrier=new THREE.Group();belts.add(carrier);
         const path=IsoBelts.build(carrier,plan,materials);
         const tone=key==='router:straight'?materials.a:key==='router:side'?materials.b:materials.belt;
-        const samples=path.getSpacedPoints(Math.max(8,Math.ceil(path.getLength()*4))).map(project);
+        const worldSamples=path.getSpacedPoints(Math.max(8,Math.ceil(path.getLength()*4)));
+        const arrows=key.startsWith('router:')?travelArrows(carrier,path):null;
         const ends=[[key.split(':')[0],key.split(':')[1],socketPos(key)],[id,'in',socketPos(id+':in')]];
         for(const [station,port,pos] of ends){
           if(station==='router')continue; // Its two coloured rails already span the pedestal.
@@ -244,9 +313,15 @@ window.IsoScene = (() => {
           else shoe.position.x+=(port==='in'?.20:-.20);
           carrier.add(shoe);
         }
-        prior.push(plan.points);routes.set(key,{path,to:id,samples,carrier,tone});
+        const mountButton=make('button','iso-insert-point');mountButton.type='button';mountButton.textContent='+';
+        mountButton.title='Вставить между деталями «'+stations[key.split(':')[0]].label+'» и «'+stations[id].label+'»';
+        mountButton.setAttribute('aria-label',mountButton.title);
+        mountButton.dataset.insertBelt=key;
+        mountButton.onclick=()=>{if(insert)install(insert,key);};
+        overlay.append(mountButton);
+        prior.push(plan.points);routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,carrier,tone,mountButton});
       }
-      markBelt(null);
+      placeInsertButtons();markBelt(null);
     }
     function tokenAt(i){
       if(!tokenPool[i]){const m=new THREE.Mesh(tokenGeometry,materials.tread);tokenPool[i]=m;boxes.add(m);}
@@ -301,8 +376,13 @@ window.IsoScene = (() => {
       if(lost || !width || !frame.state)return;
       const t=Number.isFinite(frame.time)?frame.time:0;
       if(modeState!==(frame.editState||frame.state))syncTargets();
-      if(!frame.playing&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute)return;
-      const connections=(patch||insert)?modeState.links:frame.state.links;
+      const focused=patch||insert?null:frame.selected||null;
+      if(focusId!==focused)aim(focused);
+      moveCamera();
+      const outlet=focused==='router'?'router:'+(modeState.routes[frame.previewStep??0]?'straight':'side'):null;
+      if(outlet!==litOutlet){litOutlet=outlet;markBelt(null);}
+      if(!frame.playing&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep)return;
+      const connections=(patch||insert||focused)?modeState.links:frame.state.links;
       const key=JSON.stringify(connections);
       if(linksKey!==key){linksKey=key;rebuild(connections);}
       if(!frame.revision&&lastState!==frame.state)revision=IsoFlow.revision(frame.state);
@@ -328,12 +408,13 @@ window.IsoScene = (() => {
           b.dataset.selected=String(id===activeStation);
           b.setAttribute('aria-pressed',String(id===activeStation));
         }
-        const piece=pieces[activeStation];selection.visible=!!piece;
+        const piece=pieces[activeStation];selection.visible=!!piece&&!focusId&&!patch&&!insert;
         if(piece){
           const s=stations[activeStation];selection.scale.set(s.w*.58,s.d*.65,1);
           selection.position.copy(piece.group.position);selection.position.y=.012;
         }
       }
+      face?.render(frame,transition?null:focused);
       showFlow(frame.revision||revision,step,progress,frame.playing);dirty=false;
       try{renderer.render(scene,camera);}catch(error){if(!renderer.getContext().isContextLost())throw error;}
     }
@@ -383,14 +464,17 @@ window.IsoScene = (() => {
     }
     function markBelt(key){
       for(const [id,r] of routes){
-        r.carrier.children[0].material=id===key?materials.target:insert&&targetBelts.has(id)?materials.pick:r.tone;
+        let tone=r.tone;
+        if(litOutlet&&r.arrows)tone=id===litOutlet?(id==='router:straight'?materials.chosenA:materials.chosenB):materials.quiet;
+        if(r.arrows)r.arrows.visible=id===litOutlet;
+        r.carrier.children[0].material=id===key?materials.target:insert&&targetBelts.has(id)?materials.pick:tone;
       }
       dirty=true;
     }
     function start(e){
-      if(lost||gesture||e.button!==0)return;
+      if(lost||gesture||transition||e.button!==0||e.target.closest('[data-face],[data-insert-belt]'))return;
       const hit=targetAt(e.clientX,e.clientY);
-      if(!hit&&!insert)return;
+      if((!hit&&!insert)||(focusId&&hit?.id!==focusId))return;
       const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,change:0,patch,insert};
       if(!insert&&!patch&&hit){
         // Choosing a station is its own gesture, even when the tap lands
@@ -398,7 +482,7 @@ window.IsoScene = (() => {
         g.edit=frame?.selected===hit.id && (hit.id==='source'||hit.id==='delay') ? hit.action : null;
         const label=e.target.closest('.iso-caption');
         g.handle=inserts.has(hit.id)&&!!label;
-        g.flip=hit.id==='router' && frame?.selected==='router' && !label;
+        g.flip=hit.action?.type==='lever' && frame?.selected==='router' && !label;
         if(g.edit?.type==='phase'||g.edit?.type==='pin'){
           g.center=pieces.source.group.localToWorld(vec(.55,.81,.16));
           g.angle=angleAt(e.clientX,e.clientY,g.center);g.turn=0;
@@ -466,16 +550,16 @@ window.IsoScene = (() => {
         !document.elementFromPoint(e.clientX,e.clientY)?.closest('.iso-caption')){
         callbacks.flipRoute?.();
       }else if(g.edit)callbacks.act(commandFor(g.edit,1));
-      else if(g.hit)select(g.hit.id);
+      else if(g.hit&&g.hit.id!==focusId)select(g.hit.id);
     }
     host.addEventListener('pointerdown',start,opt);host.addEventListener('pointermove',move,opt);
     host.addEventListener('pointerup',e=>end(e),opt);
     host.addEventListener('pointercancel',e=>end(e,true),opt);
     host.addEventListener('lostpointercapture',e=>end(e,true),opt);
-    host.addEventListener('keydown',e=>{lastPointerAt=-Infinity;if(e.key==='Escape')cancelMode();},opt);
+    host.addEventListener('keydown',()=>{lastPointerAt=-Infinity;},opt);
     canvas.addEventListener('webglcontextlost',e=>{
       e.preventDefault();lost=true;host.dataset.context='lost';gesture=null;ghost.hidden=true;cancelMode();
-      callbacks.notice?.('Восстанавливаем трёхмерный стол. Управление деталями доступно в редакторе.');
+      callbacks.notice?.('Восстанавливаем трёхмерный стол…');
     },opt);
     canvas.addEventListener('webglcontextrestored',()=>{
       lost=false;delete host.dataset.context;lastState=null;callbacks.notice?.('');resize();
@@ -501,11 +585,12 @@ window.IsoScene = (() => {
       }
       for(const k of Object.keys(sockets))ports[k]=client(project(socketPos(k)));
       const beltPoints=Object.fromEntries([...routes].map(([key,r])=>[key,r.samples.map(client)]));
-      return {webgl:true,contextLost:lost,portrait,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:tokenPool.filter(m=>m.visible).length};
+      return {webgl:true,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:tokenPool.filter(m=>m.visible).length};
     }
+    face=window.IsoFace?.mount({overlay,pieces,projectLocal,callbacks:{startPatch:setPatch,startInsert:setInsert,...callbacks}});
     const observer=new ResizeObserver(resize);observer.observe(host);resize();
     return {render,setPatch,setInsert,cancelMode,inspect,dispose(){
-      disposed=true;observer.disconnect();events.abort();gesture=null;
+      disposed=true;observer.disconnect();events.abort();gesture=null;face?.dispose();
       clearGeometry(scene,true);mutedMaterials.forEach(m=>m.dispose());tokenMaterials.forEach(m=>m.dispose());Object.values(materials).forEach(m=>m.dispose());tokenGeometry.dispose();
       renderer.dispose();overlay.remove();canvas.remove();
     }};

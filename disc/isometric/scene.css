@@ -24,3 +24,4 @@
 .iso-drag-label {position:absolute;transform:translate(-50%,-150%);color:#faf8ea;background:#265247;padding:5px 9px;border-radius:6px;white-space:nowrap;font:650 14px/1.2 system-ui,sans-serif}
 .iso-fallback {display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-content:center;gap:8px;padding:12px;height:100%;overflow:auto}
 .iso-fallback button {min-height:44px}
+.iso-insert-point{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;width:44px;height:44px;background:#f2ffe8;color:#1a5444;border:2px solid #347561;border-radius:50%;font-weight:700;z-index:2;display:grid;place-items:center;padding:0}

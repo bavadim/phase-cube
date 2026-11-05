@@ -1,0 +1,43 @@
+.iso-face{position:absolute;inset:0;pointer-events:none}
+.iso-face[hidden]{display:none}
+.iso-face .iso-face-control{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;color:#243b36;background:transparent;border:0;margin:0;padding:0;font-family:inherit;line-height:1;box-shadow:none;touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent}
+.iso-face button{pointer-events:auto;cursor:pointer}
+.iso-face button:focus-visible{outline:3px solid #144fa7;outline-offset:0}
+.iso-face small,.iso-face i,.iso-face strong{pointer-events:none}
+.iso-face-control small,.iso-face-control i{font-style:normal;font-weight:750;font-size:max(11px,calc(var(--face-size,16px)*.61))}
+.iso-face-control strong{font-size:var(--face-size,16px);font-weight:750}
+.iso-face-control :empty{display:none}
+.iso-face .face-step,.iso-face .face-pin{border-radius:7px}
+.face-step small{position:absolute;top:6%;left:10%}.face-step i{position:absolute;right:10%;top:6%}
+.face-step[data-chosen=true]::before{position:absolute;content:"";inset:4%;border:2px solid #234c40;border-radius:6px}
+.face-step[data-live=true]::after,.face-pin[data-live=true]::after{content:"";position:absolute;background:#fff9c3;width:8px;height:8px;left:50%;bottom:7%;border-radius:50%;box-shadow:0 0 0 1px #32493b}
+.face-pin small{position:absolute;top:6%;left:50%;transform:translateX(-50%)}
+.iso-face .face-pin{flex-direction:column;padding-top:7px}
+.iso-face .face-pin strong{font-size:clamp(12px,var(--face-size,16px),18px)}
+.iso-face .face-reading{font-size:13px;pointer-events:none;white-space:nowrap}
+.iso-face .face-reading strong{font-size:clamp(11px,var(--face-size,14px),16px);letter-spacing:-.04em}
+.iso-face .face-rocker strong,.iso-face .face-slot strong{font-size:clamp(17px,var(--face-size,17px),28px)}
+.iso-face .face-rocker:disabled{opacity:.4}
+.face-slot[data-chosen=true] strong{background:#553c62;color:white;border-radius:1em;padding:.20em .34em}
+.iso-face .face-port{gap:3px;flex-direction:row-reverse}
+.iso-face .face-port strong,.iso-face .face-port i,.iso-face .face-lever strong{
+  font-size:clamp(11px,calc(var(--face-size,16px)*.84),16px);font-weight:700;letter-spacing:-.03em;line-height:1.35;
+}
+.iso-face .face-port strong{background:#fff7df;padding:3px 5px;border:1px solid #8a8873;border-radius:4px}
+.iso-face .face-port i{background:#315948;color:white;border-radius:12px;font:700 14px/18px system-ui;width:19px;height:19px;text-align:center}
+.iso-face .face-port[data-way=side] i{background:#8b4325}
+.iso-face .face-port[data-chosen=true] strong{box-shadow:0 0 0 2px #286859}
+.iso-face .face-port[data-way=side][data-chosen=true] strong{box-shadow:0 0 0 2px #ad6537}
+.iso-face .face-lever strong{position:absolute;top:92%;padding:2px 5px;white-space:nowrap;border-radius:3px;background:#fff8dce8;color:#344c42;font-size:clamp(10px,calc(var(--face-size,14px)*.66),14px)}
+.iso-face.is-flat{position:relative;inset:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:10px;align-content:center}
+.iso-face.is-flat[hidden]{display:none}
+.iso-face.is-flat .iso-face-control{position:relative;transform:none;min-height:48px;gap:3px;background:var(--cap-tone,#fff6da);border:1px solid #879487;padding:3px;border-radius:6px}
+.iso-face.is-flat .face-lever,.iso-face.is-flat .face-port,.iso-face.is-flat .face-reading{grid-column:span 2}
+.iso-face.is-flat .face-lever strong,.iso-face.is-flat .face-pin small{position:static;transform:none}
+.face-port i{flex:0 0 auto}
+.iso-face .face-pin small{top:11%;font-size:clamp(9px,calc(var(--face-size,16px)*.63),12px);background:#fff5d5;color:#283c35;padding:1px 3px;line-height:1;border-radius:4px}
+.iso-face .face-event{gap:4px;pointer-events:none}
+.iso-face .face-event small{font-size:clamp(9px,calc(var(--face-size,16px)*.6),12px);color:#425246}
+.iso-face .face-event strong{font-size:clamp(13px,var(--face-size,16px),19px);letter-spacing:-.05em}
+.iso-face .face-event[data-live=true]{outline:2px solid #2a6050;outline-offset:-2px;border-radius:4px}
+.iso-face .face-reading strong{background:#f4edcf;border:1px solid #bdc09f;padding:2px 5px;border-radius:4px}

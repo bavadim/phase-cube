@@ -7,8 +7,9 @@
   <base href="../../">
   <title>Нотный конвейер · Биба</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="disc/isometric/style.css?v=turnout1">
-  <link rel="stylesheet" href="disc/isometric/scene.css?v=turnout1">
+  <link rel="stylesheet" href="disc/isometric/style.css?v=closeup1">
+  <link rel="stylesheet" href="disc/isometric/scene.css?v=closeup1">
+  <link rel="stylesheet" href="disc/isometric/face.css?v=closeup1">
 </head>
 <body>
   <main class="workshop">
@@ -19,34 +20,42 @@
         <button id="play" class="play" disabled aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="triangle" d="M5 3 17 10 5 17Z"/><path class="bars" d="M4 3h4v14H4zm8 0h4v14h-4z"/></svg><span>Запустить</span></button>
       </div>
     </header>
-    <div class="console">
-      <section class="bench" aria-label="Музыкальная машина">
-        <div class="bench-head">
-          <label class="assembly">Сборка <select id="preset"><option value="duet">Дуэт</option><option value="straight">Прямая линия</option><option value="echo">Эхо с развилкой</option><option value="answer">Отложенный ответ</option><option value="custom" hidden>Своя разводка</option></select></label>
-          <div class="meter"><span class="beat-lights" id="beat" aria-hidden="true"></span><span class="tempo">112 BPM</span></div>
+    <section class="bench" aria-label="Музыкальная машина">
+      <div class="bench-head">
+        <div class="view-tools">
+          <button type="button" id="back-to-table" hidden>← Весь стол</button>
+          <span id="part-name" hidden></span>
+          <label class="assembly" id="assembly">Сборка <select id="preset"><option value="duet">Дуэт</option><option value="straight">Прямая линия</option><option value="echo">Эхо с развилкой</option><option value="answer">Отложенный ответ</option><option value="custom" hidden>Своя разводка</option></select></label>
         </div>
-        <div id="board" role="group" aria-label="Изометрическая модель конвейера"></div>
-        <div class="bench-foot"><span id="guide-icon" aria-hidden="true">↗</span><p id="guidance" role="status">Коснитесь детали, чтобы открыть её управление.</p><button id="cancel-mode" type="button" hidden>Отмена</button></div>
-      </section>
-      <section class="editor" aria-label="Управление выбранной деталью">
-        <div class="editor-head"><span id="part-icon" aria-hidden="true"></span><label><span>Деталь</span><select id="part" aria-label="Выбранная деталь"></select></label></div>
-        <div id="settings"></div>
-        <p id="notice" role="alert" hidden></p>
-      </section>
-    </div>
+        <div class="meter"><span id="beat" class="beat-lights" aria-hidden="true"></span><span class="tempo">112 BPM</span></div>
+      </div>
+      <div id="board" role="group" aria-label="Изометрическая модель конвейера"></div>
+      <footer class="bench-foot">
+        <p id="guidance" role="status">Коснитесь детали, чтобы рассмотреть её и изменить звук.</p>
+        <div class="tools">
+          <button id="mount-part" type="button" hidden>Вставить в ленту</button>
+          <button id="bypass-part" type="button" hidden>Пустить в обход</button>
+          <button id="unplug" type="button" hidden>Отсоединить</button>
+          <button id="cancel-mode" type="button" hidden>Отмена</button>
+        </div>
+      </footer>
+      <p id="notice" role="alert" hidden></p>
+    </section>
   </main>
   <script src="vendor/three-0.160.1.min.js"></script>
   <script src="vendor/strudel-web-1.3.0.js"></script>
   <script src="audio-bank.js"></script>
   <script src="async-task.js"></script>
   <script src="transport.js?v=conveyor1"></script>
-  <script src="disc/isometric/flow.js?v=turnout1"></script>
-  <script src="disc/conveyor/audition.js?v=turnout1"></script>
-  <script src="disc/isometric/sound.js?v=turnout1"></script>
-  <script src="disc/isometric/pieces.js?v=turnout1"></script>
-  <script src="disc/isometric/belts.js?v=turnout1"></script>
-  <script src="disc/isometric/scene.js?v=turnout1"></script>
-  <script src="disc/isometric/panel.js?v=turnout1"></script>
-  <script src="disc/isometric/app.js?v=turnout1"></script>
+  <script src="disc/isometric/flow.js?v=closeup1"></script>
+  <script src="disc/conveyor/audition.js?v=closeup1"></script>
+  <script src="disc/isometric/sound.js?v=closeup1"></script>
+  <script src="disc/isometric/pieces.js?v=closeup1"></script>
+  <script src="disc/isometric/belts.js?v=closeup1"></script>
+  <script src="disc/isometric/face.js?v=closeup1"></script>
+  <script src="disc/isometric/scene.js?v=closeup1"></script>
+
+  <script src="disc/isometric/flat.js?v=closeup1"></script>
+  <script src="disc/isometric/app.js?v=closeup1"></script>
 </body>
 </html>

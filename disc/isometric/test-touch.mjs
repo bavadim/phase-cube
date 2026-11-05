@@ -3,50 +3,91 @@ import assert from 'node:assert/strict';
 import {openBrowser} from '../../qa/modules/browser.mjs';
 
 const session=await openBrowser();
-try{
+try {
   const page=await session.browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  const station=id=>page.locator('[data-station="'+id+'"]');
+  const face=key=>page.locator('[data-face-key="'+key+'"]');
+  const state=()=>page.evaluate(()=>IsoBench.inspect().state);
+  const waitView=id=>page.waitForFunction(expected=>{
+    const geometry=window.IsoBench?.inspect().geometry;
+    return geometry?.webgl && !geometry.contextLost && !geometry.settling && geometry.focus===expected;
+  },id,{polling:100});
+  async function back() {
+    await page.locator('#back-to-table').tap();
+    await waitView(null);
+  }
+
   await page.goto(session.url+'/disc/isometric/index.html');
   await page.locator('#play:enabled').waitFor();
-  const state=()=>page.evaluate(()=>IsoBench.inspect().state);
-  const station=id=>page.locator('[data-station="'+id+'"]');
-  const step=page.locator('[data-key="step-2"]');
+  await waitView(null);
   const initial=await state();
-  await step.tap();
-  assert.equal((await state()).routes[2],!initial.routes[2]);
-  assert.equal(await step.getAttribute('data-chosen'),'true');
-  assert.deepEqual((await state()).source,initial.source);
+  const overviewZoom=await page.evaluate(()=>IsoBench.inspect().geometry.zoom);
+
+  await station('router').tap();
+  await waitView('router');
+  assert.ok(await page.evaluate(()=>IsoBench.inspect().geometry.zoom)>overviewZoom);
+  await face('step-2').tap();
+  assert.deepEqual(await state(),initial,'picking a note must not change its route');
+  assert.equal(await page.evaluate(()=>IsoBench.inspect().previewStep),2);
+  const branch=await page.evaluate(()=>IsoBench.inspect().geometry.selectedBranch);
+  assert.equal(branch,initial.routes[2]?'router:straight':'router:side');
+  await face('lever').tap();
+  const flipped=await state();
+  assert.deepEqual(flipped.routes,initial.routes.map((v,i)=>i===2?!v:v),'touch click must flip once');
   await page.locator('#undo').tap();
   assert.deepEqual(await state(),initial);
+  await back();
 
-  // A physical tap generates pointerup and click on mobile. Editing a route,
-  // selecting a new part and wiring each consume exactly one activation.
   await page.locator('#preset').selectOption('straight');
-  await page.locator('#settings summary').tap();
-  await page.locator('[data-key="wire-source:out"]').tap();
+  await waitView(null);
+  await station('source').tap();
+  await waitView('source');
+  const before=await state();
+  // The eighth pin is adjacent to the outlet; its centre must still select a note.
+  await face('pin-7').tap();
+  assert.notEqual((await state()).source.notes[7],before.source.notes[7]);
+  await face('phase-up').tap();
+  assert.equal((await state()).source.phase,(before.source.phase+1)%8);
+  await face('level-down').tap();
+  assert.ok((await state()).source.level<before.source.level);
+  await face('port-source:out').tap();
+  await waitView(null);
   await station('bell').tap();
   assert.equal((await state()).links['source:out'],'bell');
   assert.equal(await page.evaluate(()=>IsoBench.inspect().patch),null);
   await page.locator('#undo').tap();
+  await waitView('source');
 
-  await station('delay').tap();
-  await page.locator('[data-key="mount"]').tap();
-  await page.locator('[data-key="insert-source:out"]').tap();
-  const built=await state();
-  assert.deepEqual(built.links,{'source:out':'delay','delay:out':'keys'});
-  await page.locator('[data-key="delay-4"]').tap();
-  assert.equal((await state()).delay,4);
-  await page.reload();await page.locator('#play:enabled').waitFor();
-  assert.equal((await state()).delay,4);
-  assert.deepEqual((await state()).links,built.links);
-
-  await page.locator('#part').selectOption('source');
-  await page.locator('#settings summary').click();
-  await page.locator('[data-key="wire-source:out"]').focus();
+  await face('port-source:out').focus();
   await page.keyboard.press('Enter');
+  await waitView(null);
   assert.equal(await page.evaluate(()=>IsoBench.inspect().patch),'source:out');
   await page.keyboard.press('Escape');
-  assert.equal(await page.evaluate(()=>IsoBench.inspect().patch),null);
+  await waitView('source');
+  await page.keyboard.press('Escape');
+  await waitView(null);
+
+  await station('delay').tap();
+  await waitView('delay');
+  await face('delay-4').tap();
+  await page.locator('#mount-part').tap();
+  await waitView(null);
+  // Use a real projected point on the belt between the source and the keys.
+  const point=await page.evaluate(()=>{
+    const points=IsoBench.inspect().geometry.beltPoints['source:out'];
+    return points[Math.floor(points.length/2)];
+  });
+  await page.touchscreen.tap(point.x,point.y);
+  assert.deepEqual((await state()).links,{'source:out':'delay','delay:out':'keys'});
+  await page.reload();
+  await page.locator('#play:enabled').waitFor();
+  await waitView(null);
+  assert.equal((await state()).delay,4);
+  assert.deepEqual((await state()).links,{'source:out':'delay','delay:out':'keys'});
   assert.deepEqual(errors,[]);
-  console.log('PASS: mobile route pads, undo, touch wiring, insert, save, keyboard cancellation.');
-}finally{await session.close();}
+  console.log('PASS: zoom, inspect without editing, lever, pin/phase/gain, touch patching and insertion, undo, saved state, keyboard exit.');
+} finally {
+  await session.close();
+}

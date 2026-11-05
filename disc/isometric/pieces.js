@@ -137,7 +137,7 @@ window.IsoPieces = (() => {
         0,.30,0,noteColor(pitch));
       bead(p,.303,.024,0,.75,0,'ivory');
       const note = ball(p,.115,0,.67,0,noteColor(pitch));
-      return {note,pitch};
+      return {body:p,note,pitch};
     });
     rod(root,[-1.13,.418,-.46],[1.41,.418,-.46],.071,'teal');
     rod(root,[1.41,.418,-.46],[1.41,.396,.16],.071,'teal');
@@ -194,7 +194,11 @@ window.IsoPieces = (() => {
           cap.material=paint(rest?'steel':noteColor(pitch));
         });
         const e=f.tick.activity.source[0], pulse=hit(f,'source');
-        pitchers.forEach(({note,pitch})=>{note.position.y=.68+(e?.pitch===pitch?pulse*.09:0);});
+        pitchers.forEach(({body,note,pitch})=>{
+          // The feed bowls retract below the raised programming rim.
+          body.scale.y=f.selected==='source'?.47:1;
+          note.position.y=.68+(e?.pitch===pitch?pulse*.09:0);
+        });
         lamp.material=paint(pulse>.12?noteColor(e.pitch):'paper');
       }
     };
@@ -294,7 +298,7 @@ window.IsoPieces = (() => {
 
     // One pivoting bridge carries a broad white arrow. The bridge points at
     // the physical chute that will accept a box arriving in this eighth.
-    const switchRail=group(root,pivotX,.437,pivotZ);
+    const switchRail=action(group(root,pivotX,.437,pivotZ),'lever');
     const bed=plate(switchRail,1.08,.13,.49,.39,.069,0,colors.straight,.13);
     const arrowShape=new T.Shape();
     arrowShape.moveTo(.05,-.078);
@@ -390,5 +394,49 @@ window.IsoPieces = (() => {
     const result=build(assembly);
     return {group:assembly,ports:result.ports,update:result.update};
   }
-  return Object.freeze({create,noteColor});
+  // The service faces are attached to the casting when the camera opens a
+  // machine. Geometry and its accessible printed legends share local axes.
+  function serviceFace(id,parent) {
+    const shell=group(parent), caps=new Map();
+    shell.name=id+'-service';shell.visible=false;
+    function casework(w,d,x,z,tone) {
+      plate(shell,w,.19,d,x,.23,z,'edge',.13);
+      plate(shell,w-.04,.10,d-.05,x,.37,z,tone,.11);
+      for(const dx of [-1,1])for(const dz of [-1,1]) {
+        cyl(shell,.025,.032,.016,x+dx*(w/2-.085),.43,z+dz*(d/2-.085),'brass',8);
+      }
+    }
+    if(id==='router') {
+      casework(3.09,1.78,0,-1.84,'teal');
+      for(const x of [-.81,.81])cyl(shell,.11,.11,.39,x,.285,-.95,'brass').rotation.z=Math.PI/2;
+    }
+    if(id==='source'){
+      const ring=new T.Shape();ring.absarc(.55,-.13,1.11,0,TAU,false);
+      const opening=new T.Path();opening.absarc(.55,-.13,.74,0,TAU,true);ring.holes.push(opening);
+      mesh(shell,geometry('service-score-ring',()=>extrude(ring,.085,.015)),'edge',0,1.095,0);
+      for(const x of [-.36,1.44])rod(shell,[x,.35,.09],[x,1.135,.09],.064,'brass');
+      rod(shell,[1.68,.30,.19],[1.68,.31,.78],.040,'brass');
+      plate(shell,.56,.073,.19,1.55,.33,.78,'brass',.04);
+      casework(3.24,.94,0,1.67,'teal');
+      for(const x of [-1,1])rod(shell,[x,.23,.82],[x,.23,1.39],.075,'brass');
+    }
+    if(id==='delay'){
+      casework(2.96,.93,0,1.15,'plum');
+      for(const x of [-.74,.74])rod(shell,[x,.23,.57],[x,.23,1.04],.070,'steel');
+    }
+    if(['keys','bell','bin'].includes(id)){
+      casework(2.80,1.16,0,1.34,'edge');
+      for(const x of [-.46,.46])rod(shell,[x,.23,.57],[x,.23,1.05],.060,'brass');
+    }
+    function key(key,x,y,z,w,d,round) {
+      const pad=round?cyl(shell,w/2,w/2+.008,.078,x,y-.045,z,'paper',32):
+        plate(shell,w,.080,d,x,y-.043,z,'paper',.067);
+      caps.set(key,pad);
+    }
+    function capColor(key,color){
+      const cap=caps.get(key);if(cap)cap.material=paint(color);
+    }
+    return {shell,key,capColor};
+  }
+  return Object.freeze({create,noteColor,serviceFace});
 })();
