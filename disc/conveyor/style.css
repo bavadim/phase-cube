@@ -37,6 +37,7 @@ h1 {font-size:clamp(28px,4.3vw,65px);line-height:.97;letter-spacing:-.065em;marg
 #machine[aria-busy=true] {min-height:52vh;background:#253c38;border-radius:18px}
 footer {align-items:baseline;padding:15px 0 0;color:#52635a;font-size:13px;line-height:1.5}
 footer a {color:#324d41;text-underline-offset:3px;white-space:nowrap}
+footer nav {display:flex;align-items:baseline;gap:6px 16px;flex-wrap:wrap}
 #notice {font-size:14px;color:#943716}
 @media(max-width:660px) {
   .workshop {padding:16px 10px max(14px,env(safe-area-inset-bottom))}

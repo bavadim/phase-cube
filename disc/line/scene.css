@@ -1,0 +1,20 @@
+.line-scene {
+  display:block; width:100%; height:auto; overflow:hidden; user-select:none;
+  -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+  font-family:Arial, Helvetica, sans-serif; color:#213341; border-radius:inherit;
+}
+.line-scene text { pointer-events:none; fill:#213341; }
+.line-scene [data-action] { cursor:pointer; touch-action:manipulation; outline:none; }
+.line-scene [data-action="rotor"],.line-scene [data-action="disc"] { touch-action:none; }
+.line-scene .hit { fill:transparent; stroke:none; }
+.line-scene .ls-title { font-size:12px; font-weight:800; letter-spacing:1.45px; }
+.line-scene .ls-tag { font:700 10px ui-monospace, "Courier New", monospace; letter-spacing:.5px; }
+.line-scene .ls-note { font:800 10px ui-monospace, "Courier New", monospace; }
+.line-scene .edit-edge { transition:stroke .12s ease; }
+.line-scene [data-action]:focus-visible .edit-edge { stroke:#dd4c1a; stroke-width:4.5; }
+@media(hover:hover){
+  .line-scene [data-action]:hover .edit-edge { stroke:#de5021; stroke-width:3; }
+}
+/* The SVG root owns pointer capture. Horizontal edits stay on the apparatus
+   even on mobile engines that ignore touch-action on an individual SVG <g>. */
+.line-scene { touch-action:pan-y pinch-zoom; }
