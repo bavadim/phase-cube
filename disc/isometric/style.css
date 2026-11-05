@@ -103,3 +103,7 @@ summary{display:list-item;cursor:pointer;width:100%;min-height:44px;padding:12px
 .step-pad[data-rest=true] strong{font-weight:500;color:#60685a}
 .step-pad[data-chosen=true] small{background:#203d38;color:#fff;border-radius:3px;padding:2px 4px}
 @media(max-width:850px){.bench[data-mode=overview] .bench-foot{display:none}}
+@media(max-width:355px){
+  .step-pad{padding-inline:3px}
+  .step-pad strong{margin-inline:-1px;font-size:.81rem;white-space:normal;overflow-wrap:anywhere;overflow:visible}
+}
