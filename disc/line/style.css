@@ -40,12 +40,34 @@ h1 { margin: 2px 0 0; font-size: clamp(37px, 4.9vw, 74px); letter-spacing: -.065
 .song { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 640; }
 .song svg { width: 22px; height: 19px; color: #d2ef52; }
 .tempo { font: 600 12px ui-monospace, monospace; letter-spacing: .025em; white-space: nowrap; }
+.panel-tools { display: flex; align-items: center; gap: clamp(8px, 2vw, 22px); }
+#guide-open { border: 0; color: #d2ef52; background: transparent; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; padding: 6px 0; white-space: nowrap; }
+@media(max-width: 420px) {
+  .panel-cap { flex-wrap: wrap; }
+  .panel-tools { margin-left: auto; }
+}
 #machine { min-width: 0; }
 #machine[aria-busy="true"] { min-height: min(48vh, 380px); }
 footer { display: flex; align-items: flex-start; gap: 9px; padding: 14px 3px; color: #454c46; }
 footer p, .notice { margin: 0; font-size: 14px; line-height: 1.45; }
 .hand { width: 19px; height: 19px; flex: none; }
 .notice { margin-top: 10px; color: #a32714; }
+#guide { border-block: 1px solid #c4c5b8; }
+#guide summary { cursor: pointer; padding: 12px 3px; width: fit-content; font-size: 15px; font-weight: 700; }
+#guide summary::marker { color: var(--cobalt); }
+#guide summary:focus-visible, #part-select:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+.part-guide { max-width: 84ch; padding: 2px 4px 15px; font-size: 15px; line-height: 1.45; }
+.part-guide label { font-weight: bold; }
+#part-select { margin-left: .45em; max-width: 100%; min-height: 40px; padding-inline: .45em; color: var(--ink); border: 1px solid #8c9586; border-radius: 6px; background: #fffcf3; font: inherit; }
+.part-guide dl { margin: 12px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .55rem 1.1rem; }
+.part-guide dt { font-weight: 650; }
+.part-guide dd { margin: 0; }
+@media(max-width: 600px) {
+  .part-guide dl { display: block; }
+  .part-guide dt { margin-top: .7rem; }
+  .part-guide label { display: flex; flex-wrap: wrap; align-items: center; gap: .15em .45em; }
+  #part-select { margin-left: 0; }
+}
 @media (max-width: 600px) {
   .workbench { padding-top: max(8px, env(safe-area-inset-top)); }
   .mast { gap: 6px; }

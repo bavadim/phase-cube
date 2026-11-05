@@ -31,20 +31,20 @@
     return `<g ${extra}>${circle(0,0,radius,body)}${circle(0,0,radius-5,ivory,ink,1.5)}${spokes}${circle(0,0,5,ink)}</g>`;
   }
   const layouts = {
-    wide:{w:1060,h:409, belt:[36,193,363], motor:[103,291], drum:[440,295,76],
+    wide:{w:1060,h:430, top:0, belt:[36,193,363], motor:[67,311], gears:[[186,310],[296,310]], drum:[440,295,76],
       fork:[406,182], glass:[574,117], metal:[588,240], discs:[[711,216],[792,216]], press:[941,214],
       lever:[754,124], lane1:'M363 171 Q393 171 406 177 Q455 95 542 95',
       lane2:'M363 171 Q393 171 406 177 Q468 218 551 218',
-      motorDrive:'M73 274 L46 215 Q41 197 62 199 L121 265 Z',
+      motorDrive:'M94 302 L186 301 M94 320 L186 319 M285 300 L336 202 M302 313 L354 210',
       selectDrive:'M404 187 L434 259', stampDrive:'M616 245 L641 245 L661 216 L859 216 L889 236',
       paper:[869,296,152], beltLabel:[40,121], drumLabel:[440,397], pressLabel:[941,87]},
-    narrow:{w:440,h:655,belt:[17,137,400],motor:[88,69],drum:[104,322,78],
+    narrow:{w:440,h:736,top:-102,belt:[17,137,400],motor:[61,-21],gears:[[186,-24],[296,-24]],drum:[104,322,78],
       fork:[393,189],glass:[290,260],metal:[326,363],discs:[[64,486],[150,486]],press:[334,497],
       lever:[112,416],lane1:'M400 115 Q422 147 393 189 Q366 210 262 237',
       lane2:'M400 115 Q422 147 393 189 Q421 269 358 339',
-      motorDrive:'M64 68 L24 139 Q19 149 35 155 L103 85Z',selectDrive:'M390 193 L363 190 L214 190 L127 280',
+      motorDrive:'M88 -31 L186 -34 M88 -13 L186 -15 M289 -16 L375 152 M303 -25 L391 143',selectDrive:'M390 193 L363 190 L214 190 L127 280',
       stampDrive:'M332 374 L332 390 L192 390 L169 443 L64 443 L64 486 L249 486 L279 519',
-      paper:[258,582,159], beltLabel:[199,79], drumLabel:[104,421], pressLabel:[331,429]}
+      paper:[258,582,159], beltLabel:[94,99], drumLabel:[104,421], pressLabel:[331,429]}
   };
   function definitions() {
     return `<defs>
@@ -79,6 +79,42 @@
   }
   function wheelAssembly(x,y) {
     return group(x,y,wheel(18,'#e7d683','data-spin="motor"'));
+  }
+  const gearNames = ['Бочка','Мелодия'];
+  function sampleGear(x,y,i) {
+    const tone=i?'#d77555':'#6a9bb9', face=i?'#f5c48b':'#a8d7d9';
+    const levelKeys=[-1,1].map(delta=>{
+      const name=(delta>0?'Прибавить':'Убавить')+' громкость · '+gearNames[i];
+      return group(delta*26,89,`<g data-delta="${delta}" ${button('gearLevel',name,i)}
+        ${rect(-25,-18,50,43,'transparent',4,'none',0,'class="hit"')}
+        ${rect(-19,-10,38,21,ivory,7,ink,1.6,'class="edit-edge"')}
+        ${path(delta>0?'M-5 0 H5 M0 -5 V5':'M-5 0 H5','none',ink,2.3)}
+      </g>`);
+    }).join('');
+    return group(x,y,`<g class="sample-gear" data-gear="${i}">
+      ${rect(-50,50,100,59,'#cad0bd',8,ink,1.5)}
+      <g ${button('gearPhase','Сдвинуть рифф · '+gearNames[i],i)}
+        ${circle(0,0,59,'transparent','none',0,'class="hit"')}
+        <g class="gear-drive">${path(teeth(16,51.6,58.4),tone,ink,1.8,'class="edit-edge"')}</g>
+        ${circle(0,0,49,face,ink,1.7)}${circle(0,0,38,'none',ink,.8)}
+        <g class="gear-score"></g>
+        <g class="phase-grip">${rect(-24,29,48,16,ivory,7,ink,1.1)}
+          ${path('M-7 0 H7 M-4 -3 L-7 0 L-4 3 M4 -3 L7 0 L4 3','none',ink,1.6,'transform="translate(-12 37)"')}
+          ${text(9,41,'0/8','gear-phase-value')}
+        </g>
+      </g>
+      ${path('M-6 -63 H6 L0 -46Z',acid,ink,1.8,'class="gear-reader" pointer-events="none"')}
+      ${circle(0,2,25,shadow,ink,1.5)}
+      <g class="gear-hub">
+        ${circle(0,1,23,'#e7d9ab',ink,1.6)}
+        <foreignObject x="-24" y="-24" width="48" height="48">
+          <button xmlns="http://www.w3.org/1999/xhtml" type="button" class="hub-control" data-control="hub" data-action="gearLevel" data-index="${i}" aria-label="Громкость · ${gearNames[i]}">
+            <span aria-hidden="true">↕</span><b>100%</b>
+          </button>
+        </foreignObject>
+      </g>
+      ${text(0,71,gearNames[i].toUpperCase(),'gear-name')}${levelKeys}
+    </g>`);
   }
   function noteCrate(i) {
     return `<g ${button('note','Изменить ноту '+(i+1),i)}
@@ -176,11 +212,11 @@
       `<g id="line-paper-marks"></g>`);
   }
   function backing(layout,narrow) {
-    const base=rect(0,0,layout.w,layout.h,'#eae9da',0,'none',0)+
-      rect(0,0,layout.w,layout.h,'url(#ls-dot)',0,'none',0);
+    const base=rect(0,layout.top,layout.w,layout.h,'#eae9da',0,'none',0)+
+      rect(0,layout.top,layout.w,layout.h,'url(#ls-dot)',0,'none',0);
     const guides=narrow?[179,452]:[113,342];
     return base + guides.map(y=>path(`M12 ${y} H${layout.w-12}`,'none','#889484',.85,'opacity=".3" stroke-dasharray="2 5"')).join('')+
-      [[12,13],[layout.w-12,13],[12,layout.h-13],[layout.w-12,layout.h-13]].map(([x,y])=>path(`M${x-4} ${y}h8 M${x} ${y-4}v8`,'none','#728475',1.2)).join('');
+      [[12,13],[layout.w-12,13],[12,layout.h-13],[layout.w-12,layout.h-13]].map(([x,y])=>path(`M${x-4} ${layout.top+y}h8 M${x} ${layout.top+y-4}v8`,'none','#728475',1.2)).join('');
   }
   function lane(track,color) {
     return path(track,'none',ink,15,'stroke-linecap="round"')+
@@ -193,7 +229,7 @@
     const [pressX,pressY]=layout.press;
     const paperFeed=`M${pressX+10} ${pressY+35} Q${pressX+9} ${paperY-7} ${paperX+7} ${paperY+9}`;
     return `<title>Звучащая производственная линия</title>${definitions()}${backing(layout,narrow)}
-      ${path(layout.motorDrive,'#435269',ink,1.8)}
+      ${path(layout.motorDrive,'none',ink,5)}${path(layout.motorDrive,'none','#9caaa7',2)}
       ${path(layout.selectDrive,'none',ink,5)}${path(layout.selectDrive,'none','#9daca6',2)}
       ${path(layout.stampDrive,'none',ink,9,'stroke-linejoin="round"')}
       ${path(layout.stampDrive,'none','#9dada7',5,'stroke-linejoin="round"')}
@@ -201,7 +237,7 @@
       ${path(narrow?'M160 486 H249 L279 519':'M801 216 H859 L889 236','none',acid,4,'id="line-output" opacity="0"')}
       ${lane(layout.lane1,'#72b9aa')}${lane(layout.lane2,'#dd8966')}
       ${path(paperFeed,'none',ink,15)}${path(paperFeed,'none','#f6e8bc',12)}
-      ${belt(layout)}${motor(layout)}${programmer(layout)}${fork(layout)}
+      ${belt(layout)}${motor(layout)}${layout.gears.map(([x,y],i)=>sampleGear(x,y,i)).join('')}${programmer(layout)}${fork(layout)}
       ${receiver(...layout.glass,false)}${receiver(...layout.metal,true)}
       ${clutchDisc(x1,y1,0)}${clutchDisc(x2,y2,1)}${clutchLever(layout)}
       ${paper(layout)}${press(layout)}
@@ -221,12 +257,15 @@
     let small, layout, refs, frame, renderedState, historyKey, pending=null;
     function setup(compact) {
       small=compact; layout=small?layouts.narrow:layouts.wide;
-      svg.setAttribute('viewBox',`0 0 ${layout.w} ${layout.h}`);
+      svg.setAttribute('viewBox',`0 ${layout.top} ${layout.w} ${layout.h}`);
       svg.innerHTML=sceneMarkup(layout,small);
       const find=sel=>svg.querySelector(sel), all=sel=>Array.from(svg.querySelectorAll(sel));
       const arms=all('[data-action="tab"]').map(g=>({g,face:g.querySelector('.tab-face'),pointer:g.querySelector('.tab-pointer')}));
       const crates=all('[data-action="note"]').map(g=>({g,body:g.querySelector('.crate-body'),face:g.querySelector('.crate-face'),label:g.querySelector('text')}));
       const discs=all('[data-action="disc"]').map(g=>({g,ring:g.querySelector('.disc-slots'),probe:g.querySelector('.clutch-probe'),tip:g.querySelector('.probe-tip'),slots:Array.from(g.querySelectorAll('.slot'))}));
+      const gears=all('.sample-gear').map(g=>({g,drive:g.querySelector('.gear-drive'),score:g.querySelector('.gear-score'),
+        reader:g.querySelector('.gear-reader'),hub:g.querySelector('.gear-hub'),volume:g.querySelector('.hub-control'),
+        rim:g.querySelector('[data-action="gearPhase"]'),value:g.querySelector('.hub-control b'),phase:g.querySelector('.gear-phase-value'),marks:null}));
       // Precompute distances for box delivery once per layout. getPointAtLength
       // during audio playback causes costly SVG path calculations on phones.
       const routes=[layout.lane1,layout.lane2].map(d=>{
@@ -235,13 +274,21 @@
         for(let i=0;i<=40;i++){const pt=sampler.getPointAtLength(len*i/40);points.push([pt.x,pt.y]);}
         return points;
       });
-      refs={arms,crates,discs,routes,paper:find('#line-paper-marks'),lever:find('#line-lever-handle'),
+      refs={arms,crates,discs,gears,routes,paper:find('#line-paper-marks'),lever:find('#line-lever-handle'),
         signal:find('#line-signal'),out:find('#line-output'),arm:find('#line-play-arm'),fork:find('#line-switch'),stamp:find('#line-press-shoe'),treads:find('#line-belt-treads'),
         beltSpins:all('[data-spin="belt"]'),motor:find('[data-spin="motor"]'),clutch:find('[data-action="clutch"]'),
         receivers:['glass','metal'].map(name=>({node:find('#line-'+name),ring:find('#line-'+name+'-ring')}))};
       renderedState=null;historyKey=null;
     }
     function updateControls(state,model) {
+      state.gears.forEach(({phase,level},i)=>{
+        const gear=refs.gears[i], percent=Math.round(level*100)+'%';
+        gear.hub.setAttribute('transform',`translate(0 ${4-level*7})`);
+        gear.value.textContent=percent;
+        gear.phase.textContent=phase+'/8';
+        gear.volume.setAttribute('aria-label',gearNames[i]+' · громкость '+percent+', тяните вверх или вниз');
+        gear.rim.setAttribute('aria-label',gearNames[i]+' · сдвиг '+phase+'/8 такта, тяните вправо или влево');
+      });
       for(let sector=0;sector<8;sector++){
         const tab=model.eventAt(state,sector).tab;
         const [x,y]=polar(layout.drum[2]*.73,sector*Math.PI/4), t=refs.arms[tab];
@@ -292,6 +339,26 @@
         refs.crates[i].g.setAttribute('transform',`translate(${x.toFixed(2)} ${cy.toFixed(2)}) scale(${scale.toFixed(3)})`);
       }
     }
+    function driveGears(settings,marks,time,playing) {
+      refs.gears.forEach((gear,i)=>{
+        const {phase,level}=settings[i];
+        const direction=i?-1:1;
+        const onsets=marks[i];
+        if(gear.marks!==onsets){
+          gear.score.innerHTML=onsets.map(onset=>{
+            const [x,y]=polar(43,-direction*onset*2*Math.PI);
+            return circle(x,y,3.4,ink,ivory,1);
+          }).join('');
+          gear.marks=onsets;
+        }
+        // Carrier teeth are permanently meshed. The player reindexes their
+        // scored collars independently; a pin meets its reader at (onset+shift).
+        gear.drive.setAttribute('transform',`rotate(${direction*time*360+(i?180/16:0)})`);
+        gear.score.setAttribute('transform',`rotate(${direction*(time-phase/8)*360})`);
+        const elapsed=Math.min(...onsets.map(at=>((time-phase/8-at)%1+1)%1));
+        gear.reader.setAttribute('fill',playing&&level>0&&elapsed<.05?rust:acid);
+      });
+    }
     function render(next) {
       frame=next;
       const compact=el.clientWidth<680;
@@ -303,6 +370,7 @@
       // Live edits become visible at the same transport boundary as the sound.
       if(renderedState!==visible){updateControls(visible,model);renderedState=visible;}
       const clock=step+phase;
+      driveGears(visible.gears,next.gearMarks,next.time,playing);
       moveCrates(actual,model,clock,playing||history.length>0);
       const hit=(history.length?history[history.length-1]:null);
       const sounding=!!(playing&&hit&&hit.step===step);
@@ -353,9 +421,10 @@
       if(!node)return;
       const action={type:node.dataset.action};
       if(node.dataset.index!==undefined)action.index=Number(node.dataset.index);
-      if(action.type==='rotor'||action.type==='disc')action.delta=delta;
+      if(['rotor','disc','gearPhase','gearLevel','note'].includes(action.type))action.delta=delta;
       onAction(action);
     }
+    function isHub(node){return node.dataset.control==='hub';}
     function down(e){
       const node=target(e);
       if(!node||e.button!==0||pending)return;
@@ -367,20 +436,33 @@
       if(!pending||pending.id!==e.pointerId)return;
       const {node,x,y}=pending;pending=null;
       const dx=e.clientX-x,dy=e.clientY-y;
-      if(node.dataset.action==='rotor'||node.dataset.action==='disc'){
+      if(isHub(node)){
+        const steps=Math.round(-dy/22);
+        if(Math.abs(dx)<Math.abs(dy)&&steps)send(node,steps);
+        else if(Math.hypot(dx,dy)<10)send(node,e.shiftKey?-1:1);
+      }else if(node.dataset.action==='gearPhase'){
+        if(Math.abs(dy)>24&&Math.abs(dy)>Math.abs(dx))return;
+        send(node,Math.abs(dx)<12?(e.shiftKey?-1:1):(Math.round(Math.abs(dx)/26)||1)*Math.sign(dx));
+      }else if(node.dataset.action==='rotor'||node.dataset.action==='disc'){
         if(Math.abs(dy)>30 && Math.abs(dy)>Math.abs(dx)) return;
         send(node,dx < -12 || e.shiftKey?-1:1);
-      }else if(Math.hypot(dx,dy)<20)send(node);
+      }else if(Math.hypot(dx,dy)<20)send(node,Number(node.dataset.delta)||(e.shiftKey?-1:1));
     }
     function cancel(e){if(pending?.id===e.pointerId)pending=null;}
     function key(e){
       const node=target(e);if(!node)return;
-      const rotary=['rotor','disc'].includes(node.dataset.action);
-      if([' ','Enter'].includes(e.key)||rotary&&['ArrowLeft','ArrowRight'].includes(e.key)){
-        e.preventDefault();if(!e.repeat)send(node,e.key==='ArrowLeft'||e.shiftKey?-1:1);
-      }
+      const sideways=['rotor','disc','gearPhase','note'].includes(node.dataset.action);
+      let delta;
+      if([' ','Enter'].includes(e.key))delta=Number(node.dataset.delta)||(e.shiftKey?-1:1);
+      else if(sideways&&['ArrowLeft','ArrowRight'].includes(e.key))delta=e.key==='ArrowLeft'?-1:1;
+      else if(isHub(node)&&['ArrowUp','ArrowDown'].includes(e.key))delta=e.key==='ArrowDown'?-1:1;
+      else return;
+      e.preventDefault();if(!e.repeat)send(node,delta);
     }
-    function accessibleClick(e){if(e.detail===0)send(target(e));}
+    function accessibleClick(e){
+      const node=target(e);
+      if(node&&e.detail===0)send(node,Number(node.dataset.delta)||1);
+    }
     svg.addEventListener('pointerdown',down);svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',cancel);
     svg.addEventListener('lostpointercapture',cancel);svg.addEventListener('keydown',key);svg.addEventListener('click',accessibleClick);
     const resize=()=>{if(frame&&small!==(el.clientWidth<680))render(frame);};

@@ -7,8 +7,8 @@
   <base href="../../">
   <title>Ударный цех · Музыкальная машина</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="disc/line/style.css">
-  <link rel="stylesheet" href="disc/line/scene.css">
+  <link rel="stylesheet" href="disc/line/style.css?v=sample-gears">
+  <link rel="stylesheet" href="disc/line/scene.css?v=sample-gears">
 </head>
 <body>
   <main class="workbench">
@@ -30,15 +30,27 @@
     <section class="instrument" aria-label="Производственная линия">
       <div class="panel-cap">
         <div class="song"><svg viewBox="0 0 23 18" aria-hidden="true"><path d="M1 10h4l2-8 4 15 3-12 2 5h6"/></svg><span>Моцарт на конвейере</span></div>
-        <span class="tempo">150 BPM</span>
+        <div class="panel-tools"><span class="tempo">150 BPM</span><button id="guide-open" type="button" aria-controls="guide">Детали и жесты</button></div>
       </div>
-      <div id="machine" aria-busy="true" aria-label="Мотор, конвейер, стрелка и штамп"></div>
+      <div id="machine" aria-busy="true" aria-label="Мотор, звучащие шестерни, конвейер, стрелка, муфта и штамп"></div>
     </section>
     <p class="notice" id="notice" role="alert" hidden></p>
     <footer>
       <svg class="hand" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5a1.5 1.5 0 0 1 3 0v6-1a1.5 1.5 0 0 1 3 0v1a1.5 1.5 0 0 1 3 0v1a1.5 1.5 0 0 1 3 0v3c0 4-2 6-6 6h-1c-2 0-3-1-5-3l-4-5a1.5 1.5 0 0 1 2-2l2 2Z"/></svg>
-      <p id="help" role="status">Коснитесь коробки, чтобы сменить ноту. Язычки барабана выбирают стекло или металл. Поворот дисков муфты меняет ритм штампа.</p>
+      <p id="help" role="status">Запустите линию и коснитесь обода шестерни «Мелодия». Вы услышите, как фраза сдвинется относительно бочки.</p>
     </footer>
+    <details id="guide">
+      <summary>Что можно делать с деталями?</summary>
+      <div class="part-guide">
+        <label>Деталь <select id="part-select"></select></label>
+        <dl>
+          <dt>Вход и выход</dt><dd id="part-ports"></dd>
+          <dt>Жесты</dt><dd id="part-gesture"></dd>
+          <dt>Пределы и повторы</dt><dd id="part-cycle"></dd>
+          <dt>В вашей сборке</dt><dd id="part-now"></dd>
+        </dl>
+      </div>
+    </details>
   </main>
   <script src="vendor/strudel-web-1.3.0.js"></script>
   <script src="audio-bank.js"></script>
@@ -49,9 +61,10 @@
   <script src="transport.js?v=conveyor1"></script>
   <script src="disc/music.js"></script>
   <script src="disc/conveyor/audition.js"></script>
-  <script src="disc/line/score.js"></script>
-  <script src="disc/line/music.js"></script>
-  <script src="disc/line/scene.js"></script>
-  <script src="disc/line/app.js"></script>
+  <script src="disc/line/score.js?v=sample-gears"></script>
+  <script src="disc/line/music.js?v=sample-gears"></script>
+  <script src="disc/line/parts.js?v=sample-gears"></script>
+  <script src="disc/line/scene.js?v=sample-gears"></script>
+  <script src="disc/line/app.js?v=sample-gears"></script>
 </body>
 </html>

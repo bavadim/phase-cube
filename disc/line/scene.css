@@ -18,3 +18,13 @@
 /* The SVG root owns pointer capture. Horizontal edits stay on the apparatus
    even on mobile engines that ignore touch-action on an individual SVG <g>. */
 .line-scene { touch-action:pan-y pinch-zoom; }
+.line-scene .gear-name {font:800 14px Arial,Helvetica,sans-serif;letter-spacing:.5px}
+.line-scene .gear-phase-value {font:800 11px ui-monospace,"Courier New",monospace}
+.line-scene .hub-control {
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;
+  width:48px;height:48px;margin:0;padding:0;border-radius:50%;
+  border:2px solid #223545;background:#fff1be;color:#223545;font:700 13px ui-monospace,monospace;
+  line-height:1.02;touch-action:none;cursor:ns-resize;user-select:none;
+}
+.line-scene .hub-control span {font-size:17px}
+.line-scene .hub-control:focus-visible,.line-scene .hub-control:hover {border-color:#b94a27;outline:0}

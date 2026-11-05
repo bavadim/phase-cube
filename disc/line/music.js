@@ -48,6 +48,14 @@
             transport.running || transport.want) return Promise.resolve(false);
         return audition.play(auditionSource, FactoryScore.eventAt(score.snapshot(), step).route, step);
       },
+      previewGearLevel(index) {
+        if ((index !== 0 && index !== 1) || transport.running || transport.want) return Promise.resolve(false);
+        // Both excerpts begin on a tooth. After a phase edit that same first
+        // note is under the reader at gear.phase. At zero gain its hap is absent,
+        // and play() stops the previous audition before looking for the new one.
+        const gear = score.snapshot().gears[index];
+        return audition.play(auditionSource, index === 0 ? 'motor' : 'hook', gear.phase);
+      },
       async start() {
         if (transport.want) return transport.lifecycle;
         audition.stop();

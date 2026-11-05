@@ -5,6 +5,8 @@
   const undo = document.getElementById('undo');
   const host = document.getElementById('machine');
   const help = document.getElementById('help');
+  const guide = document.getElementById('guide');
+  const partSelect = document.getElementById('part-select');
   const notice = document.getElementById('notice');
   const playLabel = play.querySelector('span');
   const model = window.FactoryScore;
@@ -47,7 +49,7 @@
       lastContact = absoluteStep;
     }
     previousSound = sounding;
-    scene.render({state:line.score.snapshot(), audibleState:sounding, model, playing:heard,
+    scene.render({state:line.score.snapshot(), audibleState:sounding, model, playing:heard, gearMarks:line.score.gearMarks,
       step, phase:position - absoluteStep, time, history:paper});
   }
   function frame() {
@@ -75,32 +77,60 @@
     line.start().then(startFrames).catch(showError);
     controls();
   }
-  function pitchName(pitch) {
-    return ['До','До♯','Ре','Ми♭','Ми','Фа','Фа♯','Соль','Соль♯','Ля','Си♭','Си'][pitch % 12] + (Math.floor(pitch / 12) - 1);
+  function refreshGuide() {
+    if (!guide.open) return;
+    const part = LineParts.parts[partSelect.value];
+    for (const key of ['ports','gesture','cycle']) {
+      document.getElementById('part-' + key).textContent = part[key];
+    }
+    document.getElementById('part-now').textContent = line ? part.now(line.score.snapshot()) : 'Загрузка сборки…';
   }
+  for (const [id, part] of Object.entries(LineParts.parts)) partSelect.add(new Option(part.name, id));
+  partSelect.value = 'clutch';
+  partSelect.addEventListener('change', refreshGuide);
+  guide.addEventListener('toggle', refreshGuide);
+  document.getElementById('guide-open').addEventListener('click', () => {
+    guide.open = true;
+    refreshGuide();
+    partSelect.focus({preventScroll:true});
+    guide.scrollIntoView({block:'start'});
+  });
+  let inspected;
+  function inspectControl(event) {
+    if (event.type === 'pointermove' && (event.buttons || event.pointerType === 'touch')) return;
+    const control = event.target.closest('[data-action]');
+    if (control === inspected) return;
+    inspected = control;
+    const entry = LineParts.operations[control?.dataset.action];
+    if (entry) help.textContent = entry[1];
+  }
+  host.addEventListener('pointermove', inspectControl);
+  host.addEventListener('focusin', inspectControl);
   function act({type, index, delta = 1}) {
     if (!line) return;
     const before = line.score.snapshot();
-    if (!line.edit(type, index, delta)) return;
+    const entry = LineParts.operations[type];
+    if (!entry) return;
+    partSelect.value = entry[0];
+    if (!line.edit(type, index, delta)) {
+      help.textContent = LineParts.feedback(type, index, before);
+      refreshGuide();
+      return;
+    }
     if (edits.length === 64) edits.shift();
     edits.push(before);
     const state = line.score.snapshot();
-    let text;
-    switch (type) {
-      case 'note': text = 'Коробка ' + (index + 1) + ' · ' + pitchName(state.notes[index]); break;
-      case 'tab': text = 'Язычок ' + (index + 1) + ' направляет коробку в ' + (state.routes[index] ? 'металл.' : 'стекло.'); break;
-      case 'rotor': text = 'Барабан сдвинут. Теперь язычки встречают другие коробки.'; break;
-      case 'disc': text = 'Диск повёрнут. Штамп срабатывает, когда обе прорези открыты и выбран металл.'; break;
-      case 'clutch': text = state.clutch ? 'Муфта включена. До штампа доходят удары в совпавших прорезях.' : 'Прямой привод. Каждый удар по металлу приводит штамп в движение.'; break;
-    }
-    if (text) help.textContent = text;
+    help.textContent = LineParts.feedback(type, index, state);
     if (!line.wanted && (type === 'note' || type === 'tab')) {
       const step = type === 'note' ? index : (index + state.rotor) % model.STEPS;
       line.preview(step).catch(showError);
+    } else if (!line.wanted && type === 'gearLevel') {
+      line.previewGearLevel(index).catch(showError);
     }
     render();
     controls();
     persist();
+    refreshGuide();
   }
   function undoEdit() {
     if (!edits.length) return;
@@ -109,6 +139,7 @@
     render();
     controls();
     persist();
+    refreshGuide();
   }
   async function init() {
     line = await FactoryMusic.create({onChange:controls, onError:showError});
@@ -122,6 +153,7 @@
     host.setAttribute('aria-busy', 'false');
     controls();
     render();
+    refreshGuide();
     const context = window.strudel.getAudioContext();
     context.addEventListener('statechange', () => {
       if (line.playing && context.state !== 'running') stop();
@@ -133,7 +165,7 @@
     if (event.defaultPrevented || event.repeat || event.target.closest('input,textarea,select,[contenteditable]')) return;
     if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.code === 'KeyZ') {
       event.preventDefault(); undoEdit();
-    } else if (event.code === 'Space' && !event.target.closest('button,a,[role=button]')) {
+    } else if (event.code === 'Space' && !event.target.closest('button,a,summary,[role=button]')) {
       event.preventDefault(); togglePlay();
     }
   });
