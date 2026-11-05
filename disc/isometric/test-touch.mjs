@@ -29,6 +29,11 @@ try {
 
   await page.goto(session.url+'/disc/isometric/index.html');
   await page.locator('#play:enabled').waitFor();
+  const pianoFiles=await page.evaluate(()=>performance.getEntriesByType('resource')
+    .map(entry=>new URL(entry.name).pathname.split('/').slice(-2).join('/'))
+    .filter(path=>path.startsWith('biba_tx_piano/')).sort());
+  assert.deepEqual(pianoFiles,['C2','C3','C4','C5'].map(note=>'biba_tx_piano/'+note+'.wav'),
+    'first cam audition has its piano samples before the player touches a tooth');
   await waitView(null);
   const initial=await state();
   await checkUnlabelledBoard();

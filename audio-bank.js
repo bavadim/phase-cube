@@ -46,8 +46,9 @@
     const unique=new Map();
     for(const h of pattern.queryArc(0,bars)){
       if(!h.hasOnset())continue;
-      const v=h.value,sound=S.getSound(v.s);
-      if(!sound)throw new Error('Не найден инструмент: '+v.s);
+      const v=h.value,entry=S.getSound(v.s);
+      if(!entry)throw new Error('Не найден инструмент: '+v.s);
+      const sound=entry.data??entry;
       if(sound.type==='sample'){
         const info=S.getSampleInfo(v,sound.samples);
         unique.set(info.url,[v,sound.samples]);

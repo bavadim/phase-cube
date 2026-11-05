@@ -35,7 +35,8 @@
         if (!current()) return false;
         init ??= S.initAudio().catch(error => { init = null; throw error; });
         await Promise.all([init, ...events.map(event => {
-          const sound = S.getSound(event.value.s);
+          const entry = S.getSound(event.value.s);
+          const sound = entry?.data ?? entry;
           return sound?.type === 'sample' ? S.getSampleBuffer(event.value,sound.samples) : undefined;
         })]);
         if (!current() || ctx.state !== 'running') return false;
