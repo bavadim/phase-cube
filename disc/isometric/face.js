@@ -3,8 +3,8 @@ window.IsoFace=(()=>{
   'use strict';
   const bounds={
     router:[[-1.38,-.04,-1.08],[1.42,1.00,1.09]],
-    source:[[-1.74,-.04,-1.36],[2.12,1.53,2.29]],
-    delay:[[-1.54,-.04,-.96],[1.63,1.14,1.75]],
+    source:[[-1.88,-.04,-2.23],[1.79,1.53,2.29]],
+    delay:[[-2.14,-.04,-1.06],[1.40,1.14,1.75]],
     copy:[[-1.17,-.05,-.88],[1.60,1.52,1.40]],
     keys:[[-1.47,-.08,-.93],[1.47,1.05,2.02]],
     bell:[[-1.47,-.07,-.92],[1.47,1.48,2.02]],
@@ -12,25 +12,27 @@ window.IsoFace=(()=>{
   };
   const idle='#e5e4d2', ivory='#fff0ce', green='#92d2b7', amber='#f6ba88';
   const row=(type,key,x,y,z,w,d,extra={})=>({type,key,x,y,z,w,d,...extra});
-  const outlet=(id,port,x,y,z)=>row('port','port-'+id+':'+port,x,y,z,.9,.46,{port,id});
+  const outlet=(id,port)=>row('port','port-'+id+':'+port,0,0,0,.56,.46,{port,id});
+  const paintTools=[...IsoFlow.PALETTE.filter(pitch=>pitch!==null),null];
   const layouts={
     router:[
       ...Array.from({length:8},(_,i)=>row('step','step-'+i,0,.745,0,.49,.49,{i})),
       row('lever','lever',.75,.735,.283,.38,.41),
-      outlet('router','straight',1.29,.34,.34),outlet('router','side',.417,.34,.99)
+      outlet('router','straight'),outlet('router','side')
     ],
     source:[
+      ...paintTools.map((pitch,i)=>row('brush','brush-'+(pitch??'rest'),-1.20+.80*i,1.08,-1.88,.59,.55,{pitch})),
       ...Array.from({length:8},(_,i)=>{const a=-i*Math.PI/4;
         return row('pin','pin-'+i,.55+.95*Math.sin(a),1.241,.13+.95*Math.cos(a),.43,.43,{i});
       }),
       ...['phase','level'].flatMap((control,i)=>[-1,1].map((sign,j)=>
-        row('rocker',control+(sign<0?'-down':'-up'),-.81+1.62*i+(j-.5)*.72,.51,1.79,.63,.50,{control,sign}))),
-      row('reading','phase-value',-.81,.43,1.39,1.32,.28,{control:'phase'}),
-      row('reading','level-value',.81,.43,1.39,1.32,.28,{control:'level'}),
-      outlet('source','out',1.59,.395,.78)
+        row('rocker',control+(sign<0?'-down':'-up'),-1.09+1.39*i+(j-.5)*.62,.51,1.79,.54,.50,{control,sign}))),
+      row('reading','phase-value',-1.09,.43,1.39,1.16,.28,{control:'phase'}),
+      row('reading','level-value',.30,.43,1.39,1.16,.28,{control:'level'}),
+      outlet('source','out')
     ],
-    delay:[...Array.from({length:5},(_,i)=>row('slot','delay-'+i,(i-2)*.55,.53,1.18,.48,.64,{i})),outlet('delay','out',1.11,.46,.18)],
-    copy:[outlet('copy','out',1.04,.49,.14),outlet('copy','copy',.25,.47,1.15)],
+    delay:[...Array.from({length:5},(_,i)=>row('slot','delay-'+i,(i-2)*.52-.66,.53,1.18,.47,.64,{i})),outlet('delay','out')],
+    copy:[outlet('copy','out'),outlet('copy','copy')],
     ...Object.fromEntries(['keys','bell','bin'].map(id=>[id,Array.from({length:8},(_,i)=>
       row('event','arrival-'+i,(i%4-1.5)*.64,.50,1.12+Math.floor(i/4)*.46,.59,.42,{id,i}))]))
   };
@@ -42,6 +44,7 @@ window.IsoFace=(()=>{
     softer:'M3 9h4l5-4v14l-5-4H3z M15 9q4 3 0 6',
     gate:'M4 12h16m-12-4-4 4 4 4m8-8 4 4-4 4',
     port:'M6 5v4m6-4v4M4 9h10v2a5 5 0 0 1-10 0zm5 7v3q0 2 3 2h5',
+    erase:'m3 14 9-10 8 7-9 10H8Zm5-5 8 7',
   };
   function symbol(name){
     const ns='http://www.w3.org/2000/svg',s=document.createElementNS(ns,'svg'),p=document.createElementNS(ns,'path');
@@ -62,10 +65,16 @@ window.IsoFace=(()=>{
         label:'Шаг '+(i+1)+', '+(hits.length?name:'пауза')+', '+recipient+(chosen===i&&frame.picked?'. Переключить задвижку':'. Показать путь')};
     }
     if(type==='lever')return {way:s.routes[chosen]?'straight':'side',label:'Переключить задвижку для шага '+(chosen+1)};
+    if(type==='brush'){
+      const pitch=def.pitch,chosen=frame.paintPitch===pitch;
+      return {chosen,pressed:chosen,color:pitch===null?idle:IsoPieces.noteColor(pitch),
+        label:pitch===null?'Пауза. Убрать ноту со штифта':pitchName(pitch)+'. Выбрать и послушать ноту'};
+    }
     if(type==='pin'){
       const pitch=s.source.notes[i], name=pitch==null?'—':pitchName(pitch);
-      return {live:playStep>=0&&(playStep-s.source.phase+8)%8===i,
-        color:pitch==null?idle:IsoPieces.noteColor(pitch),label:'Штифт '+(i+1)+', '+(pitch==null?'пауза':name)+'. Сменить ноту'};
+      const brush=frame.paintPitch;
+      return {live:playStep>=0&&(playStep-s.source.phase+8)%8===i,rest:pitch===null,
+        color:pitch==null?idle:IsoPieces.noteColor(pitch),label:'Штифт '+(i+1)+', '+(pitch==null?'пауза':name)+'. '+(brush===undefined?'Сменить ноту':brush===null?'Поставить паузу':'Поставить '+pitchName(brush))};
     }
     if(type==='reading'){
       const name=control==='phase'?'Сдвиг':'Громкость', value=control==='phase'?s.source.phase+'/8':Math.round(s.source.level*100)+'%';
@@ -94,6 +103,7 @@ window.IsoFace=(()=>{
   function activate(def,frame,cb) {
     const state=frame.editState||frame.state;
     switch(def.type){
+      case 'brush':return cb.choosePitch(def.pitch);
       case 'step':return cb.touchCam(def.i);
       case 'lever':return cb.flipRoute();
       case 'pin': return cb.act({type:'note',index:def.i});
@@ -133,9 +143,9 @@ window.IsoFace=(()=>{
     const line=(p,d,color,width)=>path(p,d,{fill:'none',stroke:color,'stroke-width':width,'stroke-linecap':'round','stroke-linejoin':'round'});
     const dot=(p,x,y,r,fill)=>svg('circle',p,{cx:x,cy:y,r,fill});
     const pinRadius=.67,low=c.low+.31,high=c.high+.31;
-    line(scene,'M -1.17 .58 H -.95 L -.70 .84 H .61 L .78 .66 H '+high,'#baa06a',.10);
-    line(scene,'M '+high+' .66 H 1.62 V -.46','#287e6d',.12);
-    line(scene,'M '+low+' .66 V 1 H .88','#bf653b',.12);
+    line(scene,'M -1.09 -1.22 V .43 L -.70 .84 H .61 L .78 .66 H '+high,'#baa06a',.10);
+    line(scene,'M '+high+' .66 H 1.57 V 1.04','#287e6d',.12);
+    line(scene,'M '+low+' .66 V 1.04 H .55','#bf653b',.12);
     line(scene,'M .77 .53 H 1.65 M .77 .78 H 1.65','#908f7b',.046);
     dot(scene,low,.66,.137,'#bd714a');dot(scene,high,.66,.137,'#398b77');
     const wheel=svg('g',scene),teeth=[],stones=[];
@@ -189,21 +199,61 @@ window.IsoFace=(()=>{
           const a=def.i*c.pitch-pose.angle;
           place(e,Math.cos(a)*pinRadius,Math.sin(a)*pinRadius);
         }else if(def.type==='lever')place(e,pose.radius+.31,.36);
-        else if(def.type==='port')def.port==='straight'?place(e,1.62,-.46):place(e,.88,1);
+        else if(def.type==='port')def.port==='straight'?place(e,1.57,1.04):place(e,.55,1.04);
       }
     };
+  }
+  function flatScore(root){
+    const well=document.createElement('div');well.className='flat-score';root.append(well);
+    const ns='http://www.w3.org/2000/svg';
+    const drawing=document.createElementNS(ns,'svg');drawing.setAttribute('viewBox','-1.3 -1.3 2.6 2.6');
+    drawing.setAttribute('aria-hidden','true');well.append(drawing);
+    const rim=document.createElementNS(ns,'path'),vertices=[];
+    for(let tooth=0;tooth<24;tooth++)for(const [offset,r] of [[-.50,1.10],[-.30,1.20],[.30,1.20],[.50,1.10]]){
+      const a=(tooth+offset)*Math.PI/12;vertices.push([Math.sin(a)*r,Math.cos(a)*r].join(' '));
+    }
+    rim.setAttribute('d','M '+vertices.join(' L ')+' Z');rim.setAttribute('fill','#617a6e');drawing.append(rim);
+    const layer=(r,fill)=>{const e=document.createElementNS(ns,'circle');e.setAttribute('r',r);e.setAttribute('fill',fill);drawing.append(e);};
+    layer(1.085,'#3a554a');layer(.74,'#8fbb9d');layer(.28,'#c49b5e');layer(.14,'#71684c');
+    const reader=document.createElementNS(ns,'path');reader.setAttribute('d','M -.105 1.27 L 0 1.07 L .105 1.27 Z');
+    reader.setAttribute('fill','#faf1cf');reader.setAttribute('stroke','#394c3e');reader.setAttribute('stroke-width','.025');drawing.append(reader);
+    return {well,update(frame){const p=IsoPieces.scorePin(frame,0);
+      const angle=Math.atan2(p.x-.55,p.z-.13);rim.setAttribute('transform','rotate('+(-angle*180/Math.PI)+')');},
+      place(e,d,frame){const p=IsoPieces.scorePin(frame,d.i);
+        e.style.left=(50+(p.x-.55)*100/2.6)+'%';e.style.top=(50+(p.z-.13)*100/2.6)+'%';}};
   }
   function makeView({overlay,pieces,projectLocal,callbacks},flat){
     const root=document.createElement('div');root.dataset.face='';
     root.className='iso-face'+(flat?' is-flat':'');overlay.append(root);
     const faces=new Map();
-    let graphic=null,active=null, controls=[], frame=null, state=null, previewStep=-1,step=-2,pose=null;
+    let graphic=null,active=null, controls=[], frame=null, state=null, previewStep=-1,step=-2,pose=null,paintPitch;
+    let lastScoreTime,lastScorePhase;
+    function transferGrain(pin,pitch){
+      if(!root.animate||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+      const brush=root.querySelector('[data-face-key="brush-'+(pitch??'rest')+'"]');
+      if(!brush)return;
+      const box=root.getBoundingClientRect(),start=(pitch===null?pin:brush).getBoundingClientRect(),
+        end=(pitch===null?brush:pin).getBoundingClientRect();
+      const x=start.left+start.width/2-box.left,y=start.top+start.height/2-box.top;
+      const dx=end.left+end.width/2-box.left-x,dy=end.top+end.height/2-box.top-y;
+      const bead=document.createElement('span');bead.className='painted-grain';bead.setAttribute('aria-hidden','true');
+      bead.style.left=x+'px';bead.style.top=y+'px';
+      bead.style.background=pitch===null?getComputedStyle(pin).getPropertyValue('--cap-tone'):IsoPieces.noteColor(pitch);
+      root.append(bead);
+      const motion=bead.animate([{transform:'translate(-50%,-50%)'},
+        {transform:'translate(calc(-50% + '+dx*.5+'px),calc(-50% + '+(dy*.5-15)+'px))'},
+        {transform:'translate(calc(-50% + '+dx+'px),calc(-50% + '+dy+'px)) scale(.75)'}],
+        {duration:230,easing:'ease-in-out'});
+      motion.onfinish=motion.oncancel=()=>bead.remove();
+    }
     function rebuild(id){
       if(active&&faces.has(active))faces.get(active).shell.visible=false;
       active=id;root.dataset.part=id||'';root.hidden=!id;root.replaceChildren();controls=[];state=null;pose=null;graphic=null;
+      lastScoreTime=lastScorePhase=undefined;
       if(!id)return;
       const layout=layouts[id]||[];
       if(flat&&id==='router')graphic=flatCam(root,callbacks.touchCam);
+      if(flat&&id==='source')graphic=flatScore(root);
       let face=faces.get(id);
       if(!flat&&!face){
         face=IsoPieces.serviceFace(id,pieces[id].group);faces.set(id,face);
@@ -213,7 +263,12 @@ window.IsoFace=(()=>{
       for(const d of layout){
         const e=document.createElement(['reading','event'].includes(d.type)?'span':'button');
         e.className='iso-face-control face-'+d.type;e.dataset.faceKey=d.key;
-        const mark=document.createElement('i');mark.setAttribute('aria-hidden','true');e.append(mark);root.append(e);
+        const mark=document.createElement('i');mark.setAttribute('aria-hidden','true');e.append(mark);
+        (flat&&d.type==='pin'?graphic.well:root).append(e);
+        if(d.type==='brush'){
+          if(d.pitch===null)mark.append(symbol('erase'));
+          else for(let j=0;j<=paintTools.indexOf(d.pitch);j++)mark.append(document.createElement('b'));
+        }
         if(d.type==='rocker')mark.append(symbol(d.control==='phase'?(d.sign>0?'phaseUp':'phaseDown'):(d.sign>0?'louder':'softer')));
         if(d.type==='port')mark.append(symbol('port'));
         if(d.type==='lever')mark.append(symbol('gate'));
@@ -224,10 +279,15 @@ window.IsoFace=(()=>{
         }
         if(e.tagName==='BUTTON'){
           e.type='button';
-          if(d.type==='step'){
-            // Taking the logical index on contact also works on a running cam.
-            sectorTap(e,()=>activate(d,frame,callbacks));
-          }else e.onclick=()=>activate(d,frame,callbacks);
+          const perform=()=>{
+            if(d.type==='pin'&&frame.paintPitch!==undefined&&frame.paintPitch!==frame.editState.source.notes[d.i]){
+              transferGrain(e,frame.paintPitch);
+            }
+            activate(d,frame,callbacks);
+          };
+          // A moving tooth or pin keeps its identity from pointer-down to release.
+          if(d.type==='step'||d.type==='pin')sectorTap(e,perform);
+          else e.onclick=perform;
         }
         controls.push({d,e,mark,color:null});
       }
@@ -238,8 +298,12 @@ window.IsoFace=(()=>{
       if(active!==id)rebuild(id);
       if(!id||!controls.length)return;
       const s=frame.editState||frame.state, cur=frame.playing?frame.tick.step:-1;
-      const changed=state!==s||previewStep!==frame.previewStep||step!==cur;
-      state=s;previewStep=frame.previewStep;step=cur;
+      const changed=state!==s||previewStep!==frame.previewStep||step!==cur||paintPitch!==frame.paintPitch;
+      state=s;previewStep=frame.previewStep;step=cur;paintPitch=frame.paintPitch;
+      if(changed&&id==='source'){
+        root.toggleAttribute('data-brush',paintPitch!==undefined);
+        root.style.setProperty('--brush-tone',paintPitch==null?idle:IsoPieces.noteColor(paintPitch));
+      }
       // Orthographic projection is affine. Fixed face keys only need CSS
       // positions when framing changes; playback updates their ink and lamps.
       let moved=false;
@@ -249,7 +313,10 @@ window.IsoFace=(()=>{
         if(moved)pose=[a.x,a.y,b.x,b.y];
       }
       const camView=id!=='router'?null:flat?graphic.update(frame):IsoPieces.camPose(pieces[id].group);
-      if(!changed&&!moved&&!camView)return;
+      const scoreMoves=id==='source'&&(lastScoreTime!==frame.time||lastScorePhase!==frame.state.source.phase);
+      if(scoreMoves){lastScoreTime=frame.time;lastScorePhase=frame.state.source.phase;}
+      if(flat&&scoreMoves)graphic.update(frame);
+      if(!changed&&!moved&&!camView&&!scoreMoves)return;
       const face=faces.get(id);
       for(const item of controls){
         const {d,e,mark}=item;
@@ -268,9 +335,15 @@ window.IsoFace=(()=>{
           }
         }
         if(d.type==='step')rgbaChoice(e,'atReader',cam.reader===d.i);
-        if(flat&&graphic)graphic.place(e,d,camView);
-        if(flat||(!moved&&!cam))continue;
+        if(flat&&camView)graphic.place(e,d,camView);
+        const scorePin=d.type==='pin';
+        if(flat&&scorePin&&scoreMoves)graphic.place(e,d,frame);
+        if(flat||(!moved&&!cam&&!(scoreMoves&&scorePin)))continue;
         let {x,y,z}=d;
+        if(scorePin)({x,y,z}=IsoPieces.scorePin(frame,d.i));
+        if(d.type==='port'){
+          const p=pieces[id].ports[d.port];x=p.x;y=p.y+.09;z=p.z;
+        }
         if(d.type==='step'){
           const c=IsoPieces.CAM,a=d.i*c.pitch-cam.angle;
           const radius=.651;

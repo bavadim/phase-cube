@@ -1,16 +1,66 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.IsoScene = (() => {
-  // Each socket has a physical direction. Turn receivers into the trunk
-  // on portrait displays so it can pass through the machine without long sidings.
   const stations = {
-    source:{label:'Шестерня',w:3.22,d:2.08,h:1.49,wide:[-3.01,-1.18],tall:[-1.66,-2.41,-Math.PI/2]},
-    router:{label:'Развилка',w:2.56,d:1.99,h:1.05,wide:[.49,-1.08],tall:[1.04,-.92]},
-    keys:{label:'Клавиши',w:1.91,d:1.51,h:.98,wide:[3.53,-1.52],tall:[1.68,1.86,-Math.PI/2]},
-    bell:{label:'Колокол',w:1.54,d:1.44,h:1.28,wide:[2.80,.59],tall:[-.48,1.0,Math.PI]},
-    copy:{label:'Копир',w:1.75,d:1.6,h:1.51,wide:[-3.53,1.34],tall:[1.12,-3.50]},
-    delay:{label:'Задержка',w:2.09,d:1.37,h:1.05,wide:[-.99,1.38],tall:[-1.12,3.12]},
-    bin:{label:'Корзина',w:1.46,d:1.38,h:1.15,wide:[1.28,1.79],tall:[1.34,4.04]}
+    source:{label:'Шестерня',w:3.22,d:2.08,h:1.49},
+    router:{label:'Развилка',w:2.56,d:1.99,h:1.05},
+    keys:{label:'Клавиши',w:1.91,d:1.51,h:.98},
+    bell:{label:'Колокол',w:1.54,d:1.44,h:1.28},
+    copy:{label:'Копир',w:1.75,d:1.6,h:1.51},
+    delay:{label:'Задержка',w:2.09,d:1.37,h:1.05},
+    bin:{label:'Корзина',w:1.46,d:1.38,h:1.15}
   };
+  // The validated patch is acyclic. Layer by upstream depth so even a
+  // custom order of processors has outlets facing its downstream inputs.
+  function layout(links,portrait){
+    const processors=['copy','router','delay'], sinks=['bell','keys','bin'];
+    const upstream=id=>Object.keys(links).filter(key=>links[key]===id);
+    const owner=key=>key.split(':')[0];
+    const rank=id=>id==='source'?0:Math.max(1,...upstream(id).map(key=>rank(owner(key))+1));
+    const live=reachable(links);
+    const last=Math.max(...processors.map(rank))+1;
+    const rows=Array.from({length:last+1},()=>[]);
+    rows[0].push('source');
+    const loose=[];
+    for(const id of processors){
+      if(!upstream(id).length&&!Object.keys(links).some(key=>owner(key)===id))loose.push(id);
+      else rows[rank(id)].push(id);
+    }
+    for(const id of loose){
+      // On a tall phone park one idle unit beside the hopper. Additional
+      // spare units share an intermediate row, leaving room for finger targets.
+      const shelf=portrait&&rows[0].length===1?rows[0]:
+        rows.slice(1,last).reduce((a,b)=>b.length<a.length?b:a);
+      shelf.push(id);
+    }
+    rows[last]=sinks;
+    const result={};
+    let z=0,prevDepth=0;
+    for(let i=0;i<rows.length;i++){
+      const row=rows[i], depth=Math.max(...row.map(id=>stations[id].d));
+      const branchX=id=>{
+        const parents=upstream(id);
+        if(!parents.length)return id==='source'?0:Infinity;
+        return parents.reduce((sum,key)=>{
+          const split=key.split(':'),port=split[1];
+          const offset=port==='copy'||port==='side'?-.5:.5;
+          return sum+(result[owner(key)]?.x??0)+offset;
+        },0)/parents.length;
+      };
+      row.sort((a,b)=>branchX(a)-branchX(b));
+      // Centre the live path when spare stations fit to either side.
+      if(row.length===3&&row.filter(id=>live.has(id)).length===1)row.unshift(row.pop());
+      const gap=portrait?.27:.46;
+      const width=row.reduce((sum,id)=>sum+stations[id].w,0)+gap*(row.length-1);
+      let x=-width/2;
+      if(i)z+=(prevDepth+depth)/2+.98;
+      for(const id of row){
+        result[id]={x:x+stations[id].w/2,z:z+(i===0&&id!=='source'?.43:0)};
+        x+=stations[id].w+gap;
+      }
+      prevDepth=depth;
+    }
+    return result;
+  }
   const inserts=new Set(['copy','delay','router']);
   const make=(tag,cls)=>Object.assign(document.createElement(tag),{className:cls});
   function allowed(state,action) {
@@ -72,7 +122,7 @@ window.IsoScene = (() => {
     const vec=(x,y,z)=>new THREE.Vector3(x,y,z);
     let patch=null,insert=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
     let disposed=false,width=0,height=0,activeStation=null,lastPointerAt=-Infinity,modeState=null;
-    let face=null,overview=null,pose=null,focusId=null,transition=null,litOutlet=null;
+    let face=null,overview=null,pose=null,focusId=null,transition=null,litOutlet=null,layoutKey=null;
     const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     let targetStations=new Set(),targetBelts=new Set(),activeStations=new Set();
     // Touch can synthesize a click with detail=0. Pointer-up has already
@@ -184,12 +234,12 @@ window.IsoScene = (() => {
       }
     }
     function axisOf(port){
-      return port==='side'||port==='copy'?vec(0,0,1):vec(port==='in'?-1:1,0,0);
+      return vec(0,0,port==='in'?-1:1);
     }
     // A socket belongs to its chassis even when its cable is unplugged.
     function addSocket(piece,s,port,local){
       const axis=axisOf(port),up=vec(0,1,0);
-      const flange=Math.abs(local.dot(axis))-(axis.x?s.w:s.d)*.5;
+      const flange=Math.abs(local.z)-s.d*.5;
       function sleeve(back,front,r,mat,sides){
         const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,front-back,sides),mat);
         mesh.position.copy(local).addScaledVector(axis,(back+front)*.5);
@@ -216,9 +266,7 @@ window.IsoScene = (() => {
     function footprints(){
       return Object.entries(pieces).map(([id,p])=>{
         const {x,z}=p.group.position,{w,d}=stations[id];
-        const swapped=Math.abs(Math.sin(p.group.rotation.y))>.5;
-        const hw=(swapped?d:w)/2,hd=(swapped?w:d)/2;
-        return {left:x-hw,right:x+hw,top:z-hd,bottom:z+hd};
+        return {left:x-w/2,right:x+w/2,top:z-d/2,bottom:z+d/2};
       });
     }
     const framingCamera=new THREE.OrthographicCamera();
@@ -226,8 +274,8 @@ window.IsoScene = (() => {
       cam.position.set(20*Math.sin(yaw),20*alt,20*Math.cos(yaw));cam.lookAt(0,0,0);cam.updateMatrixWorld();
     }
     function fit(id){
-      const yaw=id ? .055+pieces[id].group.rotation.y : (portrait ? .09 : .25);
-      const alt=id ? 1.83 : (portrait ? 1.45 : 1.2);
+      const yaw=id ? .045 : (portrait ? .055 : .13);
+      const alt=id ? 1.83 : (portrait ? 1.55 : .97);
       orient(framingCamera,yaw,alt);
       const rect=new THREE.Box2(),point=new THREE.Vector2();
       function corner(local,station){
@@ -280,14 +328,10 @@ window.IsoScene = (() => {
       for(const key of Object.keys(to))result[key]=THREE.MathUtils.lerp(from[key],to[key],blend);
       placeCamera(result);
     }
-    function resize(){
-      if(disposed)return;
-      width=Math.max(1,host.clientWidth);height=Math.max(1,host.clientHeight);
-      renderer.setSize(width,height,false);portrait=width/height<1.18;
+    function placeStations(links){
+      const positions=layout(links,portrait);
       for(const [id,p] of Object.entries(pieces)){
-        const [x,z,angle=0]=stations[id][portrait?'tall':'wide'];
-        p.group.position.set(x,0,z);
-        p.group.rotation.y=angle;
+        const {x,z}=positions[id];p.group.position.set(x,0,z);
       }
       const footprintsAll=footprints();
       const bounds={left:Math.min(...footprintsAll.map(o=>o.left))-.39,right:Math.max(...footprintsAll.map(o=>o.right))+.39,
@@ -295,7 +339,13 @@ window.IsoScene = (() => {
       skinTable(bounds);scene.updateMatrixWorld(true);
       overview=fit(null);
       aim(frame?.selected&&!patch&&!insert?frame.selected:null,false);
-      linksKey=null;dirty=true;
+      linksKey=null;dirty=true;layoutKey=JSON.stringify(links);
+    }
+    function resize(){
+      if(disposed)return;
+      width=Math.max(1,host.clientWidth);height=Math.max(1,host.clientHeight);
+      renderer.setSize(width,height,false);portrait=width/height<1.18;
+      placeStations((frame?.editState||frame?.state)?.links||{});
       if(frame)render(frame);
     }
     function travelArrows(carrier,path){
@@ -394,14 +444,15 @@ window.IsoScene = (() => {
       const t=Number.isFinite(frame.time)?frame.time:0;
       if(modeState!==(frame.editState||frame.state))syncTargets();
       const focused=patch||insert?null:frame.selected||null;
+      const connections=(patch||insert||focused)?modeState.links:frame.state.links;
+      const key=JSON.stringify(connections);
+      if(layoutKey!==key)placeStations(connections);
       if(focusId!==focused)aim(focused);
       moveCamera();
       const straight=frame.playing?frame.tick?.straight??frame.state.routes[Math.floor(t*8)%8]:modeState.routes[frame.previewStep??0];
       const outlet=focused==='router'?'router:'+(straight?'straight':'side'):null;
       if(outlet!==litOutlet){litOutlet=outlet;markBelt(null);}
-      if(!frame.playing&&!pieces.router.needsFrame?.()&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep)return;
-      const connections=(patch||insert||focused)?modeState.links:frame.state.links;
-      const key=JSON.stringify(connections);
+      if(!frame.playing&&!pieces.router.needsFrame?.()&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep&&prev.paintPitch===frame.paintPitch)return;
       if(linksKey!==key){linksKey=key;rebuild(connections);}
       if(!frame.revision&&lastState!==frame.state)revision=IsoFlow.revision(frame.state);
       lastState=frame.state;
@@ -412,13 +463,14 @@ window.IsoScene = (() => {
         display=IsoFlow.apply(display,commandFor(gesture.edit,gesture.change));
       }
       const displayTick=!frame.playing&&typeof frame.previewRoute==='boolean'?{...tick,straight:frame.previewRoute}:tick;
-      const view={...frame,state:display,tick:displayTick,progress};
+      const view={...frame,state:display,tick:displayTick,progress,focusPart:transition?null:focused};
       for(const [id,part] of Object.entries(pieces)){
         const asleep=!activeStations.has(id)&&id!==frame.selected&&!patch&&!insert&&!tick.activity[id]?.length;
         if(asleep&&part.dormant)continue;
-        if(!asleep)setDormant(part,false);
+        const muted=asleep||!!focused&&focused!==id;
+        if(!muted)setDormant(part,false);
         part.update(view);
-        if(asleep)setDormant(part,true);
+        if(muted)setDormant(part,true);
       }
       if(activeStation!==frame.selected||dirty){
         activeStation=frame.selected;
@@ -432,7 +484,7 @@ window.IsoScene = (() => {
           selection.position.copy(piece.group.position);selection.position.y=.012;
         }
       }
-      face?.render(frame,transition?null:focused);
+      face?.render(view,view.focusPart);
       showFlow(frame.revision||revision,step,progress,frame.playing);dirty=false;
       try{renderer.render(scene,camera);}catch(error){if(!renderer.getContext().isContextLost())throw error;}
     }
@@ -463,7 +515,9 @@ window.IsoScene = (() => {
       return p?Math.atan2(p.x-center.x,p.z-center.z):0;
     }
     function commandFor(a,delta){
-      if(a.type==='pin')return {type:'note',index:a.index,delta};
+      if(a.type==='pin'){
+        return frame.paintPitch===undefined?{type:'note',index:a.index,delta}:{type:'note',index:a.index,value:frame.paintPitch};
+      }
       return {...a,delta:a.type==='level'?delta*.25:delta};
     }
     function beltUnder(x,y,node){
@@ -620,5 +674,5 @@ window.IsoScene = (() => {
       renderer.dispose();overlay.remove();canvas.remove();
     }};
   }
-  return {mount};
+  return {mount,layout};
 })();

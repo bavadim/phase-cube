@@ -124,26 +124,35 @@ window.IsoPieces = (() => {
     });
     return mesh(p,geo,tone,x,y,z);
   }
+  const sourceDrives=new WeakMap();
+  function scoreAngle(frame) {
+    return ((frame.time||0)*8-frame.state.source.phase)*TAU/8;
+  }
+  function scorePin(frame,index) {
+    const a=scoreAngle(frame)-index*TAU/8;
+    return {x:.55+.95*Math.sin(a),y:1.241,z:.13+.95*Math.cos(a)};
+  }
   function source(root) {
+    const drive={wheel:null,angle:0};
+    sourceDrives.set(root,drive);
     mounting(root,3.22,2.08,'teal');
-    // A separate milk-glass throat under each flared enamel hopper reveals
-    // its supply of C, E or G. The reader points at the approaching pin.
-    const pitchers = window.IsoFlow.PALETTE.filter(p => p !== null).map((pitch,i) => {
-      const p = group(root,-1.13 + .72*i, .37,-.71);
-      cyl(p,.17,.20,.14,0,.07,0,'edge');
-      cyl(p,.104,.104,.23,0,.23,0,'paper');
-      rod(p,[0,.088,.01],[0,.050,.253],.067,'steel');
-      lathe(p,[[.095,0],[.11,0],[.12,.12],[.31,.40],[.32,.45],[.285,.45],[.085,.13],[.067,.06]],
-        0,.30,0,noteColor(pitch));
-      bead(p,.303,.024,0,.75,0,'ivory');
-      const note = ball(p,.115,0,.67,0,noteColor(pitch));
+    // Three pitch wells and an empty one for rests share the same rim and axle.
+    const pitches=window.IsoFlow.PALETTE.filter(pitch=>pitch!==null).concat(null);
+    const pitchers=pitches.map((pitch,i)=>{
+      const x=(i-1.5)*.8, p=group(root,x,.36,-.72);
+      const tone=pitch===null?'edge':noteColor(pitch);
+      cyl(p,.13,.19,.19,0,.12,0,'brass');
+      cyl(p,.092,.098,.18,0,.238,0,'paper');
+      lathe(p,[[.078,0],[.098,0],[.124,.15],[.31,.39],[.315,.43],[.27,.43],[.080,.11],[.065,.025]],
+        0,.285,0,tone);
+      bead(p,.296,.022,0,.718,0,'ivory');
+      const note=pitch===null?null:ball(p,.108,0,.63,0,tone);
       return {body:p,note,pitch};
     });
-    rod(root,[-1.13,.418,-.46],[1.41,.418,-.46],.071,'teal');
-    rod(root,[1.41,.418,-.46],[1.41,.396,.16],.071,'teal');
-    rod(root,[1.41,.396,.16],[1.65,.340,.16],.075,'brass');
-    ball(root,.075,1.41,.418,-.46,'teal');
-    ball(root,.075,1.41,.396,.16,'teal');
+    rod(root,[-1.20,.414,-.55],[1.41,.414,-.55],.07,'teal');
+    rod(root,[1.41,.414,-.55],[1.41,.40,.88],.07,'teal');
+    rod(root,[1.41,.40,.88],[1.41,.31,1.08],.075,'brass');
+    ball(root,.07,1.41,.414,-.55,'teal');
     const x = .55, z = .16, module = .058, big = 24, small = 14;
     const r = big*module/2, d = (big+small)*module/2;
     const rim = group(root,x,.44,z), smallRim = group(root,x-d,.435,z);
@@ -180,13 +189,16 @@ window.IsoPieces = (() => {
     rod(reader,[0,.48,-.006],[0,.515,-.338],.042,'ivory');
     const lamp = ball(reader,.061,0,.51,-.338,'orange');
     return {
-      ports:{out:vec(1.79,.29,.16)},
+      ports:{out:vec(1.41,.31,1.22)},
       update(f) {
         const {phase,level,notes}=f.state.source, turn=(f.tick.tick+f.progress)*TAU/8;
         rim.rotation.y=turn;
         // At contact, crest of the driven gear faces the gap in the driver.
         smallRim.rotation.y=-turn*big/small;
-        sleeve.rotation.y=turn-phase*TAU/8;
+        drive.angle=scoreAngle(f);
+        if(drive.wheel)drive.wheel.rotation.y=drive.angle;
+        const editing=f.focusPart==='source';
+        sleeve.visible=!editing;sleeve.rotation.y=turn-phase*TAU/8;
         handle.position.y=.045+.145*level;
         notes.forEach((pitch,i)=>{
           const cap=pins[i], rest=pitch===null;
@@ -195,10 +207,10 @@ window.IsoPieces = (() => {
         });
         const e=f.tick.activity.source[0], pulse=hit(f,'source');
         pitchers.forEach(({body,note,pitch})=>{
-          // The feed bowls retract below the raised programming rim.
-          body.scale.y=f.selected==='source'?.47:1;
-          note.position.y=.68+(e?.pitch===pitch?pulse*.09:0);
+          body.position.z=editing?-1.88:-.72;
+          if(note)note.position.y=.63+(e?.pitch===pitch?pulse*.09:0);
         });
+        reader.visible=!editing;
         lamp.material=paint(pulse>.12?noteColor(e.pitch):'paper');
       }
     };
@@ -222,8 +234,9 @@ window.IsoPieces = (() => {
     rod(root,[0,.39,-.44],[0,1.38,-.44],.11,'edge');
     plate(root,.31,.16,.65,0,1.34,-.21,'brick');
     const shaft=cyl(root,.068,.068,.37,0,1.18,.065,'steel');
+    for(const x of [-.44,.44])rod(root,[x,.40,.41],[x,.30,.85],.065,'brass');
     return {
-      ports:{in:vec(-1.06,.29,0),out:vec(1.08,.29,0),copy:vec(.36,.29,1.00)},
+      ports:{in:vec(0,.29,-.99),out:vec(.44,.29,.99),copy:vec(-.44,.29,.99)},
       update(f) {
         const drop=.17*hit(f,'copy'); head.position.y=-drop;
         shaft.position.y=1.18-drop/2; shaft.scale.y=1+drop/.37;
@@ -247,8 +260,10 @@ window.IsoPieces = (() => {
     cyl(slider,.09,.12,.23,0,.68,0,'brass');
     cyl(slider,.161,.186,.12,0,.84,0,'plum',16);
     cyl(slider,.124,.151,.029,0,.916,0,'paper',16);
+    rod(root,[-.70,.30,-.76],[-.70,.42,-.34],.065,'brass');
+    rod(root,[.89,.42,.34],[.98,.30,.73],.065,'brass');
     return {
-      ports:{in:vec(-1.2,.29,0),out:vec(1.2,.29,0)},
+      ports:{in:vec(-.70,.29,-.87),out:vec(.98,.29,.90)},
       update(f) {
         const count=f.state.delay, slots=f.tick.pockets;
         pockets.forEach(({p,note},i)=>{
@@ -351,11 +366,11 @@ window.IsoPieces = (() => {
       cyl(bench,.158,.168,.07,px,.444,.665,tone,28);
       cyl(bench,.099,.102,.035,px,.489,.665,tone===green?'#73c9ad':'#e4a06a',28);
     }
-    outlet(highX,[[highX,.404,.665],[1.26,.40,.665],[1.48,.31,.4]],green);
-    outlet(lowX,[[lowX,.399,.665],[lowX,.391,.91],[.49,.31,1.18]],amber);
+    outlet(highX,[[highX,.404,.665],[highX,.391,.91],[.88,.31,1.185]],green);
+    outlet(lowX,[[lowX,.399,.665],[.49,.394,.99],[-.40,.391,.99],[-.565,.31,1.185]],amber);
     // Incoming manifold under the cam and the bearings on which the valve slides.
-    const inlet=[[-1.50,.31,.50],[-1.26,.389,.50],[-.96,.397,.82],[-.78,.397,.865],
-      [.37,.397,.865],[.57,.397,.665],[highX,.397,.665]];
+    const inlet=[[.47,.31,-1.18],[.47,.40,-.92],[1.12,.40,-.76],[1.24,.40,-.56],
+      [1.24,.40,.47],[1.11,.40,.665],[lowX,.40,.665]];
     for(let i=1;i<inlet.length;i++)rod(bench,inlet[i-1],inlet[i],.068,'brass');
     for(const p of inlet.slice(1,-1))ball(bench,.068,...p,'brass');
     for(const zz of [.50,.826])rod(bench,[lowX-.29,.521,zz],[highX+.28,.521,zz],.036,'steel');
@@ -369,12 +384,11 @@ window.IsoPieces = (() => {
     cyl(carriage,.049,.053,.031,0,.720,z,'brass',16);
     const grip=cyl(carriage,.115,.148,.095,.21,.658,.333,'teal',24);
     bead(carriage,.095,.013,.21,.708,.333,'ivory');
-    const portVec=(xx,yy,zz)=>vec(xx*CAM.scale,yy,zz*CAM.scale);
     const drive=createCamDrive();
     camPoses.set(root,drive.pose);
     let lastRoutes,lastScore;
     return {
-      ports:{in:portVec(-1.50,.31,.50),straight:portVec(1.54,.31,.40),side:portVec(.49,.31,1.18)},
+      ports:{in:vec(.4,.31,-1.16),straight:vec(.75,.31,1.16),side:vec(-.48,.31,1.16)},
       needsFrame:()=>drive.pose.animating,
       update(f) {
         const s=f.selected==='router'&&!f.playing?(f.editState||f.state):f.state;
@@ -416,7 +430,7 @@ window.IsoPieces = (() => {
       plate(root,.108,.11,.36,(i-2.5)*.212,.798,.013,'ink',.018);
     }
     const keyIndex={60:0,64:2,67:4};
-    return {ports:{in:vec(-1.16,.29,.02)},update(f) {
+    return {ports:{in:vec(0,.29,-.94)},update(f) {
       const struck=f.tick.hits.keys, strength=hit(f,'keys');
       keyboard.forEach((key,i)=>{
         key.rotation.x=struck.some(box=>keyIndex[box.pitch]===i)?strength*.16:0;
@@ -438,7 +452,7 @@ window.IsoPieces = (() => {
     cyl(hammer,.088,.106,.11,0,0,0,'edge');
     rod(hammer,[0,0,0],[.10,.37,-.03],.036,'brass');
     ball(hammer,.095,.10,.37,-.03,'orange');
-    return {ports:{in:vec(-.97,.29,0)},update(f) {
+    return {ports:{in:vec(-.21,.29,-.90)},update(f) {
       const strike=hit(f,'bell');
       hammer.rotation.z=.32-strike*.86;
       dome.rotation.z=strike*Math.sin(f.progress*Math.PI*8)*.037;
@@ -458,7 +472,7 @@ window.IsoPieces = (() => {
     for(const y of [.18,.40]) bead(can,.285+.204*y,.018,0,y,0,'steel');
     bead(can,.425,.036,0,.674,0,'teal');
     const scrap=plate(can,.18,.16,.23,0,0,0,'gold',.025);
-    return {ports:{in:vec(-.93,.29,0)},update(f) {
+    return {ports:{in:vec(0,.29,-.88)},update(f) {
       const note=f.tick.hits.bin[0];
       scrap.visible=Boolean(f.playing && note && f.progress<.61);
       if(scrap.visible) {
@@ -481,6 +495,7 @@ window.IsoPieces = (() => {
   // machine. Geometry and its accessible printed legends share local axes.
   function serviceFace(id,parent) {
     const shell=group(parent), caps=new Map();
+    let scoreWheel;
     shell.name=id+'-service';shell.visible=false;
     function casework(w,d,x,z,tone) {
       plate(shell,w,.19,d,x,.23,z,'edge',.13);
@@ -490,26 +505,45 @@ window.IsoPieces = (() => {
       }
     }
     if(id==='source'){
-      const ring=new T.Shape();ring.absarc(.55,-.13,1.11,0,TAU,false);
-      const opening=new T.Path();opening.absarc(.55,-.13,.74,0,TAU,true);ring.holes.push(opening);
-      mesh(shell,geometry('service-score-ring',()=>extrude(ring,.085,.015)),'edge',0,1.095,0);
+      const drive=sourceDrives.get(parent);
+      scoreWheel=group(shell,.55,0,.13);drive.wheel=scoreWheel;scoreWheel.rotation.y=drive.angle;
+      cyl(scoreWheel,1.115,1.105,.093,0,1.13,0,'edge',64);
+      cyl(scoreWheel,.775,.78,.016,0,1.18,0,'teal',64);
+      bead(scoreWheel,.71,.012,0,1.196,0,'mint');
+      cyl(scoreWheel,.205,.230,.13,0,1.245,0,'brass',8);
+      cyl(scoreWheel,.103,.122,.022,0,1.324,0,'teal');
+      for(let i=0;i<3;i++){
+        const bar=group(scoreWheel);
+        bar.rotation.y=i*TAU/3;
+        plate(bar,.06,.016,.38,0,1.20,.44,'mint',.021);
+      }
       for(const x of [-.36,1.44])rod(shell,[x,.35,.09],[x,1.135,.09],.064,'brass');
-      rod(shell,[1.68,.30,.19],[1.68,.31,.78],.040,'brass');
-      plate(shell,.56,.073,.19,1.55,.33,.78,'brass',.04);
-      casework(3.24,.94,0,1.67,'teal');
+      // A fixed ivory pointer hangs just outside the lower edge of the
+      // revolving program. Each head arrives here on its sounding eighth.
+      rod(shell,[.55,.38,1.075],[.55,1.235,1.365],.043,'brass');
+      const tip=geometry('score-read-head',()=>{
+        const shape=new T.Shape();shape.moveTo(-.09,-.09);shape.lineTo(.09,-.09);
+        shape.lineTo(0,.105);shape.closePath();return extrude(shape,.035,.005);
+      });
+      mesh(shell,tip,'paper',.55,1.24,1.335);
+      // Pull-out service shelf stops short of the output jack.
+      casework(2.91,.94,-.36,1.67,'teal');
+      for(let i=0;i<4;i++)rod(shell,[(i-1.5)*.8,.39,-1.88],[(i-1.5)*.8,.39,-.54],.055,'brass');
       for(const x of [-1,1])rod(shell,[x,.23,.82],[x,.23,1.39],.075,'brass');
     }
     if(id==='delay'){
-      casework(2.96,.93,0,1.15,'plum');
-      for(const x of [-.74,.74])rod(shell,[x,.23,.57],[x,.23,1.04],.070,'steel');
+      casework(2.80,.93,-.66,1.15,'plum');
+      for(const x of [-.80,.38])rod(shell,[x,.23,.57],[x,.23,1.04],.070,'steel');
     }
     if(['keys','bell','bin'].includes(id)){
       casework(2.80,1.16,0,1.34,'edge');
       for(const x of [-.46,.46])rod(shell,[x,.23,.57],[x,.23,1.05],.060,'brass');
     }
     function key(key,x,y,z,w,d,round) {
-      const pad=round?cyl(shell,w/2,w/2+.008,.078,x,y-.045,z,'paper',32):
+      const pin=scoreWheel&&key.startsWith('pin-');
+      const pad=round?cyl(pin?scoreWheel:shell,w/2,w/2+.008,.078,x-(pin?.55:0),y-.045,z-(pin?.13:0),'paper',32):
         plate(shell,w,.080,d,x,y-.043,z,'paper',.067);
+      if(pin)action(pad,'pin',Number(key.slice(4)));
       caps.set(key,pad);
     }
     function capColor(key,color){
@@ -517,5 +551,5 @@ window.IsoPieces = (() => {
     }
     return {shell,key,capColor};
   }
-  return Object.freeze({create,noteColor,serviceFace,CAM,camRadius,createCamDrive,camPose:root=>camPoses.get(root)});
+  return Object.freeze({create,noteColor,serviceFace,scorePin,CAM,camRadius,createCamDrive,camPose:root=>camPoses.get(root)});
 })();

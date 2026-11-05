@@ -50,6 +50,18 @@
         (event.value._boxPath === p.path || event.value._boxPath.startsWith(p.path + '/'))));
   }
 
+  // A pin keeps its index as the gear rotates. Listen to just that attack
+  // and any copies of it, at their actual instruments and delays.
+  function pinTick(state,index){
+    return (index+state.source.phase)%Flow.STEPS;
+  }
+  function pinEvents(S,state,index,keys=KEYS){
+    const at=pinTick(state,index);
+    return pattern(S,Flow.revision(state),keys)
+      .queryArc(at/Flow.STEPS,(at+Flow.MAX_DELAY+1)/Flow.STEPS)
+      .filter(event=>event.value._boxOrigin===at);
+  }
+
   async function create({onChange = () => {}, onError = console.error} = {}) {
     const S = window.strudel;
     const transport = new PhaseCubeTransport(S, {outputGain:1, onChange, onError});
@@ -92,6 +104,14 @@
       previewRoute(state,index) {
         return audition.playEvents(routeEvents(S,state,index,keys),1 + index / Flow.STEPS);
       },
+      previewPin(state,index) {
+        return audition.playEvents(pinEvents(S,state,index,keys),pinTick(state,index)/Flow.STEPS);
+      },
+      previewPitch(pitch) {
+        if(pitch===null)return audition.playEvents([]);
+        const span=new S.TimeSpan(0,1/Flow.STEPS);
+        return audition.playEvents([new S.Hap(span,span,{...keys,note:pitch})],0);
+      },
       audible() {
         transport.poll();
         return transport.active?.meta.revision ?? idle;
@@ -121,5 +141,5 @@
       }
     });
   }
-  return Object.freeze({BPM, pattern, routeEvents, create});
+  return Object.freeze({BPM, pattern, routeEvents, pinEvents, create});
 });

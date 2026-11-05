@@ -131,4 +131,12 @@ const forkThenCopy = Flow.restore({...initial, links:{
 assert.deepEqual(listen(forkThenCopy,0), [[0,'sine',60],[2,'biba_tx_piano',60]], 'both descendants with relative delay');
 assert.deepEqual(listen(edit(initial,'disconnect',{from:'source:out'}),0), [], 'unconnected source');
 assert.deepEqual(listen(edit(initial,'level',{delta:-1}),0), [], 'silent source');
+const phased=Flow.restore({...forkThenCopy,source:{...forkThenCopy.source,phase:7},
+  routes:Array(8).fill(true)});
+const pinPreview=(state,pin)=>Audio.pinEvents(S,state,pin)
+  .map(h=>[Number(h.whole.begin)*Flow.STEPS,h.value._phaseCubePart,h.value.note]);
+assert.deepEqual(pinPreview(phased,0),[[7,'bell',60],[9,'keys',60]],'only this pin and its delayed copy across the loop seam');
+assert.deepEqual(pinPreview(phased,2),[[1,'bell',64],[3,'keys',64]],'phase wraps back to the start');
+assert.deepEqual(pinPreview(phased,1),[],'empty pin stays silent despite adjacent notes in the query');
+assert.deepEqual(pinPreview(edit(phased,'connect',{from:'source:out',to:'bin'}),0),[],'basket silences the pin');
 console.log('PASS: graph edits, delay handover, eight-step routing, v1 save migration, cold start and native Strudel onsets.');

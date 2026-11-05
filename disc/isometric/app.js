@@ -22,9 +22,8 @@
   // The second cycle includes notes that crossed the bar line in the delay.
   const stepFrames=()=>Array.from({length:F.STEPS},(_,i)=>F.tick(revision,F.STEPS+i));
   let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,previewStep=0,picked=false,starting=false;
-  let cachedRevision,cachedTick,eventFrame,lastLamp=-1,raf=0,focusAfterZoom=null;
-  const undo=[],lamps=Array.from({length:F.STEPS},()=>document.createElement('i'));
-  $('beat').append(...lamps);
+  let paintPitch,cachedRevision,cachedTick,eventFrame,raf=0,focusAfterZoom=null;
+  const undo=[],menu=$('workbench-menu');
   function notice(text){$('notice').textContent=text;$('notice').hidden=!text;}
   function refresh(){
     const mode=!!(patch||insert),focused=!!selected&&!mode;
@@ -35,8 +34,12 @@
     $('assembly').hidden=focused||mode;
     $('mount-part').hidden=!(focused&&movable&&links.some(([key,to])=>to!==selected&&!key.startsWith(selected+':')));
     $('bypass-part').hidden=!(focused&&movable&&links.some(([,to])=>to===selected));
+    menu.hidden=mode||(focused&&$('mount-part').hidden&&$('bypass-part').hidden);
+    if(menu.hidden)menu.open=false;
+    menu.querySelector('summary').setAttribute('aria-label',focused?'Действия с деталью':'Меню верстака');
     $('cancel-mode').hidden=!mode;$('unplug').hidden=!(patch&&state.links[patch]);
-    $('preset').value=presetKeys[signature(state)]||'custom';$('undo').disabled=undo.length===0;
+    $('preset').value=presetKeys[signature(state)]||'custom';
+    $('undo').disabled=!undo.length;$('undo').hidden=!undo.length||mode;
     const board=$('board');board.parentElement.dataset.mode=mode?'mount':focused?'focus':'overview';
     if(patch){
       const [id,port]=patch.split(':');
@@ -51,19 +54,38 @@
     try{localStorage.setItem(storageKey,JSON.stringify(next));}catch{/* Keep session edits when storage is unavailable. */}
     notice('');refresh();
   }
-  function act(action){try{updateState(F.apply(state,action));return true;}catch(err){notice(err.message);return false;}}
+  function playPreview(request){
+    if(audio&&!audio.wanted())request(audio).catch(err=>notice('Не удалось прослушать ноту. '+err.message));
+  }
+  function act(action){
+    try{
+      if(action.type==='note'&&selected==='source'&&paintPitch!==undefined&&!Object.hasOwn(action,'value')){
+        action={...action,value:paintPitch};
+      }
+      updateState(F.apply(state,action));
+      if(action.type==='note')playPreview(engine=>engine.previewPin(state,action.index));
+      return true;
+    }catch(err){notice(err.message);return false;}
+  }
+  function choosePitch(pitch){
+    if(selected!=='source'||!F.PALETTE.includes(pitch))return;
+    paintPitch=pitch;$('status').textContent=pitch===null?'Пауза':pitchName(pitch);
+    playPreview(engine=>engine.previewPitch(pitch));
+  }
   function patchChanged(key){patch=key;if(key)insert=null;refresh();}
   function insertChanged(id){insert=id;if(id)patch=null;refresh();}
   function cancel(){scene?.cancelMode();}
   function select(id){
     if(id!==null&&!Object.hasOwn(names,id))return;
     const old=selected,keyboard=document.activeElement?.matches(':focus-visible');
-    cancel();selected=id;if(old!==id)picked=false;notice('');refresh();
+    cancel();selected=id;menu.open=false;
+    if(old!==id){picked=false;paintPitch=undefined;}
+    notice('');refresh();
     focusAfterZoom=keyboard&&old!==id?(id?'#back-to-table':'#board [data-station="'+old+'"]'):null;
   }
   function rewind(){const previous=undo.pop();cancel();if(previous)updateState(previous,false);}
   function audition(){
-    if(audio&&!audio.wanted())audio.previewRoute(state,previewStep).catch(err=>notice('Не удалось прослушать ноту. '+err.message));
+    playPreview(engine=>engine.previewRoute(state,previewStep));
   }
   function announceCamStep(){
     const port=state.routes[previewStep]?'straight':'side';
@@ -101,10 +123,8 @@
     if(tick!==cachedTick||active!==cachedRevision){
       eventFrame=F.tick(active,tick);cachedTick=tick;cachedRevision=active;
     }
-    const lamp=playing?eventFrame.step:-1;
-    if(lamp!==lastLamp){lamps[lastLamp]?.classList.remove('on');lamps[lamp]?.classList.add('on');lastLamp=lamp;}
     const previewRoute=selected==='router'&&!patch&&!insert&&!playing?state.routes[previewStep]:null;
-    scene.render({state:active.state,editState:state,revision:active,selected,previewStep,picked,previewRoute,steps,time,playing,tick:eventFrame});
+    scene.render({state:active.state,editState:state,revision:active,selected,paintPitch,previewStep,picked,previewRoute,steps,time,playing,tick:eventFrame});
     if(focusAfterZoom){
       const target=document.querySelector(focusAfterZoom);
       if(target?.getClientRects().length){target.focus({preventScroll:true});focusAfterZoom=null;}
@@ -113,15 +133,19 @@
   }
   $('preset').onchange=()=>{const id=$('preset').value;select(null);previewStep=0;updateState(presetState(id));};
   $('back-to-table').onclick=()=>select(null);$('cancel-mode').onclick=cancel;
-  $('mount-part').onclick=()=>scene.setInsert(selected);
-  $('bypass-part').onclick=()=>act({type:'bypass',node:selected});
+  $('mount-part').onclick=()=>{menu.open=false;scene.setInsert(selected);};
+  $('bypass-part').onclick=()=>{menu.open=false;act({type:'bypass',node:selected});};
   $('unplug').onclick=()=>{if(patch&&act({type:'disconnect',from:patch}))cancel();};
   $('undo').onclick=rewind;$('play').onclick=toggleAudio;
+  document.addEventListener('pointerdown',e=>{if(menu.open&&!menu.contains(e.target))menu.open=false;});
   document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){if(patch||insert)cancel();else if(selected)select(null);}
+    if(e.key==='Escape'){
+      if(menu.open){menu.open=false;menu.querySelector('summary').focus();e.preventDefault();}
+      else if(patch||insert)cancel();else if(selected)select(null);
+    }
     if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();rewind();}
   });
-  const callbacks={select,act,notice,patchChanged,insertChanged,pickStep,touchCam,flipRoute,
+  const callbacks={select,act,choosePitch,notice,patchChanged,insertChanged,pickStep,touchCam,flipRoute,
     startPatch:key=>scene.setPatch(key),startInsert:id=>scene.setInsert(id),
     connect:(from,to)=>act({type:'connect',from,to}),disconnect:from=>act({type:'disconnect',from})};
   scene=IsoScene.mount($('board'),callbacks)||IsoFlat.mount($('board'),callbacks);

@@ -10,6 +10,10 @@ try {
   const station=id=>page.locator('[data-station="'+id+'"]');
   const face=key=>page.locator('[data-face-key="'+key+'"]');
   const state=()=>page.evaluate(()=>IsoBench.inspect().state);
+  const menu=page.locator('#workbench-menu');
+  async function openMenu() {
+    if(!await menu.evaluate(node=>node.open))await menu.locator('summary').tap();
+  }
   async function checkUnlabelledBoard() {
     const printed=await page.locator('#board').evaluate(board=>board.innerText);
     assert.doesNotMatch(printed,/[\p{L}\p{N}]/u,'mechanisms use shapes and programme marks');
@@ -23,7 +27,11 @@ try {
     return geometry?.webgl && !geometry.contextLost && !geometry.settling && geometry.focus===expected;
   },id,{polling:100});
   async function back() {
-    await page.locator('#back-to-table').tap();
+    const ok=page.locator('#back-to-table');
+    assert.match((await ok.innerText()).trim(),/^(?:ОК|OK)$/i);
+    const rect=await ok.boundingBox();
+    assert.ok(rect?.height>=44&&rect.width>=44,'OK is a visible touch target in the editor');
+    await ok.tap();
     await waitView(null);
   }
 
@@ -37,7 +45,16 @@ try {
   await waitView(null);
   const initial=await state();
   await checkUnlabelledBoard();
-  const overviewZoom=await page.evaluate(()=>IsoBench.inspect().geometry.zoom);
+  assert.equal(await page.locator('#back-to-table').isVisible(),false);
+  const overview=await page.evaluate(()=>IsoBench.inspect().geometry);
+  const overviewZoom=overview.zoom;
+  for(const [port,socket] of Object.entries(overview.ports)) {
+    const [id,io]=port.split(':');
+    assert.ok(io==='in'?socket.y<overview.nodes[id].y:socket.y>overview.nodes[id].y,
+      'the visible '+port+' jack is on the correct edge of the mechanism');
+  }
+  assert.ok(overview.nodes.source.y<overview.nodes.router.y);
+  assert.ok(overview.nodes.router.y<overview.nodes.keys.y&&overview.nodes.router.y<overview.nodes.bell.y);
 
   await station('router').tap();
   await waitView('router');
@@ -64,14 +81,37 @@ try {
   assert.deepEqual(await state(),initial);
   await back();
 
+  await openMenu();
   await page.locator('#preset').selectOption('straight');
   await waitView(null);
   await station('source').tap();
   await waitView('source');
   const before=await state();
+  for(const viewport of [{width:320,height:660},{width:667,height:375},{width:390,height:844}]) {
+    await page.setViewportSize(viewport);
+    await waitView('source');
+    await face('brush-67').tap({timeout:3500});
+    await page.waitForFunction(()=>document.querySelector('[data-face-key="brush-67"]').getAttribute('aria-pressed')==='true');
+  }
+  await back();
+  await station('source').tap();
+  await waitView('source');
   // The eighth pin is adjacent to the outlet; its centre must still select a note.
   await face('pin-7').tap();
   assert.notEqual((await state()).source.notes[7],before.source.notes[7]);
+  await face('brush-64').tap();
+  await face('pin-1').tap();
+  await face('pin-5').tap();
+  assert.equal((await state()).source.notes[1],64);
+  assert.equal((await state()).source.notes[5],64);
+  await face('brush-rest').tap();
+  await face('pin-5').tap();
+  assert.equal((await state()).source.notes[5],null);
+  await back();
+  await station('source').tap();
+  await waitView('source');
+  await face('pin-5').tap();
+  assert.equal((await state()).source.notes[5],60,'OK saves the phrase and releases the previous brush');
   await face('phase-up').tap();
   assert.equal((await state()).source.phase,(before.source.phase+1)%8);
   await face('level-down').tap();
@@ -96,6 +136,7 @@ try {
   await station('delay').tap();
   await waitView('delay');
   await face('delay-4').tap();
+  await openMenu();
   await page.locator('#mount-part').tap();
   await waitView(null);
   // Use a real projected point on the cable between the source and the keys.
