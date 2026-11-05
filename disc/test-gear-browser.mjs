@@ -104,7 +104,23 @@ async function drag(context, path, touch, finish = 'commit') {
     assert.ok(handle.indexError < 1e-8, 'Calibration handle must track the current gesture');
     assert.notEqual(handle.control[handle.kind], findPart(before,handle.key)[handle.kind]);
     if (finish === 'context-loss') {
-      await page.evaluate(() => discTest.stage.renderer.forceContextLoss());
+      await page.evaluate(() => {
+        const stage = discTest.stage;
+        const probe = new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.1),new THREE.MeshBasicMaterial());
+        probe.material.customProgramCacheKey = () => 'loss-during-first-material-frame';
+        stage.active.scene.add(probe);
+        try {
+          stage.renderer.forceContextLoss();
+          // The context is already unusable, but the DOM notification is a later task.
+          // Demand a real render in that window with one yet-to-be-compiled material.
+          stage.dirty = true;
+          stage.frame(performance.now());
+        } finally {
+          stage.active.scene.remove(probe);
+          probe.geometry.dispose();
+          probe.material.dispose();
+        }
+      });
       await page.waitForFunction(() => discTest.stage.contextLost);
       assert.equal(await page.evaluate(() => discTest.diagnostics().preview), false);
     }
@@ -308,7 +324,11 @@ try {
     if (process.env.GEAR_TEST_WIDTH && Number(process.env.GEAR_TEST_WIDTH) !== width) continue;
     const context = await browser.browser.newContext({viewport:{width,height},hasTouch:touch,isMobile:touch});
     page = await context.newPage();
-    page.on('pageerror',e => report.errors.push(e.message));
+    page.on('pageerror',e => {
+      const error = {width,message:e.message,stack:e.stack};
+      report.errors.push(error);
+      console.error('Browser error',error);
+    });
     page.on('response',r => {if (r.status() >= 400) report.missing.push([r.status(),r.url()]);});
     await load();
     if (browser.engine === 'chromium') await page.evaluate(async () => {const ctx = strudel.getAudioContext();if(ctx.setSinkId)await ctx.setSinkId({type:'none'});});

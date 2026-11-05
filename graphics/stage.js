@@ -99,7 +99,17 @@ window.PuzzleStage = class {
       const progress=Math.min(1,(now-t.start)/t.duration);t.step(progress*progress*(3-2*progress));this.dirty=true;
       if(progress===1){this.timelines.delete(key);t.resolve(true);}
     }
-    if(this.active&&this.dirty&&!this.contextLost){this.renderer.render(this.active.scene,this.active.view.camera);this.dirty=false;}
+    if(!this.active||!this.dirty||this.contextLost)return;
+    const gl=this.renderer.getContext();
+    if(gl.isContextLost())return;
+    try{
+      this.renderer.render(this.active.scene,this.active.view.camera);
+      this.dirty=false;
+    }catch(error){
+      // Drivers can lose the context during shader linking, before the DOM
+      // event arrives. Keep the pending redraw for restoration.
+      if(!gl.isContextLost())throw error;
+    }
   }
   unmount(){
     this.pointer.cancel();for(const key of this.timelines.keys())this.stopTween(key);
