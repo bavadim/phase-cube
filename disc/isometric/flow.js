@@ -7,7 +7,6 @@
   const STEPS = 8;
   const MAX_DELAY = 4;
   const PALETTE = Object.freeze([null, 60, 64, 67]);
-  const MASKS = Object.freeze([Object.freeze([0,2,4,6]), Object.freeze([0,1,4,5])]);
   const PORTS = Object.freeze(Object.fromEntries(Object.entries({
     source:['out'], copy:['out','copy'], delay:['out'], router:['straight','side'], keys:[], bell:[], bin:[]
   }).map(([node, ports]) => [node, Object.freeze(ports)])));
@@ -45,24 +44,38 @@
     }
     Object.keys(PORTS).forEach(visit);
   }
+  function restoreRoutes(raw) {
+    if (Object.hasOwn(raw, 'routes')) {
+      requireThat(Array.isArray(raw.routes) && raw.routes.length === STEPS &&
+        Array.from(raw.routes).every(v => typeof v === 'boolean'), 'Повреждены восемь направлений развилки.');
+      return Object.freeze([...raw.routes]);
+    }
+    // v1 saves stored two rotating perforated discs and a clutch. Recover the
+    // direction each incoming box would have taken at each of the eight steps.
+    requireThat(typeof raw.clutch === 'boolean' && Array.isArray(raw.discs) &&
+      raw.discs.length === 2 && Array.from(raw.discs).every(n => within(n, 0, STEPS - 1)), 'Повреждены настройки развилки.');
+    const holes = [[0, 2, 4, 6], [0, 1, 4, 5]];
+    return Object.freeze(Array.from({length:STEPS}, (_, step) =>
+      !raw.clutch || holes.every((slots, i) => slots.includes(wrap(step - raw.discs[i])))));
+  }
   function restore(raw) {
     const source = raw?.source;
     requireThat(source && Array.isArray(source.notes) && source.notes.length === STEPS &&
       Array.from(source.notes).every(n => n === null || within(n, 0, 127)) &&
       within(source.phase, 0, STEPS - 1) && Number.isFinite(source.level) && within(source.level * 4, 0, 8), 'Повреждена шестерня с нотами.');
-    requireThat(within(raw.delay, 0, MAX_DELAY) && typeof raw.clutch === 'boolean' &&
-      Array.isArray(raw.discs) && raw.discs.length === 2 && Array.from(raw.discs).every(n => within(n, 0, STEPS - 1)), 'Повреждены настройки накопителя или муфты.');
+    requireThat(within(raw.delay, 0, MAX_DELAY), 'Повреждены настройки накопителя.');
     verifyLinks(raw.links);
     return Object.freeze({
       source:Object.freeze({notes:Object.freeze([...source.notes]), phase:source.phase, level:source.level}),
-      delay:raw.delay, discs:Object.freeze([...raw.discs]), clutch:raw.clutch,
+      delay:raw.delay, routes:restoreRoutes(raw),
       links:Object.freeze({...raw.links})
     });
   }
   function initial() {
     return restore({
       links:{'source:out':'copy','copy:out':'keys','copy:copy':'delay','delay:out':'router','router:straight':'bell','router:side':'bin'},
-      source:{notes:[60,null,64,null,67,null,64,null],phase:0,level:1}, delay:2, discs:[0,0], clutch:true
+      source:{notes:[60,null,64,null,67,null,64,null],phase:0,level:1}, delay:2,
+      routes:[true,false,false,false,true,false,false,false]
     });
   }
 
@@ -119,13 +132,10 @@
         requireThat(Number.isInteger(delta), 'Задержка задаётся в восьмых.');
         next.delay = Math.max(0, Math.min(MAX_DELAY, state.delay + delta));
         break;
-      case 'disc':
-        requireThat(within(index, 0, 1) && Number.isInteger(delta), 'Выберите диск муфты.');
-        next.discs = [...state.discs];
-        next.discs[index] = wrap(next.discs[index] + delta);
-        break;
-      case 'clutch':
-        next.clutch = !state.clutch;
+      case 'route':
+        requireThat(within(index, 0, STEPS - 1), 'Выберите один из восьми шагов развилки.');
+        next.routes = [...state.routes];
+        next.routes[index] = Object.hasOwn(action, 'value') ? action.value : !state.routes[index];
         break;
       case 'note':
         requireThat(within(index, 0, STEPS - 1) && Number.isInteger(delta), 'Выберите штифт шестерни.');
@@ -140,18 +150,13 @@
     return JSON.stringify(valid) === JSON.stringify(state) ? state : valid;
   }
 
-  function gate(state, tick) {
-    const open = MASKS.map((slots,i) => slots.includes(wrap(tick - state.discs[i])));
-    return {open, straight:!state.clutch || open.every(Boolean)};
-  }
-
   // Just one bounded delay and an acyclic graph. To seek or query a Strudel arc
   // in any order, only the last four arrivals and the explicit handover matter.
   function tick(rev, at) {
     requireThat(Number.isSafeInteger(at), 'Ожидался целый шаг.');
     const {state, begin, carry} = rev;
     const activity = Object.fromEntries(Object.keys(PORTS).map(n => [n, []]));
-    const frame = {step:wrap(at), tick:at, ...gate(state, at), edges:[], pockets:[],
+    const frame = {step:wrap(at), tick:at, straight:state.routes[wrap(at)], edges:[], pockets:[],
       activity, hits:Object.fromEntries(destinations.map(n => [n, activity[n]]))};
     if (at < begin) return frame;
     let waiting = carry.filter(box => box.due >= Math.max(begin, at - MAX_DELAY));
@@ -172,7 +177,7 @@
           send('copy:out', box);
           send('copy:copy', box);
         }
-        if (n === 'router') send(gate(state, now).straight ? 'router:straight' : 'router:side', box);
+        if (n === 'router') send(state.routes[wrap(now)] ? 'router:straight' : 'router:side', box);
         if (n === 'delay') {
           if (state.delay === 0) send('delay:out', box);
           else waiting.push({...box, entered:now, due:now + state.delay});
@@ -195,5 +200,5 @@
     return Object.freeze({state, begin, carry:Object.freeze(carry.map(box => Object.freeze({...box})))});
   }
 
-  return Object.freeze({STEPS, MAX_DELAY, PALETTE, MASKS, PORTS, initial, restore, apply, revision, tick});
+  return Object.freeze({STEPS, MAX_DELAY, PALETTE, PORTS, initial, restore, apply, revision, tick});
 });

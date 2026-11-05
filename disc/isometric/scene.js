@@ -1,24 +1,58 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.IsoScene = (() => {
+  // The four live stations on the Duet bench read left-to-right. Spare
+  // modules stay within reach, in a separate row on portrait displays.
   const stations = {
-    source: {label:'Привод',w:3.5,d:2.05,wide:[-5.1,-.4],tall:[-.4,-5.9]},
-    copy: {label:'Копир',w:1.65,d:1.5,wide:[-1.35,-.4],tall:[-1.75,-2.05]},
-    keys: {label:'Клавиши',w:1.65,d:1.5,wide:[2.35,-2.3],tall:[2.2,-2.05]},
-    delay: {label:'Накопитель',w:2,d:1.55,wide:[1,2.1],tall:[-1.75,1.45]},
-    router: {label:'Развилка',w:2.65,d:1.9,wide:[4.5,2.1],tall:[2.2,1.45]},
-    bell: {label:'Колокол',w:1.65,d:1.5,wide:[7.7,.05],tall:[-1.75,5.55]},
-    bin: {label:'Корзина',w:1.65,d:1.5,wide:[7.7,4.4],tall:[2.2,5.55]}
+    source:{label:'Шестерня',w:3.5,d:2.05,wide:[-4.50,-1.30],tall:[-1.95,-3.35]},
+    router:{label:'Развилка',w:2.65,d:1.9,wide:[-.10,-1.30],tall:[2.05,-3.35]},
+    keys:{label:'Клавиши',w:1.65,d:1.5,wide:[4.05,-2.80],tall:[2.12,-.02]},
+    bell:{label:'Колокол',w:1.65,d:1.5,wide:[4.05,.25],tall:[-1.92,-.02]},
+    copy:{label:'Копир',w:1.65,d:1.5,wide:[-4.08,2.30],tall:[-2.83,3.18]},
+    delay:{label:'Задержка',w:2,d:1.55,wide:[-.30,2.50],tall:[-.06,3.18]},
+    bin:{label:'Корзина',w:1.65,d:1.5,wide:[4.05,3.45],tall:[2.75,3.18]}
   };
-  const portLabel={out:'Выход',copy:'Копия',straight:'Прямо',side:'Отвод',in:'Вход'};
+  const inserts=new Set(['copy','delay','router']);
   const make=(tag,cls)=>Object.assign(document.createElement(tag),{className:cls});
+  function allowed(state,action) {
+    try { IsoFlow.apply(state,action); return true; }
+    catch { return false; }
+  }
+  function reachable(links) {
+    const active=new Set(['source']);
+    function walk(id) {
+      for(const port of IsoFlow.PORTS[id]){
+        const to=links[id+':'+port];
+        if(to&&!active.has(to)){active.add(to);walk(to);}
+      }
+    }
+    walk('source');
+    return active;
+  }
   function fallback(host,callbacks){
     const panel=make('div','iso-fallback');host.append(panel);
-    for(const [id,s] of Object.entries(stations)){
-      const b=document.createElement('button'); b.type='button';b.textContent=s.label;
-      b.onclick=()=>callbacks.select(id);panel.append(b);
+    let frame,patch=null,insert=null;
+    function setPatch(key){if(key&&insert)setInsert(null);patch=key;callbacks.patchChanged?.(patch);draw();}
+    function setInsert(id){if(id&&patch)setPatch(null);insert=id;callbacks.insertChanged?.(insert);draw();}
+    function cancelMode(){if(patch)setPatch(null);if(insert)setInsert(null);}
+    function draw(){
+      if(!frame)return;
+      const state=frame.editState||frame.state;panel.replaceChildren();
+      function choice(name,click){const b=document.createElement('button');b.type='button';b.textContent=name;b.onclick=click;panel.append(b);}
+      if(insert){
+        for(const [from,to] of Object.entries(state.links)){
+          const edit={type:'insert',from,node:insert};
+          if(allowed(state,edit))choice(stations[from.split(':')[0]].label+' → '+stations[to].label,()=>{if(callbacks.act(edit)!==false)cancelMode();});
+        }
+      }else for(const [id,s] of Object.entries(stations)){
+        if(!patch)choice(s.label,()=>callbacks.select(id));
+        else if(allowed(state,{type:'connect',from:patch,to:id}))choice(s.label,()=>{if(callbacks.connect(patch,id)!==false)cancelMode();});
+      }
     }
-    callbacks.notice?.('Трёхмерный вид недоступен. Выберите деталь и настройте её в панели.');
-    return {render(){},setPatch(){},inspect(){return {webgl:false};},dispose(){panel.remove();}};
+    callbacks.notice?.('Трёхмерный стол недоступен. Выберите деталь, чтобы открыть управление.');
+    return {render(next){
+      const changed=!frame || (frame.editState||frame.state)!==(next.editState||next.state);
+      frame=next;if(changed)draw();
+    },setPatch,setInsert,cancelMode,inspect(){return {webgl:false};},dispose(){panel.remove();}};
   }
   function mount(host,callbacks){
     host.classList.add('iso-board');
@@ -33,49 +67,80 @@ window.IsoScene = (() => {
     const sun=new THREE.DirectionalLight(0xffecce,2.25);sun.position.set(-5,12,4);scene.add(sun);
     const fill=new THREE.DirectionalLight(0xb7e5f3,.65);fill.position.set(4,5,-6);scene.add(fill);
     const physical=color=>new THREE.MeshStandardMaterial({color,roughness:.76,metalness:.08,side:THREE.DoubleSide});
-    const materials={belt:physical(0x365a52),rail:physical(0xb09b6e),tread:physical(0x728b76),target:physical(0x71b69b)};
+    const materials={belt:physical(0x365a52),rail:physical(0xb09b6e),tread:physical(0x728b76),
+      target:physical(0x229071),pick:physical(0x9cce9e),a:physical(0x247e77),b:physical(0xc46437)};
     const table=new THREE.Group(),belts=new THREE.Group(),boxes=new THREE.Group(),marks=new THREE.Group();
     scene.add(table,belts,boxes,marks);
     const overlay=make('div','iso-overlay');host.append(overlay);
-    const ns='http://www.w3.org/2000/svg',draft=document.createElementNS(ns,'svg'),wire=document.createElementNS(ns,'path');
-    draft.setAttribute('class','iso-cable');draft.setAttribute('aria-hidden','true');
-    for(const [k,val] of Object.entries({fill:'none',stroke:'#14715e','stroke-width':3,'stroke-linecap':'round','stroke-dasharray':'5 7'}))wire.setAttribute(k,val);
-    draft.append(wire);overlay.append(draft);
     const ghost=make('span','iso-drag-label');ghost.hidden=true;overlay.append(ghost);
-    const inserts=new Set(['copy','delay','router']);
     const pieces={},buttons={},sockets={},routes=new Map(),tokenPool=[],tokenMaterials=new Map();
     const tokenGeometry=new THREE.BoxGeometry(.27,.19,.22),ray=new THREE.Raycaster();
+    const mutedMaterials=new Map(),originalMaterial=new WeakMap();
+    const dormantTone=new THREE.Color(0xc9c6b4);
+    function setDormant(part,off){
+      if(part.dormant===off)return;
+      part.dormant=off;
+      part.group.traverse(mesh=>{
+        const material=mesh.material;
+        if(!material?.color)return;
+        if(!off){mesh.material=originalMaterial.get(material)||material;return;}
+        if(!mutedMaterials.has(material)){
+          const muted=material.clone();
+          muted.color.lerp(dormantTone,.68);
+          mutedMaterials.set(material,muted);originalMaterial.set(muted,material);
+        }
+        mesh.material=mutedMaterials.get(material);
+      });
+    }
     const events=new AbortController(),opt={signal:events.signal};
     const vec=(x,y,z)=>new THREE.Vector3(x,y,z);
-    let patch=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
-    let disposed=false,width=0,height=0,activeStation=null,lastPointerAt=-Infinity;
+    let patch=null,insert=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
+    let disposed=false,width=0,height=0,activeStation=null,lastPointerAt=-Infinity,modeState=null;
+    let targetStations=new Set(),targetBelts=new Set(),activeStations=new Set();
     // Touch can synthesize a click with detail=0. Pointer-up has already
     // committed that action. Keyboard and assistive activation still use click.
     function accessibleActivation(e){
       return !e.pointerType && e.detail===0 && performance.now()-lastPointerAt>450;
     }
     function select(id){callbacks.select(id);}
-    function clearPatch(){
-      if(!patch)return;
-      setPatch(null);
+    function syncTargets(){
+      const state=frame?.editState||frame?.state;
+      if(!state)return;
+      modeState=state;
+      activeStations=reachable(state.links);
+      targetStations=new Set();
+      targetBelts=new Set();
+      if(patch) for(const id of Object.keys(stations)){
+        if(allowed(state,{type:'connect',from:patch,to:id}))targetStations.add(id);
+      }
+      if(insert) for(const from of Object.keys(state.links)){
+        if(allowed(state,{type:'insert',node:insert,from}))targetBelts.add(from);
+      }
+      for(const [id,b] of Object.entries(buttons)){
+        b.dataset.active=String(activeStations.has(id));
+        b.dataset.destination=String(targetStations.has(id));
+        b.disabled=!!insert || (!!patch && !targetStations.has(id));
+        b.setAttribute('aria-label',(patch?'Соединить с деталью ':'Выбрать: ')+stations[id].label);
+      }
+      markBelt(null);dirty=true;
     }
+    function clearPatch(){if(patch)setPatch(null);}
     function setPatch(key){
-      patch=key||null;
-      host.toggleAttribute('data-patching',!!patch);draft.style.display='none';
-      for(const [k,s] of Object.entries(sockets))s.el.setAttribute('aria-pressed',String(k===patch));
-      for(const [id,b] of Object.entries(buttons))b.dataset.destination=String(!!sockets[id+':in']&&id!==patch?.split(':')[0]);
-      callbacks.patchChanged?.(patch);dirty=true;
+      if(key&&insert)setInsert(null);
+      patch=key||null;host.toggleAttribute('data-patching',!!patch);
+      callbacks.patchChanged?.(patch);syncTargets();
     }
+    function setInsert(id){
+      if(id&&patch)setPatch(null);
+      insert=inserts.has(id)?id:null;host.toggleAttribute('data-inserting',!!insert);
+      callbacks.insertChanged?.(insert);syncTargets();
+    }
+    function cancelMode(){if(patch)setPatch(null);if(insert)setInsert(null);}
     function connect(id){
-      if(!patch||!sockets[id+':in']||id===patch.split(':')[0])return;
-      const result=callbacks.connect(patch,id);
-      if(result!==false)clearPatch();
+      if(targetStations.has(id)&&callbacks.connect(patch,id)!==false)clearPatch();
     }
-    function commitPort(key){
-      const [id,port]=key.split(':');
-      if(port==='in'){if(patch)connect(id);else select(id);return;}
-      if(key===patch){clearPatch();return;}
-      select(id);setPatch(key);
+    function install(id,from){
+      if(from&&callbacks.act({type:'insert',node:id,from})!==false)setInsert(null);
     }
     function project(point){
       const p=point.clone().project(camera);return {x:(p.x+1)*width/2,y:(1-p.y)*height/2};
@@ -84,16 +149,12 @@ window.IsoScene = (() => {
     function placeDOM(){
       scene.updateMatrixWorld(true);camera.updateMatrixWorld();
       for(const [id,part] of Object.entries(pieces)){
-        const s=stations[id],c=part.group.position.clone();c.z+=s.d*.54+.18;c.y=-.04;
-        const p=project(c);
-        for(const sock of Object.values(sockets).filter(s=>s.id===id)){
-          const tip=project(part.group.localToWorld(sock.local.clone()));
-          if(Math.abs(p.x-tip.x)<42&&p.y>tip.y-6)p.y=Math.max(p.y,tip.y+21);
-        }
-        buttons[id].style.left=p.x+'px';buttons[id].style.top=p.y+'px';
-      }
-      for(const [key,s] of Object.entries(sockets)){
-        const p=project(socketPos(key));s.el.style.left=p.x+'px';s.el.style.top=p.y+'px';
+        const s=stations[id],c=part.group.position.clone();
+        c.z+=s.d*.54;c.y=-.03;
+        const p=project(c),button=buttons[id];
+        const w=button.offsetWidth;
+        button.style.left=Math.max(w/2+2,Math.min(width-w/2-2,p.x))+'px';
+        button.style.top=Math.max(22,Math.min(height-22,p.y+8))+'px';
       }
     }
     function clearGeometry(group,ownMaterials=false){
@@ -121,17 +182,12 @@ window.IsoScene = (() => {
     }
     for(const [id,s] of Object.entries(stations)){
       const p=IsoPieces.create(id);pieces[id]=p;p.group.userData.station=id;scene.add(p.group);
-      const b=make('button','iso-caption');b.type='button';b.textContent=s.label;b.dataset.station=id;
+      const b=make('button','iso-caption');b.type='button';b.dataset.station=id;
+      const name=make('span','iso-name');name.textContent=s.label;b.append(name);
       b.setAttribute('aria-label','Выбрать: '+s.label);
-      if(inserts.has(id)){b.classList.add('iso-handle');b.title='Перетащить на ленту: '+s.label;}
-      b.onclick=e=>{if(accessibleActivation(e)){if(patch)connect(id);else select(id);}};buttons[id]=b;overlay.append(b);
-      for(const [port,pos] of Object.entries(p.ports)){
-        const key=id+':'+port,el=make('button','iso-port');el.type='button';el.dataset.port=key;el.dataset.kind=port==='in'?'in':'out';
-        el.setAttribute('aria-label',s.label+' · '+portLabel[port]);el.title=s.label+' · '+portLabel[port];
-        const glyph=document.createElement('b');glyph.textContent=port==='in'?'':port==='side'||port==='copy'?'↳':'›';el.append(glyph);
-        sockets[key]={id,port,el,local:pos};overlay.append(el);
-        el.addEventListener('click',e=>{if(accessibleActivation(e))commitPort(key);},opt);
-      }
+      b.onclick=e=>{if(accessibleActivation(e)){if(patch)connect(id);else if(!insert)select(id);}};
+      buttons[id]=b;overlay.append(b);
+      for(const [port,local] of Object.entries(p.ports))sockets[id+':'+port]={id,local};
     }
     const selectionMaterial=new THREE.MeshBasicMaterial({color:0x26785c,depthWrite:false});
     const selection=new THREE.Mesh(new THREE.RingGeometry(.95,1,64),selectionMaterial);
@@ -147,11 +203,11 @@ window.IsoScene = (() => {
       width=Math.max(1,host.clientWidth);height=Math.max(1,host.clientHeight);
       renderer.setSize(width,height,false);
       portrait=width/height<1.18;
-      const yaw=portrait?.28:.49;
-      camera.position.set(yaw*20,portrait?31:26,20);camera.lookAt(0,0,0);camera.updateMatrixWorld(true);
+      const yaw=portrait?.23:.35;
+      camera.position.set(yaw*20,portrait?29:24,20);camera.lookAt(0,0,0);camera.updateMatrixWorld(true);
       for(const [id,p] of Object.entries(pieces)){
         const [x,z]=stations[id][portrait?'tall':'wide'];
-        p.group.position.set(x+(portrait?yaw*z:0),0,z-(portrait?0:.34*x));
+        p.group.position.set(x+(portrait?yaw*z:0),0,z-(portrait?0:.25*x));
       }
       const footprintsAll=footprints();
       const bounds={left:Math.min(...footprintsAll.map(o=>o.left))-.87,right:Math.max(...footprintsAll.map(o=>o.right))+.87,
@@ -164,7 +220,7 @@ window.IsoScene = (() => {
         for(const dx of [-s.w*.52-.24,s.w*.52+.48])for(const dz of [-s.d*.56-.38,s.d*.56+.48])for(const h of [-.4,1.76]) fit(p.group.position.clone().add(vec(dx,h,dz)));
       }
       const cx=(left+right)/2,cy=(top+bottom)/2,aspect=width/height;
-      const half=Math.max((right-left)/(2*aspect),(top-bottom)/2)*1.035;
+      const half=Math.max((right-left)/(2*aspect),(top-bottom)/2)*1.02;
       camera.left=cx-half*aspect;camera.right=cx+half*aspect;camera.top=cy+half;camera.bottom=cy-half;camera.updateProjectionMatrix();
       linksKey=null;dirty=true;placeDOM();
       if(frame)render(frame);
@@ -176,10 +232,21 @@ window.IsoScene = (() => {
         const plan=IsoBelts.plan(socketPos(key),socketPos(id+':in'),key.split(':')[1],obstacles,prior);
         const carrier=new THREE.Group();belts.add(carrier);
         const path=IsoBelts.build(carrier,plan,materials);
+        const tone=key==='router:straight'?materials.a:key==='router:side'?materials.b:materials.belt;
         const samples=path.getSpacedPoints(Math.max(8,Math.ceil(path.getLength()*4))).map(project);
-        prior.push(plan.points);routes.set(key,{path,to:id,samples,carrier});
+        const ends=[[key.split(':')[0],key.split(':')[1],socketPos(key)],[id,'in',socketPos(id+':in')]];
+        for(const [station,port,pos] of ends){
+          if(station==='router')continue; // Its two coloured rails already span the pedestal.
+          const vertical=port==='copy';
+          const shoe=new THREE.Mesh(new THREE.BoxGeometry(vertical?.36:.43,.09,vertical?.43:.36),tone);
+          shoe.position.copy(pos);shoe.position.y=.24;
+          if(vertical)shoe.position.z-=.20;
+          else shoe.position.x+=(port==='in'?.20:-.20);
+          carrier.add(shoe);
+        }
+        prior.push(plan.points);routes.set(key,{path,to:id,samples,carrier,tone});
       }
-      dirty=true;
+      markBelt(null);
     }
     function tokenAt(i){
       if(!tokenPool[i]){const m=new THREE.Mesh(tokenGeometry,materials.tread);tokenPool[i]=m;boxes.add(m);}
@@ -233,22 +300,34 @@ window.IsoScene = (() => {
       const prev=frame;frame=next;
       if(lost || !width || !frame.state)return;
       const t=Number.isFinite(frame.time)?frame.time:0;
-      if(!frame.playing&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t)return;
-      const key=JSON.stringify(frame.state.links);
-      if(linksKey!==key){linksKey=key;rebuild(frame.state.links);}
+      if(modeState!==(frame.editState||frame.state))syncTargets();
+      if(!frame.playing&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute)return;
+      const connections=(patch||insert)?modeState.links:frame.state.links;
+      const key=JSON.stringify(connections);
+      if(linksKey!==key){linksKey=key;rebuild(connections);}
       if(!frame.revision&&lastState!==frame.state)revision=IsoFlow.revision(frame.state);
       lastState=frame.state;
       const exact=t*8,step=Math.floor(exact),progress=exact-step;
       const tick=frame.tick||IsoFlow.tick(frame.revision||revision,step);
       let display=frame.state;
-      if(gesture?.change&&gesture.hit.action && !gesture.wire){
-        display=IsoFlow.apply(display,commandFor(gesture.hit.action,gesture.change));
+      if(gesture?.change&&gesture.edit){
+        display=IsoFlow.apply(display,commandFor(gesture.edit,gesture.change));
       }
-      const view={...frame,state:display,tick,progress};
-      for(const part of Object.values(pieces))part.update(view);
+      const displayTick=!frame.playing&&typeof frame.previewRoute==='boolean'?{...tick,straight:frame.previewRoute}:tick;
+      const view={...frame,state:display,tick:displayTick,progress};
+      for(const [id,part] of Object.entries(pieces)){
+        const asleep=!activeStations.has(id)&&id!==frame.selected&&!patch&&!insert&&!tick.activity[id]?.length;
+        if(asleep&&part.dormant)continue;
+        if(!asleep)setDormant(part,false);
+        part.update(view);
+        if(asleep)setDormant(part,true);
+      }
       if(activeStation!==frame.selected||dirty){
         activeStation=frame.selected;
-        for(const [id,b] of Object.entries(buttons))b.dataset.selected=String(id===activeStation);
+        for(const [id,b] of Object.entries(buttons)){
+          b.dataset.selected=String(id===activeStation);
+          b.setAttribute('aria-pressed',String(id===activeStation));
+        }
         const piece=pieces[activeStation];selection.visible=!!piece;
         if(piece){
           const s=stations[activeStation];selection.scale.set(s.w*.58,s.d*.65,1);
@@ -276,9 +355,8 @@ window.IsoScene = (() => {
     }
     function targetAt(x,y){
       const dom=document.elementFromPoint(x,y);
-      const port=dom?.closest('.iso-port')?.dataset.port;
       const station=dom?.closest('.iso-caption')?.dataset.station;
-      return port?{key:port,id:port.split(':')[0]}:station?{id:station}:modelHit(x,y);
+      return station?{id:station}:modelHit(x,y);
     }
     function angleAt(x,y,center){
       setRay(x,y);
@@ -287,14 +365,13 @@ window.IsoScene = (() => {
     }
     function commandFor(a,delta){
       if(a.type==='pin')return {type:'note',index:a.index,delta};
-      if(a.type==='clutch')return {type:'clutch'};
       return {...a,delta:a.type==='level'?delta*.25:delta};
     }
     function beltUnder(x,y,node){
       const rect=host.getBoundingClientRect(),p={x:x-rect.left,y:y-rect.top};
-      let best=portrait?22:18, result=null;
+      let best=25, result=null;
       for(const [key,r] of routes){
-        if(r.to===node||key.startsWith(node+':'))continue;
+        if(r.to===node||key.startsWith(node+':')||(insert&&!targetBelts.has(key)))continue;
         for(let i=1;i<r.samples.length;i++){
           const a=r.samples[i-1],b=r.samples[i],dx=b.x-a.x,dy=b.y-a.y;
           const at=THREE.MathUtils.clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);
@@ -306,104 +383,99 @@ window.IsoScene = (() => {
     }
     function markBelt(key){
       for(const [id,r] of routes){
-        r.carrier.children[0].material=id===key?materials.target:materials.belt;
+        r.carrier.children[0].material=id===key?materials.target:insert&&targetBelts.has(id)?materials.pick:r.tone;
       }
       dirty=true;
     }
     function start(e){
       if(lost||gesture||e.button!==0)return;
       const hit=targetAt(e.clientX,e.clientY);
-      if(!hit){clearPatch();return;}
-      e.preventDefault();
-      const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,originPatch:patch,change:0,wire:false};
-      if(!patch && inserts.has(hit.id) && e.target.closest('.iso-caption')){
-        g.install=true;
-      }else if(hit.key&&sockets[hit.key].port!=='in'){
-        g.wire=true;g.startPoint=project(socketPos(hit.key));
-      }else if(!patch&&hit.action){
-        const a=hit.action;
-        if(a.type==='disc')g.center=hit.part.getWorldPosition(new THREE.Vector3());
-        if(a.type==='phase'||a.type==='pin')g.center=pieces.source.group.localToWorld(vec(.55,.81,.16));
-        if(g.center){
+      if(!hit&&!insert)return;
+      const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,change:0,patch,insert};
+      if(!insert&&!patch&&hit){
+        // Choosing a station is its own gesture, even when the tap lands
+        // precisely on a note. Only an already selected part can be edited.
+        g.edit=frame?.selected===hit.id && (hit.id==='source'||hit.id==='delay') ? hit.action : null;
+        const label=e.target.closest('.iso-caption');
+        g.handle=inserts.has(hit.id)&&!!label;
+        g.flip=hit.id==='router' && frame?.selected==='router' && !label;
+        if(g.edit?.type==='phase'||g.edit?.type==='pin'){
+          g.center=pieces.source.group.localToWorld(vec(.55,.81,.16));
           g.angle=angleAt(e.clientX,e.clientY,g.center);g.turn=0;
         }
       }
+      e.preventDefault();
       gesture=g;host.setPointerCapture(e.pointerId);
     }
     function move(e){
       if(!gesture){
-        if(e.pointerType==='mouse'&&e.target===canvas)canvas.style.cursor=modelHit(e.clientX,e.clientY)?'pointer':'default';
+        if(e.pointerType==='mouse'&&e.target===canvas){
+          const target=insert?beltUnder(e.clientX,e.clientY,insert):modelHit(e.clientX,e.clientY);
+          canvas.style.cursor=target&&(!patch||targetStations.has(target.id))?'pointer':'default';
+          if(insert)markBelt(target);
+        }
         return;
       }
       const g=gesture;if(e.pointerId!==g.id)return;
       const dx=e.clientX-g.x,dy=e.clientY-g.y;
-      if(!g.moved&&Math.hypot(dx,dy)<5)return;
+      if(!g.moved&&Math.hypot(dx,dy)<7)return;
       if(!g.moved){
         g.moved=true;
-        // Press edits one pin. Turning the same pin moves the complete sleeve.
-        if(g.hit.action?.type==='pin'&&g.center)g.hit={...g.hit,action:{type:'phase'}};
-        if(g.wire){select(g.hit.id);setPatch(g.hit.key);}
-        else if(!patch)select(g.hit.id);
+        if(g.edit?.type==='pin'&&g.center)g.edit={type:'phase'};
+        if(g.handle){select(g.hit.id);setInsert(g.hit.id);}
       }
-      if(g.install){
+      if(g.handle){
         const rect=host.getBoundingClientRect();
         const over=beltUnder(e.clientX,e.clientY,g.hit.id);
         if(over!==g.over){markBelt(over);g.over=over;}
         ghost.textContent=(over?'Врезать · ':'')+stations[g.hit.id].label;ghost.hidden=false;
         ghost.style.left=(e.clientX-rect.left)+'px';ghost.style.top=(e.clientY-rect.top)+'px';return;
       }
-      if(g.wire){
-        const rect=host.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,p=g.startPoint;
-        draft.style.display='';wire.setAttribute('d','M '+p.x+' '+p.y+' Q '+((p.x+x)/2)+' '+(Math.min(p.y,y)-15)+' '+x+' '+y);return;
-      }
-      if(patch||!g.hit.action)return;
-      const a=g.hit.action.type;
+      if(g.insert){markBelt(beltUnder(e.clientX,e.clientY,g.insert));return;}
+      if(!g.edit)return;
       if(g.center){
         const angle=angleAt(e.clientX,e.clientY,g.center);
-        const step=Math.atan2(Math.sin(angle-g.angle),Math.cos(angle-g.angle));g.turn-=step;g.angle=angle;
+        g.turn-=Math.atan2(Math.sin(angle-g.angle),Math.cos(angle-g.angle));g.angle=angle;
         g.change=Math.round(g.turn/(Math.PI/4));
-      }else if(a==='delay')g.change=Math.round(dx/Math.max(12,width/65));
-      else if(a==='level')g.change=Math.round(-dy/Math.max(8,height/55));
-      else if(a==='clutch')g.change=Math.abs(dy)>12?1:0;
+      }else if(g.edit.type==='delay')g.change=Math.round(dx/Math.max(12,width/65));
+      else if(g.edit.type==='level')g.change=Math.round(-dy/Math.max(8,height/55));
       dirty=true;
     }
     function end(e,cancelled=false){
       const g=gesture;if(!g||e.pointerId!==g.id)return;
       gesture=null;dirty=true;lastPointerAt=performance.now();
       if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);
-      if(g.install){ghost.hidden=true;markBelt(null);}
-      if(cancelled){if(g.wire&&g.moved)clearPatch();return;}
-      if(g.install&&g.moved){
-        const over=beltUnder(e.clientX,e.clientY,g.hit.id);
-        if(over)callbacks.act({type:'insert',node:g.hit.id,from:over});
+      ghost.hidden=true;
+      if(cancelled){
+        if(g.handle&&g.moved)setInsert(null);
         return;
       }
-      const at=targetAt(e.clientX,e.clientY);
-      if(g.wire){
-        if(!g.moved){commitPort(g.hit.key);return;}
-        draft.style.display='none';
-        if(at&&at.id!==g.hit.id&&(!at.key||at.key.endsWith(':in')))connect(at.id);
-        else if(!at&&frame?.state.links[g.hit.key]){callbacks.disconnect(g.hit.key);clearPatch();}
-        else clearPatch();
+      if(g.insert||g.handle&&g.moved){
+        const module=g.insert||g.hit.id, over=beltUnder(e.clientX,e.clientY,module);
+        if(over)install(module,over);
+        else if(g.handle)setInsert(null);
         return;
       }
-      if(g.originPatch){
-        if(at?.id)connect(at.id);else clearPatch();
+      if(g.patch){
+        const hit=targetAt(e.clientX,e.clientY);if(hit)connect(hit.id);
         return;
       }
-      if(!g.moved)select(g.hit.id);
-      const a=g.hit.action;
-      if(!a)return;
-      if(!g.moved){callbacks.act(commandFor(a,1));return;}
-      if(g.change)callbacks.act(commandFor(a,g.change));
+      if(g.moved){
+        if(g.edit&&g.change)callbacks.act(commandFor(g.edit,g.change));
+      }else if(g.flip && targetAt(e.clientX,e.clientY)?.id==='router' &&
+        !document.elementFromPoint(e.clientX,e.clientY)?.closest('.iso-caption')){
+        callbacks.flipRoute?.();
+      }else if(g.edit)callbacks.act(commandFor(g.edit,1));
+      else if(g.hit)select(g.hit.id);
     }
     host.addEventListener('pointerdown',start,opt);host.addEventListener('pointermove',move,opt);
     host.addEventListener('pointerup',e=>end(e),opt);
     host.addEventListener('pointercancel',e=>end(e,true),opt);
     host.addEventListener('lostpointercapture',e=>end(e,true),opt);
-    host.addEventListener('keydown',e=>{lastPointerAt=-Infinity;if(e.key==='Escape')clearPatch();},opt);
+    host.addEventListener('keydown',e=>{lastPointerAt=-Infinity;if(e.key==='Escape')cancelMode();},opt);
     canvas.addEventListener('webglcontextlost',e=>{
-      e.preventDefault();lost=true;host.dataset.context='lost';gesture=null;clearPatch();callbacks.notice?.('Восстанавливаем трёхмерный стол. Редактор деталей доступен ниже.');
+      e.preventDefault();lost=true;host.dataset.context='lost';gesture=null;ghost.hidden=true;cancelMode();
+      callbacks.notice?.('Восстанавливаем трёхмерный стол. Управление деталями доступно в редакторе.');
     },opt);
     canvas.addEventListener('webglcontextrestored',()=>{
       lost=false;delete host.dataset.context;lastState=null;callbacks.notice?.('');resize();
@@ -432,9 +504,9 @@ window.IsoScene = (() => {
       return {webgl:true,contextLost:lost,portrait,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:tokenPool.filter(m=>m.visible).length};
     }
     const observer=new ResizeObserver(resize);observer.observe(host);resize();
-    return {render,setPatch,inspect,dispose(){
+    return {render,setPatch,setInsert,cancelMode,inspect,dispose(){
       disposed=true;observer.disconnect();events.abort();gesture=null;
-      clearGeometry(scene,true);tokenMaterials.forEach(m=>m.dispose());Object.values(materials).forEach(m=>m.dispose());tokenGeometry.dispose();
+      clearGeometry(scene,true);mutedMaterials.forEach(m=>m.dispose());tokenMaterials.forEach(m=>m.dispose());Object.values(materials).forEach(m=>m.dispose());tokenGeometry.dispose();
       renderer.dispose();overlay.remove();canvas.remove();
     }};
   }

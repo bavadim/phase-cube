@@ -2,21 +2,25 @@
 .iso-board canvas,.iso-board .iso-overlay {position:absolute;inset:0;width:100%;height:100%}
 .iso-board canvas {display:block;touch-action:none;outline:0}
 .iso-overlay {pointer-events:none;overflow:hidden}
-.iso-caption,.iso-port {position:absolute;left:0;top:0;transform:translate(-50%,-50%);touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.iso-caption {pointer-events:auto;border:1px solid transparent;border-radius:4px;padding:2px 5px;color:#384841;background:#efecdcf2;font:650 clamp(10px,.85vw,13px)/1.15 system-ui,sans-serif;white-space:nowrap;cursor:pointer}
-.iso-caption[data-selected="true"] {border-color:#477366;background:#faf5dd;color:#1f473e}
-.iso-board[data-patching] .iso-caption[data-destination="true"] {border-color:#23675b;background:#e4f6e8;color:#174d43}
-.iso-port {pointer-events:auto;display:grid;place-items:center;padding:0;border:0;background:transparent;width:30px;height:30px;cursor:crosshair;color:#163f38;touch-action:none}
-.iso-port b {display:grid;place-items:center;font:bold 13px/1 system-ui;width:15px;height:15px;border-radius:5px;background:#f8cd6b;border:1.5px solid #655531;box-shadow:0 1px 2px #332e2a40}
-.iso-port[data-kind="in"] b {width:11px;height:11px;border:2px solid #e6e0c7;background:#435a51;border-radius:50%;font-size:0}
-.iso-port[data-kind="in"] {pointer-events:none}
-.iso-board[data-patching] .iso-port[data-kind="in"] {pointer-events:auto}
-.iso-board[data-patching] .iso-port[data-kind="in"] b {width:19px;height:19px;background:#a5ddbc;border-color:#305c50;box-shadow:0 0 0 4px #f2fff3ad}
-.iso-port[aria-pressed="true"] b,.iso-port:focus-visible b {outline:2px solid #165b51;outline-offset:2px}
-.iso-caption:focus-visible {outline:2px solid #165b51}
-.iso-cable {position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.iso-fallback {display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));align-content:center;gap:8px;padding:12px;height:100%;overflow:auto}
-.iso-fallback button {min-height:36px}
-.iso-caption.iso-handle {cursor:grab;touch-action:none}
-.iso-caption.iso-handle::before {content:'⠿';margin-right:2px;color:#6c796f;font-size:.95em}
-.iso-drag-label {position:absolute;transform:translate(-50%,-160%);color:#f4f2e4;background:#254f43;padding:4px 9px;border-radius:4px;white-space:nowrap;font:650 13px/1.2 system-ui,sans-serif}
+.iso-board button.iso-caption {
+  position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;min-width:48px;min-height:44px;
+  margin:0;padding:0 3px;border:0;border-radius:10px;background:transparent;box-shadow:none;
+  pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;
+  color:#253e38;opacity:1;cursor:pointer;font:650 clamp(14px,1.1vw,17px)/1.12 system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
+.iso-name {
+  padding:.32em .5em .35em;border:1px solid #a9afa1;border-radius:6px;
+  background:#fffbed;white-space:nowrap;box-shadow:0 1px 2px #243f3420;
+}
+.iso-caption[data-active="false"] .iso-name {background:#f5f0df;border-color:#ccc6af;color:#575d50}
+.iso-caption:is(:hover,:focus-visible) .iso-name {background:#fffdf6;border-color:#34594f}
+.iso-caption[data-selected="true"] .iso-name {color:#fff9df;background:#244f45;border-color:#244f45}
+.iso-caption:focus-visible {outline:2px solid #175e53;outline-offset:0}
+.iso-board[data-patching] .iso-caption[data-destination="true"] .iso-name {color:#154a3f;border:2px solid #26795d;background:#e4f4de}
+.iso-board[data-patching] .iso-caption:disabled,.iso-board[data-inserting] .iso-caption:disabled {opacity:.6;pointer-events:none}
+.iso-board[data-inserting] canvas {cursor:crosshair}
+.iso-drag-label {position:absolute;transform:translate(-50%,-150%);color:#faf8ea;background:#265247;padding:5px 9px;border-radius:6px;white-space:nowrap;font:650 14px/1.2 system-ui,sans-serif}
+.iso-fallback {display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));align-content:center;gap:8px;padding:12px;height:100%;overflow:auto}
+.iso-fallback button {min-height:44px}

@@ -163,8 +163,8 @@ window.IsoPieces = (() => {
     const pins = Array.from({length:8},(_,i)=>{
       const a = -i*TAU/8, px=.472*Math.sin(a), pz=.472*Math.cos(a);
       const pin = action(group(sleeve,px,.102,pz),'pin',i);
-      cyl(pin,.108,.1,.023,0,.003,0,'ink',20);
-      const cap=cyl(pin,.082,.084,.082,0,.038,0,'paper',16);
+      cyl(pin,.142,.13,.027,0,.003,0,'ink',20);
+      const cap=cyl(pin,.122,.125,.095,0,.044,0,'paper',20);
       return cap;
     });
     const stem = group(root,x,.81,z);
@@ -190,7 +190,7 @@ window.IsoPieces = (() => {
         handle.position.y=.045+.145*level;
         notes.forEach((pitch,i)=>{
           const cap=pins[i], rest=pitch===null;
-          cap.scale.setScalar(rest?.57:1); cap.position.y=rest?.012:.047;
+          cap.scale.setScalar(rest?.50:1); cap.position.y=rest?.010:.066;
           cap.material=paint(rest?'steel':noteColor(pitch));
         });
         const e=f.tick.activity.source[0], pulse=hit(f,'source');
@@ -236,90 +236,80 @@ window.IsoPieces = (() => {
       plate(p,.32,.085,.68,0,.49,0,'edge',.055);
       for(const z of [-.29,.29]) plate(p,.31,.18,.075,0,.58,z,'violet',.03);
       plate(p,.052,.23,.63,-.14,.60,0,'plum',.022);
-      const note=plate(p,.145,.14,.18,0,.63,0,'gold',.027);
+      const note=plate(p,.220,.17,.28,0,.63,0,'gold',.035);
       pockets.push({p,note});
     }
-    const slider=group(handle);
-    cyl(slider,.09,.12,.25,0,.69,.02,'brass');
-    ball(slider,.143,0,.855,.02,'violet');
+    const slider=group(handle,0,0,-.39);
+    cyl(slider,.09,.12,.23,0,.68,0,'brass');
+    cyl(slider,.161,.186,.12,0,.84,0,'plum',16);
+    cyl(slider,.124,.151,.029,0,.916,0,'paper',16);
     return {
       ports:{in:vec(-1.2,.29,0),out:vec(1.2,.29,0)},
       update(f) {
         const count=f.state.delay, slots=f.tick.pockets;
         pockets.forEach(({p,note},i)=>{
-          p.visible=i<count;
-          p.position.x=-.70+i*.40;
           const value=slots.find(packet=>f.tick.tick-packet.entered===i);
+          p.visible=i<count || Boolean(value);
+          p.position.x=-.70+i*.40;
           note.visible=Boolean(value);
           if(value) note.material=paint(noteColor(value.pitch));
         });
-        slider.position.x=-.69+Math.max(0,count-1)*.40+.18;
+        slider.position.x=-.90+count*.40;
       }
     };
   }
 
-  function discSurface(mask) {
-    const geo=geometry('perforated'+mask.join(','),()=>{
-      const s=new T.Shape(); s.absarc(0,0,.433,0,TAU,false);
-      mask.forEach(i=>{
-        const a=-i*TAU/8, hole=new T.Path();
-        hole.absarc(.287*Math.sin(a),-.287*Math.cos(a),.071,0,TAU,true);
-        s.holes.push(hole);
-      });
-      return extrude(s,.065,.007);
-    });
-    return geo;
-  }
   function router(root) {
-    mounting(root,2.31,1.81,'teal');
-    // The two plungers share a rigid yoke. Only simultaneous holes release
-    // its linkage and physically turn the switch tongue toward the main exit.
-    const masks=window.IsoFlow.MASKS;
-    const cassette=group(root,0,.43,-.27);
-    plate(cassette,2.02,.10,.99,0,.025,0,'edge',.22);
-    const discs=[-.49,.49].map((x,i)=>{
-      cyl(cassette,.392,.403,.06,x,.11,0,'ink');
-      const spin=action(group(cassette,x,.148,0),'disc',i);
-      mesh(spin,discSurface(masks[i]),i?'orange':'gold',0,0,0);
-      bead(spin,.399,.013,0,.075,0,'ivory');
-      cyl(spin,.113,.125,.062,0,.103,0,'brass',8);
-      plate(spin,.035,.019,.123,0,.145,.081,'ivory',.012);
-      return spin;
-    });
-    const yoke=group(root,0,0,.018);
-    for(const x of [-.49,.49]) cyl(yoke,.043,.033,.16,x,.774,0,'steel',16);
-    plate(yoke,1.097,.07,.115,0,.886,0,'ivory',.05);
-    const linkage=rod(root,[.13,.465,.39],[.13,.872,.018],.035,'brass');
-    const pivot=group(root,.10,.465,.40);
-    cyl(pivot,.078,.094,.12,0,0,0,'brass',16);
-    const tongue=plate(pivot,.62,.080,.164,.216,.033,0,'orange',.06);
-    tongue.rotation.y=-.06;
-    const clutch=action(group(root,-.87,.39,.32),'clutch');
-    cyl(clutch,.095,.13,.15,0,.045,0,'edge');
-    const lever=group(clutch,0,.093,0);
-    rod(lever,[0,0,0],[0,.29,.08],.046,'brass');
-    ball(lever,.119,0,.30,.08,'mint');
-    // Exit rails fall away from the junction, leaving its two routes visible.
-    rod(root,[.29,.40,.28],[1.05,.40,.28],.033,'steel');
-    rod(root,[.29,.40,.53],[1.05,.40,.53],.033,'steel');
-    rod(root,[.0,.40,.55],[.0,.40,.84],.033,'steel');
-    rod(root,[.26,.40,.55],[.26,.40,.84],.033,'steel');
+    mounting(root,2.31,1.81,'edge');
+    const pivotX=-.40, pivotZ=-.21;
+    const colors={straight:'#247e77',side:'#c46437'};
+    // A recessed track has raised cast lips. Its ends meet the belt sockets.
+    // Shape coordinates below are in the same top-down X,Z plane as the belts.
+    function track(points, tone, name) {
+      const curve=new T.CatmullRomCurve3(points.map(([x,z])=>vec(x,0,z)));
+      const spine=curve.getSpacedPoints(22);
+      const normals=spine.map((p,i)=>{
+        const previous=spine[Math.max(0,i-1)], next=spine[Math.min(spine.length-1,i+1)];
+        return vec(previous.z-next.z,0,next.x-previous.x).normalize();
+      });
+      function strip(left,right,base,height,pigment) {
+        const shape=new T.Shape();
+        function add(p,index,offset,first) {
+          const x=p.x+offset*normals[index].x,z=p.z+offset*normals[index].z;
+          if(first) shape.moveTo(x,-z); else shape.lineTo(x,-z);
+        }
+        spine.forEach((p,i)=>add(p,i,left,i===0));
+        for(let i=spine.length-1;i>=0;i--) add(spine[i],i,right,false);
+        shape.closePath();
+        return mesh(root,geometry('turnout-'+name+'-'+left+'-'+right,()=>extrude(shape,height,.006)),pigment,0,base,0);
+      }
+      strip(-.187,.187,.355,.039,'edge');
+      strip(-.212,-.166,.375,.067,tone);
+      strip(.166,.212,.375,.067,tone);
+    }
+    track([[-1.33,.4],[-1.14,.4],[-.92,.29],[-.70,-.01],[pivotX,pivotZ]],'steel','in');
+    track([[.20,pivotZ],[.52,pivotZ],[.75,-.11],[1.09,.32],[1.34,.4]],colors.straight,'straight');
+    track([[-.09,.29],[.04,.51],[.12,.73],[.13,1.10]],colors.side,'side');
+    cyl(root,.47,.50,.06,pivotX,.407,pivotZ,'ink');
+
+    // One pivoting bridge carries a broad white arrow. The bridge points at
+    // the physical chute that will accept a box arriving in this eighth.
+    const switchRail=group(root,pivotX,.437,pivotZ);
+    const bed=plate(switchRail,1.08,.13,.49,.39,.069,0,colors.straight,.13);
+    const arrowShape=new T.Shape();
+    arrowShape.moveTo(.05,-.078);
+    arrowShape.lineTo(.46,-.078); arrowShape.lineTo(.46,-.185);
+    arrowShape.lineTo(.80,0); arrowShape.lineTo(.46,.185);
+    arrowShape.lineTo(.46,.078); arrowShape.lineTo(.05,.078); arrowShape.closePath();
+    mesh(switchRail,geometry('turnout-arrow',()=>extrude(arrowShape,.016,.003)),'paper',0,.140,0);
+    cyl(root,.092,.122,.11,pivotX,.588,pivotZ,'brass',24);
+
     return {
       ports:{in:vec(-1.33,.29,.4),straight:vec(1.34,.29,.4),side:vec(.13,.29,1.10)},
-      update(f) {
-        const bypass=!f.state.clutch, straight=f.tick.straight;
-        // Pulling the cassette back clears the probe. With it engaged its
-        // dark backing is actually visible through each perforation.
-        cassette.position.z=bypass?-.47:-.27;
-        cassette.position.y=bypass?.46:.43;
-        discs.forEach((d,i)=>{d.rotation.y=(f.tick.tick+f.progress-f.state.discs[i])*TAU/8;});
-        // The tongue latches until the next eighth. The probe itself rises
-        // back out as soon as the perforations travel past its tip.
-        const dip=straight && !bypass ? Math.max(0,1-f.progress/.20) : 0;
-        yoke.position.y=.016-.094*dip;
-        linkage.position.y=.678-.050*dip;
-        lever.rotation.x=bypass?-.60:.26;
-        pivot.rotation.y=straight?0:-Math.PI*.47;
+      update(frame) {
+        const straight=frame.previewRoute ?? frame.tick.straight;
+        switchRail.rotation.y=straight?0:-Math.atan2(.50,.31);
+        bed.material=paint(straight?colors.straight:colors.side);
       }
     };
   }

@@ -7,8 +7,8 @@
   <base href="../../">
   <title>Нотный конвейер · Биба</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="disc/isometric/style.css">
-  <link rel="stylesheet" href="disc/isometric/scene.css">
+  <link rel="stylesheet" href="disc/isometric/style.css?v=turnout1">
+  <link rel="stylesheet" href="disc/isometric/scene.css?v=turnout1">
 </head>
 <body>
   <main class="workshop">
@@ -19,37 +19,34 @@
         <button id="play" class="play" disabled aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="triangle" d="M5 3 17 10 5 17Z"/><path class="bars" d="M4 3h4v14H4zm8 0h4v14h-4z"/></svg><span>Запустить</span></button>
       </div>
     </header>
-    <section class="bench" aria-label="Музыкальная машина">
-      <div class="bench-head">
-        <label class="assembly">Сборка
-          <select id="preset" aria-label="Сборка"><option value="echo">Эхо под щупом</option><option value="answer">Отложенный ответ</option><option value="straight">Прямая линия</option><option value="custom" hidden>Своя разводка</option></select>
-        </label>
-        <div class="meter" aria-hidden="true"><span class="beat-lights" id="beat"></span><span class="tempo">112 BPM</span></div>
-      </div>
-      <div id="board" role="group" aria-label="Изометрическая модель конвейера"></div>
-      <div class="bench-foot">
-        <p id="guidance" role="status">Запустите машину. Коснитесь детали, чтобы её настроить.</p>
-        <button id="cancel-patch" type="button" hidden>Отмена соединения</button>
-      </div>
-      <p id="notice" role="alert" hidden></p>
-    </section>
-    <section class="editor" aria-label="Редактор деталей">
-      <div class="editor-head">
-        <label for="part">Деталь</label><select id="part"><option value="">Выберите на столе</option></select>
-      </div>
-      <div id="settings"></div>
-    </section>
+    <div class="console">
+      <section class="bench" aria-label="Музыкальная машина">
+        <div class="bench-head">
+          <label class="assembly">Сборка <select id="preset"><option value="duet">Дуэт</option><option value="straight">Прямая линия</option><option value="echo">Эхо с развилкой</option><option value="answer">Отложенный ответ</option><option value="custom" hidden>Своя разводка</option></select></label>
+          <div class="meter"><span class="beat-lights" id="beat" aria-hidden="true"></span><span class="tempo">112 BPM</span></div>
+        </div>
+        <div id="board" role="group" aria-label="Изометрическая модель конвейера"></div>
+        <div class="bench-foot"><span id="guide-icon" aria-hidden="true">↗</span><p id="guidance" role="status">Коснитесь детали, чтобы открыть её управление.</p><button id="cancel-mode" type="button" hidden>Отмена</button></div>
+      </section>
+      <section class="editor" aria-label="Управление выбранной деталью">
+        <div class="editor-head"><span id="part-icon" aria-hidden="true"></span><label><span>Деталь</span><select id="part" aria-label="Выбранная деталь"></select></label></div>
+        <div id="settings"></div>
+        <p id="notice" role="alert" hidden></p>
+      </section>
+    </div>
   </main>
   <script src="vendor/three-0.160.1.min.js"></script>
   <script src="vendor/strudel-web-1.3.0.js"></script>
   <script src="audio-bank.js"></script>
   <script src="async-task.js"></script>
   <script src="transport.js?v=conveyor1"></script>
-  <script src="disc/isometric/flow.js"></script>
-  <script src="disc/isometric/sound.js"></script>
-  <script src="disc/isometric/pieces.js"></script>
-  <script src="disc/isometric/belts.js"></script>
-  <script src="disc/isometric/scene.js"></script>
-  <script src="disc/isometric/app.js"></script>
+  <script src="disc/isometric/flow.js?v=turnout1"></script>
+  <script src="disc/conveyor/audition.js?v=turnout1"></script>
+  <script src="disc/isometric/sound.js?v=turnout1"></script>
+  <script src="disc/isometric/pieces.js?v=turnout1"></script>
+  <script src="disc/isometric/belts.js?v=turnout1"></script>
+  <script src="disc/isometric/scene.js?v=turnout1"></script>
+  <script src="disc/isometric/panel.js?v=turnout1"></script>
+  <script src="disc/isometric/app.js?v=turnout1"></script>
 </body>
 </html>

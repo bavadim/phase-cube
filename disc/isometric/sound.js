@@ -34,9 +34,26 @@
     });
   }
 
+  function routeEvents(S, state, index, keys = KEYS) {
+    if (!Number.isInteger(index) || index < 0 || index >= Flow.STEPS) return [];
+    const rev = Flow.revision(state);
+    // Read from a settled loop, including boxes loaded in its preceding bar.
+    const at = Flow.STEPS + index;
+    const arriving = Flow.tick(rev,at).activity.router;
+    if (!arriving.length) return [];
+    const port = state.routes[index] ? 'straight' : 'side';
+    const prefixes = arriving.map(box => ({origin:box.origin, path:box.path + '/router:' + port}));
+    // A copy may ring two instruments; a pocket after the fork may ring one
+    // of them later. Audition only descendants of these particular boxes.
+    return pattern(S,rev,keys).queryArc(at / Flow.STEPS,(at + Flow.MAX_DELAY + 1) / Flow.STEPS)
+      .filter(event => prefixes.some(p => event.value._boxOrigin === p.origin &&
+        (event.value._boxPath === p.path || event.value._boxPath.startsWith(p.path + '/'))));
+  }
+
   async function create({onChange = () => {}, onError = console.error} = {}) {
     const S = window.strudel;
     const transport = new PhaseCubeTransport(S, {outputGain:1, onChange, onError});
+    const audition = ConveyorAudition.create(S,transport,BPM);
     // A local file cannot fetch its sibling WAVs in several browsers. Both
     // receivers then use native Strudel synths and keep the line playable.
     const useBank = window.location.protocol !== 'file:';
@@ -61,6 +78,7 @@
 
     function queue(state) {
       if (desired === state) return;
+      audition.stop();
       desired = state;
       if (transport.running) {
         transport.queue(bar => entry(Flow.revision(desired, Math.round(bar * Flow.STEPS), transport.active.meta.revision)));
@@ -71,6 +89,9 @@
     }
     return Object.freeze({
       bpm:BPM, transport, queue, clock:() => transport.clock(),
+      previewRoute(state,index) {
+        return audition.playEvents(routeEvents(S,state,index,keys),1 + index / Flow.STEPS);
+      },
       audible() {
         transport.poll();
         return transport.active?.meta.revision ?? idle;
@@ -80,6 +101,7 @@
       playing:() => transport.running && S.getAudioContext().currentTime >= transport.active.audioBegin,
       wanted:() => transport.want,
       async start(state = desired) {
+        audition.stop();
         queue(state);
         if (transport.want) return transport.lifecycle;
         await transport.start(() => entry(idle), BPM, 1);
@@ -89,6 +111,7 @@
         }
       },
       pause() {
+        audition.stop();
         transport.poll();
         stopped = transport.active?.meta.revision ?? stopped;
         const pausing = transport.stop();
@@ -98,5 +121,5 @@
       }
     });
   }
-  return Object.freeze({BPM, pattern, create});
+  return Object.freeze({BPM, pattern, routeEvents, create});
 });

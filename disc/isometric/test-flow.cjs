@@ -48,10 +48,36 @@ assert.equal(edit(initial,'disconnect',{from:'source:out'}).links['source:out'],
 assert.equal(edit(initial,'connect',{from:'copy:out',to:'keys'}),initial);
 assert.equal(edit(initial,'phase',{delta:8}),initial);
 assert.equal(edit(initial,'level',{delta:5}).source.level,2);
-assert.equal(edit(initial,'disc',{index:0,delta:-1}).discs[0],7);
 assert.deepEqual(notes(Flow.revision(edit(initial,'phase',{delta:1})),'keys',0,8),[[1,60],[3,64],[5,67],[7,64]]);
-assert.deepEqual(notes(Flow.revision(edit(initial,'clutch')),'bell',8,16),[[8,64],[10,60],[12,64],[14,67]]);
-assert.deepEqual(notes(Flow.revision(edit(initial,'disc',{index:1,delta:2})),'bell',8,16),[[10,60],[14,67]]);
+assert.deepEqual(initial.routes,[true,false,false,false,true,false,false,false]);
+assert.equal(edit(initial,'route',{index:4,value:true}), initial);
+const changed = edit(initial,'route',{index:2});
+assert.deepEqual(changed.routes,[true,false,true,false,true,false,false,false]);
+assert.deepEqual(notes(Flow.revision(changed),'bell',8,16),[[8,64],[10,60],[12,64]]);
+assert.deepEqual(edit(changed,'route',{index:2,value:false}), initial);
+assert.throws(() => edit(initial,'route',{index:8}));
+assert.throws(() => edit(initial,'route',{index:2,value:1}));
+
+// Every old combination must keep its audible rhythm after restoring. Use
+// the repeated binary openings of the old wheels for an independent oracle.
+const {routes, ...legacyBase} = initial;
+for (let a=0; a<8; a++) for (let b=0; b<8; b++) for (const clutch of [false,true]) {
+  const old = {...legacyBase,discs:[a,b],clutch};
+  const restored = Flow.restore(old);
+  const expected = Array.from({length:8}, (_,t) => !clutch ||
+    (t-a)%2 === 0 && (8+t-b)%4 < 2);
+  assert.deepEqual(restored.routes,expected);
+  assert.deepEqual(restored.source,initial.source);
+  assert.deepEqual(restored.links,initial.links);
+  assert.equal(restored.delay,initial.delay);
+  assert.ok(!('discs' in restored) && !('clutch' in restored));
+}
+assert.throws(() => Flow.restore(legacyBase));
+assert.throws(() => Flow.restore({...legacyBase,discs:[0,8],clutch:true}));
+assert.throws(() => Flow.restore({...legacyBase,discs:[0,0],clutch:'true'}));
+for (const invalid of [[], Array(8), Array(8).fill(0), null]) {
+  assert.throws(() => Flow.restore({...legacyBase,discs:[0,0],clutch:true,routes:invalid}));
+}
 assert.deepEqual(notes(Flow.revision(edit(initial,'delay',{delta:-2})),'bell',0,8),[[0,60],[4,67]]);
 assert.deepEqual(notes(Flow.revision(edit(initial,'note',{index:0,value:null})),'keys',0,2),[]);
 assert.deepEqual(notes(Flow.revision(edit(initial,'note',{index:1,delta:1})),'keys',1,2),[[1,60]]);
@@ -63,7 +89,7 @@ next = edit(next,'delay',{delta:2});
 next = edit(next,'level',{delta:-.5});
 const atOne = Flow.revision(next,1,rev);
 assert.equal(Flow.tick(atOne,1).pockets[0].due,2);
-const atTwo = Flow.revision(edit(next,'clutch'),2,atOne);
+const atTwo = Flow.revision(edit(next,'route',{index:2,value:true}),2,atOne);
 assert.deepEqual(Flow.tick(atTwo,2).hits.bell.map(b => [b.pitch,b.gain,b.origin]),[[60,1,0]]);
 assert.equal(Flow.tick(atTwo,2).pockets[0].due,6);
 assert.equal(Flow.tick(Flow.revision(atTwo.state,2,atTwo),2).hits.bell[0].pitch,60);
@@ -94,4 +120,15 @@ assert.deepEqual([...Audio.pattern(S,Flow.revision(edit(initial,'level',{delta:-
 const held = Audio.pattern(S,rev).queryArc(1/32,1/16);
 assert.equal(held.length,1);
 assert.equal(held[0].hasOnset(),false);
-console.log('PASS: graph edits, delay handover, port routing, cold start and native Strudel onsets.');
+const listen = (state,index) => Audio.routeEvents(S,state,index)
+  .map(h => [(Number(h.whole.begin) - 1) * 8, h.value.s, h.value.note]);
+assert.deepEqual(listen(initial,0), [[0,'sine',64]], 'previous-bar box, without parallel keyboard accompaniment');
+assert.deepEqual(listen(initial,1), [], 'no box');
+assert.deepEqual(listen(initial,2), [], 'basket is silent');
+const forkThenCopy = Flow.restore({...initial, links:{
+  'source:out':'router','router:straight':'copy','copy:out':'bell','copy:copy':'delay','delay:out':'keys'
+}});
+assert.deepEqual(listen(forkThenCopy,0), [[0,'sine',60],[2,'biba_tx_piano',60]], 'both descendants with relative delay');
+assert.deepEqual(listen(edit(initial,'disconnect',{from:'source:out'}),0), [], 'unconnected source');
+assert.deepEqual(listen(edit(initial,'level',{delta:-1}),0), [], 'silent source');
+console.log('PASS: graph edits, delay handover, eight-step routing, v1 save migration, cold start and native Strudel onsets.');
