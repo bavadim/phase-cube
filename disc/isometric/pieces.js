@@ -541,7 +541,9 @@ window.IsoPieces = (() => {
     }
     function key(key,x,y,z,w,d,round) {
       const pin=scoreWheel&&key.startsWith('pin-');
-      const pad=round?cyl(pin?scoreWheel:shell,w/2,w/2+.008,.078,x-(pin?.55:0),y-.045,z-(pin?.13:0),'paper',32):
+      const mount=pin?scoreWheel:shell;
+      const px=pin?x-.55:x, pz=pin?z-.13:z;
+      const pad=round?cyl(mount,w/2,w/2+.008,.078,px,y-.045,pz,'paper',32):
         plate(shell,w,.080,d,x,y-.043,z,'paper',.067);
       if(pin)action(pad,'pin',Number(key.slice(4)));
       caps.set(key,pad);

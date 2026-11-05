@@ -54,7 +54,7 @@ window.IsoScene = (() => {
       let x=-width/2;
       if(i)z+=(prevDepth+depth)/2+.98;
       for(const id of row){
-        result[id]={x:x+stations[id].w/2,z:z+(i===0&&id!=='source'?.43:0)};
+        result[id]={x:x+stations[id].w/2,z:i===0&&id!=='source'?z+.43:z};
         x+=stations[id].w+gap;
       }
       prevDepth=depth;
@@ -274,7 +274,7 @@ window.IsoScene = (() => {
       cam.position.set(20*Math.sin(yaw),20*alt,20*Math.cos(yaw));cam.lookAt(0,0,0);cam.updateMatrixWorld();
     }
     function fit(id){
-      const yaw=id ? .045 : (portrait ? .055 : .13);
+      const yaw=id ? .045 : (portrait ? .055 : .080);
       const alt=id ? 1.83 : (portrait ? 1.55 : .97);
       orient(framingCamera,yaw,alt);
       const rect=new THREE.Box2(),point=new THREE.Vector2();
