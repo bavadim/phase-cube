@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 window.IsoScene = (() => {
-  // The four live stations on the Duet bench read left-to-right. Spare
-  // modules stay within reach, in a separate row on portrait displays.
+  // Each socket has a physical direction. Turn receivers into the trunk
+  // on portrait displays so it can pass through the machine without long sidings.
   const stations = {
-    source:{label:'Шестерня',w:3.5,d:2.05,wide:[-4.50,-1.30],tall:[-1.95,-3.35]},
-    router:{label:'Развилка',w:2.65,d:1.9,wide:[-.10,-1.30],tall:[2.05,-3.35]},
-    keys:{label:'Клавиши',w:1.65,d:1.5,wide:[4.05,-2.80],tall:[2.12,-.02]},
-    bell:{label:'Колокол',w:1.65,d:1.5,wide:[4.05,.25],tall:[-1.92,-.02]},
-    copy:{label:'Копир',w:1.65,d:1.5,wide:[-4.08,2.30],tall:[-2.83,3.18]},
-    delay:{label:'Задержка',w:2,d:1.55,wide:[-.30,2.50],tall:[-.06,3.18]},
-    bin:{label:'Корзина',w:1.65,d:1.5,wide:[4.05,3.45],tall:[2.75,3.18]}
+    source:{label:'Шестерня',w:3.22,d:2.08,h:1.49,wide:[-3.01,-1.18],tall:[-1.66,-2.41,-Math.PI/2]},
+    router:{label:'Развилка',w:2.56,d:1.99,h:1.05,wide:[.49,-1.08],tall:[1.04,-.92]},
+    keys:{label:'Клавиши',w:1.91,d:1.51,h:.98,wide:[3.53,-1.52],tall:[1.68,1.86,-Math.PI/2]},
+    bell:{label:'Колокол',w:1.54,d:1.44,h:1.28,wide:[2.80,.59],tall:[-.48,1.0,Math.PI]},
+    copy:{label:'Копир',w:1.75,d:1.6,h:1.51,wide:[-3.53,1.34],tall:[1.12,-3.50]},
+    delay:{label:'Задержка',w:2.09,d:1.37,h:1.05,wide:[-.99,1.38],tall:[-1.12,3.12]},
+    bin:{label:'Корзина',w:1.46,d:1.38,h:1.15,wide:[1.28,1.79],tall:[1.34,4.04]}
   };
   const inserts=new Set(['copy','delay','router']);
   const make=(tag,cls)=>Object.assign(document.createElement(tag),{className:cls});
@@ -48,9 +48,9 @@ window.IsoScene = (() => {
     const table=new THREE.Group(),belts=new THREE.Group(),boxes=new THREE.Group(),marks=new THREE.Group();
     scene.add(table,belts,boxes,marks);
     const overlay=make('div','iso-overlay');host.append(overlay);
-    const ghost=make('span','iso-drag-label');ghost.hidden=true;overlay.append(ghost);
+    const ghost=make('span','iso-drag-ring');ghost.hidden=true;overlay.append(ghost);
     const pieces={},buttons={},sockets={},routes=new Map(),tokenPool=[],tokenMaterials=new Map();
-    const tokenGeometry=new THREE.BoxGeometry(.27,.19,.22),ray=new THREE.Raycaster();
+    const tokenGeometry=new THREE.SphereGeometry(.122,12,8),ray=new THREE.Raycaster();
     const mutedMaterials=new Map(),originalMaterial=new WeakMap();
     const dormantTone=new THREE.Color(0xc9c6b4);
     function setDormant(part,off){
@@ -128,13 +128,15 @@ window.IsoScene = (() => {
       scene.updateMatrixWorld(true);camera.updateMatrixWorld();
       for(const [id,part] of Object.entries(pieces)){
         const s=stations[id],c=part.group.position.clone();
-        c.z+=s.d*.54;c.y=-.03;
+        c.y=s.h*.37;
         const button=buttons[id];
         button.hidden=!!focusId||!!transition;
         if(button.hidden)continue;
-        const p=project(c),w=button.offsetWidth;
-        button.style.left=Math.max(w/2+2,Math.min(width-w/2-2,p.x))+'px';
-        button.style.top=Math.max(22,Math.min(height-22,p.y+8))+'px';
+        const p=project(c),scale=height/(2*pose.half);
+        const smallSide=Math.min(s.w,s.d);
+        const size=Math.max(44,Math.min(96,smallSide*scale*.72));
+        button.style.width=size+'px';button.style.height=size+'px';
+        button.style.left=p.x+'px';button.style.top=p.y+'px';
       }
     }
     function placeInsertButtons(){
@@ -178,17 +180,35 @@ window.IsoScene = (() => {
       const feetMat=new THREE.MeshBasicMaterial({color:0x334b3b,transparent:true,opacity:.1,depthWrite:false});
       for(const [id,p] of Object.entries(pieces)){
         const shade=new THREE.Mesh(new THREE.CircleGeometry(1,32),feetMat);shade.rotation.x=-Math.PI/2;
-        shade.position.copy(p.group.position).add(vec(.04,-.014,.08));shade.scale.set(stations[id].w*.55,stations[id].d*.6,1);table.add(shade);
+        shade.position.copy(p.group.position).add(vec(.04,-.014,.08));shade.rotation.z=-p.group.rotation.y;shade.scale.set(stations[id].w*.55,stations[id].d*.6,1);table.add(shade);
       }
+    }
+    function axisOf(port){
+      return port==='side'||port==='copy'?vec(0,0,1):vec(port==='in'?-1:1,0,0);
+    }
+    // A socket belongs to its chassis even when its cable is unplugged.
+    function addSocket(piece,s,port,local){
+      const axis=axisOf(port),up=vec(0,1,0);
+      const flange=Math.abs(local.dot(axis))-(axis.x?s.w:s.d)*.5;
+      function sleeve(back,front,r,mat,sides){
+        const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,front-back,sides),mat);
+        mesh.position.copy(local).addScaledVector(axis,(back+front)*.5);
+        mesh.quaternion.setFromUnitVectors(up,axis);piece.group.add(mesh);
+      }
+      sleeve(-flange-.085,.002,.126,materials.rail,12);
+      sleeve(-flange-.05,-flange+.018,.156,materials.belt,6);
+      sleeve(-.035,.009,.143,materials.rail,12);
+      sleeve(.009,.012,.082,materials.belt,12);
     }
     for(const [id,s] of Object.entries(stations)){
       const p=IsoPieces.create(id);pieces[id]=p;p.group.userData.station=id;scene.add(p.group);
-      const b=make('button','iso-caption');b.type='button';b.dataset.station=id;
-      const name=make('span','iso-name');name.textContent=s.label;b.append(name);
+      const b=make('button','iso-part-hit');b.type='button';b.dataset.station=id;
       b.setAttribute('aria-label','Выбрать: '+s.label);
       b.onclick=e=>{if(accessibleActivation(e)){if(patch)connect(id);else if(!insert)select(id);}};
       buttons[id]=b;overlay.append(b);
-      for(const [port,local] of Object.entries(p.ports))sockets[id+':'+port]={id,local};
+      for(const [port,local] of Object.entries(p.ports)){
+        sockets[id+':'+port]={id,local};addSocket(p,s,port,local);
+      }
     }
     const selectionMaterial=new THREE.MeshBasicMaterial({color:0x26785c,depthWrite:false});
     const selection=new THREE.Mesh(new THREE.RingGeometry(.95,1,64),selectionMaterial);
@@ -196,15 +216,17 @@ window.IsoScene = (() => {
     function footprints(){
       return Object.entries(pieces).map(([id,p])=>{
         const {x,z}=p.group.position,{w,d}=stations[id];
-        return {left:x-w/2-.04,right:x+w/2+.04,top:z-d/2-.04,bottom:z+d/2+.04};
+        const swapped=Math.abs(Math.sin(p.group.rotation.y))>.5;
+        const hw=(swapped?d:w)/2,hd=(swapped?w:d)/2;
+        return {left:x-hw,right:x+hw,top:z-hd,bottom:z+hd};
       });
     }
     const framingCamera=new THREE.OrthographicCamera();
     function orient(cam,yaw,alt){
-      cam.position.set(20*yaw,20*alt,20);cam.lookAt(0,0,0);cam.updateMatrixWorld();
+      cam.position.set(20*Math.sin(yaw),20*alt,20*Math.cos(yaw));cam.lookAt(0,0,0);cam.updateMatrixWorld();
     }
     function fit(id){
-      const yaw=id ? .055 : (portrait ? .23 : .35);
+      const yaw=id ? .055+pieces[id].group.rotation.y : (portrait ? .09 : .25);
       const alt=id ? 1.83 : (portrait ? 1.45 : 1.2);
       orient(framingCamera,yaw,alt);
       const rect=new THREE.Box2(),point=new THREE.Vector2();
@@ -213,10 +235,10 @@ window.IsoScene = (() => {
         rect.expandByPoint(point.set(world.x,world.y));
       }
       for(const station of id?[id]:Object.keys(pieces)){
-        const {w,d}=stations[station];
+        const {w,d,h}=stations[station];
         const bounds=id&&face?.focusBounds(id);
-        const min=bounds?.[0]||[-w*.52-.24,-.4,-d*.56-.38];
-        const max=bounds?.[1]||[w*.52+.48,1.76,d*.56+.48];
+        const min=bounds?.[0]||[-w*.5-.09,-.13,-d*.5-.12];
+        const max=bounds?.[1]||[w*.5+.13,h,d*.5+.12];
         for(const x of [min[0],max[0]])for(const y of [min[1],max[1]])for(const z of [min[2],max[2]])corner(vec(x,y,z),station);
       }
       const center=rect.getCenter(point),cx=center.x,cy=center.y,size=rect.getSize(point);
@@ -262,14 +284,14 @@ window.IsoScene = (() => {
       if(disposed)return;
       width=Math.max(1,host.clientWidth);height=Math.max(1,host.clientHeight);
       renderer.setSize(width,height,false);portrait=width/height<1.18;
-      const yaw=portrait?.23:.35;
       for(const [id,p] of Object.entries(pieces)){
-        const [x,z]=stations[id][portrait?'tall':'wide'];
-        p.group.position.set(x+(portrait?yaw*z:0),0,z-(portrait?0:.25*x));
+        const [x,z,angle=0]=stations[id][portrait?'tall':'wide'];
+        p.group.position.set(x,0,z);
+        p.group.rotation.y=angle;
       }
       const footprintsAll=footprints();
-      const bounds={left:Math.min(...footprintsAll.map(o=>o.left))-.87,right:Math.max(...footprintsAll.map(o=>o.right))+.87,
-        top:Math.min(...footprintsAll.map(o=>o.top))-.91,bottom:Math.max(...footprintsAll.map(o=>o.bottom))+.91};
+      const bounds={left:Math.min(...footprintsAll.map(o=>o.left))-.39,right:Math.max(...footprintsAll.map(o=>o.right))+.39,
+        top:Math.min(...footprintsAll.map(o=>o.top))-.39,bottom:Math.max(...footprintsAll.map(o=>o.bottom))+.39};
       skinTable(bounds);scene.updateMatrixWorld(true);
       overview=fit(null);
       aim(frame?.selected&&!patch&&!insert?frame.selected:null,false);
@@ -277,49 +299,45 @@ window.IsoScene = (() => {
       if(frame)render(frame);
     }
     function travelArrows(carrier,path){
-      // A line of raised arrows identifies the chosen belt even with the motor stopped.
-      const shape=new THREE.Shape();
-      shape.moveTo(-.125,-.08);shape.lineTo(0,.075);shape.lineTo(.125,-.08);
-      shape.lineTo(.125,-.01);shape.lineTo(0,.145);shape.lineTo(-.125,-.01);shape.closePath();
-      const geo=new THREE.ShapeGeometry(shape);geo.rotateX(Math.PI/2);
-      const length=path.getLength(),count=Math.max(1,Math.round(length/.61));
-      const arrows=new THREE.InstancedMesh(geo,materials.arrow,count),stamp=new THREE.Object3D();
+      const length=path.getLength(),count=Math.max(1,Math.round(length/1.05));
+      const cone=new THREE.ConeGeometry(.13,.23,10);
+      const arrows=new THREE.InstancedMesh(cone,materials.arrow,count),stamp=new THREE.Object3D(),up=vec(0,1,0);
       for(let i=0;i<count;i++){
-        const t=(i+.5)/count,dir=path.getTangentAt(t);
-        stamp.position.copy(path.getPointAt(t));stamp.position.y+=.036;
-        stamp.rotation.y=Math.atan2(dir.x,dir.z);stamp.updateMatrix();arrows.setMatrixAt(i,stamp.matrix);
+        const t=(i+.5)/count;
+        stamp.position.copy(path.getPointAt(t));stamp.quaternion.setFromUnitVectors(up,path.getTangentAt(t));
+        stamp.updateMatrix();arrows.setMatrixAt(i,stamp.matrix);
       }
-      carrier.add(arrows);arrows.visible=false;
-      return arrows;
+      carrier.add(arrows);arrows.visible=false;return arrows;
+    }
+    function socketDir(key) {
+      const [owner,port]=key.split(':');
+      return axisOf(port).applyQuaternion(pieces[owner].group.quaternion);
     }
     function rebuild(links){
       for(const route of routes.values())route.mountButton.remove();
-      clearGeometry(belts);routes.clear();const prior=[],obstacles=footprints();
+      clearGeometry(belts);routes.clear();
+      const prior=[],chassis=footprints();
+      const jacks=Object.keys(sockets).map(key=>{
+        const p=socketPos(key),inside=p.clone().addScaledVector(socketDir(key),-.24),r=.14;
+        return {key,left:Math.min(p.x,inside.x)-r,right:Math.max(p.x,inside.x)+r,
+          top:Math.min(p.z,inside.z)-r,bottom:Math.max(p.z,inside.z)+r};
+      });
       for(const [key,id] of Object.entries(links)){
-        if(!sockets[key]||!sockets[id+':in'])continue;
-        const plan=IsoBelts.plan(socketPos(key),socketPos(id+':in'),key.split(':')[1],obstacles,prior);
+        const input=id+':in';
+        if(!sockets[key]||!sockets[input])continue;
+        const obstacles=chassis.concat(jacks.filter(jack=>jack.key!==key&&jack.key!==input));
+        const path=IsoBelts.plan(socketPos(key),socketPos(input),socketDir(key),socketDir(input),obstacles,prior);
         const carrier=new THREE.Group();belts.add(carrier);
-        const path=IsoBelts.build(carrier,plan,materials);
+        const jacket=IsoBelts.build(carrier,path,materials);
         const tone=key==='router:straight'?materials.a:key==='router:side'?materials.b:materials.belt;
-        const worldSamples=path.getSpacedPoints(Math.max(8,Math.ceil(path.getLength()*4)));
+        const worldSamples=path.getSpacedPoints(Math.max(14,Math.ceil(path.getLength()*13)));
         const arrows=key.startsWith('router:')?travelArrows(carrier,path):null;
-        const ends=[[key.split(':')[0],key.split(':')[1],socketPos(key)],[id,'in',socketPos(id+':in')]];
-        for(const [station,port,pos] of ends){
-          if(station==='router')continue; // Its two coloured rails already span the pedestal.
-          const vertical=port==='copy';
-          const shoe=new THREE.Mesh(new THREE.BoxGeometry(vertical?.36:.43,.09,vertical?.43:.36),tone);
-          shoe.position.copy(pos);shoe.position.y=.24;
-          if(vertical)shoe.position.z-=.20;
-          else shoe.position.x+=(port==='in'?.20:-.20);
-          carrier.add(shoe);
-        }
-        const mountButton=make('button','iso-insert-point');mountButton.type='button';mountButton.textContent='+';
-        mountButton.title='Вставить между деталями «'+stations[key.split(':')[0]].label+'» и «'+stations[id].label+'»';
-        mountButton.setAttribute('aria-label',mountButton.title);
+        const mountButton=make('button','iso-insert-point');mountButton.type='button';
+        mountButton.setAttribute('aria-label','Вставить между деталями «'+stations[key.split(':')[0]].label+'» и «'+stations[id].label+'»');
         mountButton.dataset.insertBelt=key;
         mountButton.onclick=()=>{if(insert)install(insert,key);};
-        overlay.append(mountButton);
-        prior.push(plan.points);routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,carrier,tone,mountButton});
+        overlay.append(mountButton);prior.push(worldSamples);
+        routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,jacket,tone,mountButton});
       }
       placeInsertButtons();markBelt(null);
     }
@@ -363,8 +381,7 @@ window.IsoScene = (() => {
           token.material=tokenMaterials.get(color);token.visible=true;
           const along=(progress-s.start)/(s.end-s.start);
           token.position.copy(route.path.getPointAt(along));
-          token.scale.set(1,.72+Math.min(1.6,edge.gain??1)*.44,.65+edge.length*.5);
-          token.position.y+=.10*token.scale.y+.02;
+          token.scale.set(1,.8+Math.min(2,edge.gain??1)*.38,1.35+.28*edge.length);
           const dir=route.path.getTangentAt(along);token.rotation.y=Math.atan2(dir.x,dir.z);
         }
       }
@@ -379,9 +396,10 @@ window.IsoScene = (() => {
       const focused=patch||insert?null:frame.selected||null;
       if(focusId!==focused)aim(focused);
       moveCamera();
-      const outlet=focused==='router'?'router:'+(modeState.routes[frame.previewStep??0]?'straight':'side'):null;
+      const straight=frame.playing?frame.tick?.straight??frame.state.routes[Math.floor(t*8)%8]:modeState.routes[frame.previewStep??0];
+      const outlet=focused==='router'?'router:'+(straight?'straight':'side'):null;
       if(outlet!==litOutlet){litOutlet=outlet;markBelt(null);}
-      if(!frame.playing&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep)return;
+      if(!frame.playing&&!pieces.router.needsFrame?.()&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep)return;
       const connections=(patch||insert||focused)?modeState.links:frame.state.links;
       const key=JSON.stringify(connections);
       if(linksKey!==key){linksKey=key;rebuild(connections);}
@@ -436,7 +454,7 @@ window.IsoScene = (() => {
     }
     function targetAt(x,y){
       const dom=document.elementFromPoint(x,y);
-      const station=dom?.closest('.iso-caption')?.dataset.station;
+      const station=dom?.closest('.iso-part-hit')?.dataset.station;
       return station?{id:station}:modelHit(x,y);
     }
     function angleAt(x,y,center){
@@ -464,10 +482,10 @@ window.IsoScene = (() => {
     }
     function markBelt(key){
       for(const [id,r] of routes){
-        let tone=r.tone;
+        let tone=activeStations.has(id.split(':')[0])?r.tone:materials.quiet;
         if(litOutlet&&r.arrows)tone=id===litOutlet?(id==='router:straight'?materials.chosenA:materials.chosenB):materials.quiet;
         if(r.arrows)r.arrows.visible=id===litOutlet;
-        r.carrier.children[0].material=id===key?materials.target:insert&&targetBelts.has(id)?materials.pick:tone;
+        r.jacket.material=id===key?materials.target:insert&&targetBelts.has(id)?materials.pick:tone;
       }
       dirty=true;
     }
@@ -480,9 +498,12 @@ window.IsoScene = (() => {
         // Choosing a station is its own gesture, even when the tap lands
         // precisely on a note. Only an already selected part can be edited.
         g.edit=frame?.selected===hit.id && (hit.id==='source'||hit.id==='delay') ? hit.action : null;
-        const label=e.target.closest('.iso-caption');
-        g.handle=inserts.has(hit.id)&&!!label;
-        g.flip=hit.action?.type==='lever' && frame?.selected==='router' && !label;
+        const overviewHit=e.target.closest('.iso-part-hit');
+        g.handle=inserts.has(hit.id)&&!!overviewHit;
+        if(frame?.selected==='router'&&!overviewHit){
+          if(hit.action?.type==='cam')g.cam=hit.action.index;
+          g.flip=hit.action?.type==='lever';
+        }
         if(g.edit?.type==='phase'||g.edit?.type==='pin'){
           g.center=pieces.source.group.localToWorld(vec(.55,.81,.16));
           g.angle=angleAt(e.clientX,e.clientY,g.center);g.turn=0;
@@ -512,7 +533,7 @@ window.IsoScene = (() => {
         const rect=host.getBoundingClientRect();
         const over=beltUnder(e.clientX,e.clientY,g.hit.id);
         if(over!==g.over){markBelt(over);g.over=over;}
-        ghost.textContent=(over?'Врезать · ':'')+stations[g.hit.id].label;ghost.hidden=false;
+        ghost.dataset.ready=String(!!over);ghost.hidden=false;
         ghost.style.left=(e.clientX-rect.left)+'px';ghost.style.top=(e.clientY-rect.top)+'px';return;
       }
       if(g.insert){markBelt(beltUnder(e.clientX,e.clientY,g.insert));return;}
@@ -546,8 +567,10 @@ window.IsoScene = (() => {
       }
       if(g.moved){
         if(g.edit&&g.change)callbacks.act(commandFor(g.edit,g.change));
+      }else if(g.cam!==undefined){
+        callbacks.touchCam?.(g.cam);
       }else if(g.flip && targetAt(e.clientX,e.clientY)?.id==='router' &&
-        !document.elementFromPoint(e.clientX,e.clientY)?.closest('.iso-caption')){
+        !document.elementFromPoint(e.clientX,e.clientY)?.closest('.iso-part-hit')){
         callbacks.flipRoute?.();
       }else if(g.edit)callbacks.act(commandFor(g.edit,1));
       else if(g.hit&&g.hit.id!==focusId)select(g.hit.id);
@@ -585,7 +608,9 @@ window.IsoScene = (() => {
       }
       for(const k of Object.keys(sockets))ports[k]=client(project(socketPos(k)));
       const beltPoints=Object.fromEntries([...routes].map(([key,r])=>[key,r.samples.map(client)]));
-      return {webgl:true,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:tokenPool.filter(m=>m.visible).length};
+      const cableLengths=Object.fromEntries([...routes].map(([key,r])=>[key,r.path.getLength()]));
+      const cableHeights=Object.fromEntries([...routes].map(([key,r])=>[key,Math.max(...r.worldSamples.map(p=>p.y))]));
+      return {webgl:true,cableLengths,cableHeights,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:tokenPool.filter(m=>m.visible).length};
     }
     face=window.IsoFace?.mount({overlay,pieces,projectLocal,callbacks:{startPatch:setPatch,startInsert:setInsert,...callbacks}});
     const observer=new ResizeObserver(resize);observer.observe(host);resize();

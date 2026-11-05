@@ -263,57 +263,140 @@ window.IsoPieces = (() => {
     };
   }
 
-  function router(root) {
-    mounting(root,2.31,1.81,'edge');
-    const pivotX=-.40, pivotZ=-.21;
-    const colors={straight:'#247e77',side:'#c46437'};
-    // A recessed track has raised cast lips. Its ends meet the belt sockets.
-    // Shape coordinates below are in the same top-down X,Z plane as the belts.
-    function track(points, tone, name) {
-      const curve=new T.CatmullRomCurve3(points.map(([x,z])=>vec(x,0,z)));
-      const spine=curve.getSpacedPoints(22);
-      const normals=spine.map((p,i)=>{
-        const previous=spine[Math.max(0,i-1)], next=spine[Math.min(spine.length-1,i+1)];
-        return vec(previous.z-next.z,0,next.x-previous.x).normalize();
-      });
-      function strip(left,right,base,height,pigment) {
-        const shape=new T.Shape();
-        function add(p,index,offset,first) {
-          const x=p.x+offset*normals[index].x,z=p.z+offset*normals[index].z;
-          if(first) shape.moveTo(x,-z); else shape.lineTo(x,-z);
+  const CAM = Object.freeze({x:-.35, z:-.105, scale:.85, low:.77, high:1.047, pitch:TAU/8});
+  const travel = CAM.high-CAM.low;
+  const camPoses=new WeakMap();
+  const smooth=t=>t*t*(3-2*t);
+  const wrap=(n,m)=>(n%m+m)%m;
+  function camRadius(unit,previous,raised,next) {
+    const current=raised?CAM.high:CAM.low;
+    const adjacent=unit<0?previous:next;
+    const neighbour=adjacent?CAM.high:CAM.low;
+    // Rounded shoulders link different program heights. A shallow root at
+    // every joint keeps all eight teeth visible even in a constant program.
+    const edge=smooth(Math.max(0,(Math.abs(unit)-.32)/.18));
+    return current+(neighbour-current)*.5*edge-.099*edge;
+  }
+  function createCamDrive() {
+    const pose={angle:0,radius:CAM.low,gateX:0,reader:0,animating:false};
+    let from=0,to=0,started=0,lastUnit=null,wasPlaying=false;
+    return {pose,update(frame,routes){
+      // At playback a boundary passes the follower on each onset. At rest
+      // put the chosen lobe's flat centre under it, by the shortest rotation.
+      const tick=frame.time*8;
+      const unit=frame.playing?tick-.5:frame.selected==='router'?(frame.previewStep??0):Math.floor(tick);
+      const now=performance.now();
+      if(frame.playing){
+        pose.angle=unit*CAM.pitch;pose.animating=false;
+      }else{
+        if(unit!==lastUnit||wasPlaying){
+          from=pose.angle;to=from+wrap(unit*CAM.pitch-from+Math.PI,TAU)-Math.PI;
+          started=now;pose.animating=Math.abs(to-from)>.001;
         }
-        spine.forEach((p,i)=>add(p,i,left,i===0));
-        for(let i=spine.length-1;i>=0;i--) add(spine[i],i,right,false);
-        shape.closePath();
-        return mesh(root,geometry('turnout-'+name+'-'+left+'-'+right,()=>extrude(shape,height,.006)),pigment,0,base,0);
+        if(pose.animating){
+          const k=Math.min(1,(now-started)/190);
+          pose.angle=from+(to-from)*smooth(k);pose.animating=k<1;
+        }
       }
-      strip(-.187,.187,.355,.039,'edge');
-      strip(-.212,-.166,.375,.067,tone);
-      strip(.166,.212,.375,.067,tone);
+      lastUnit=unit;wasPlaying=frame.playing;
+      const turns=pose.angle/CAM.pitch,nearest=Math.round(turns),i=wrap(nearest,8);
+      pose.reader=i;
+      pose.radius=camRadius(turns-nearest,routes[(i+7)%8],routes[i],routes[(i+1)%8]);
+      pose.gateX=CAM.x+pose.radius+.31;
+      return pose;
+    }};
+  }
+  function camSector(previous,raised,next) {
+    return geometry(['cam-wedge',previous,raised,next].join(),()=>{
+      const p=new T.Shape(), divisions=24;
+      for(let j=0;j<=divisions;j++) {
+        const u=-.493+j*.986/divisions, a=u*CAM.pitch;
+        const r=camRadius(u,previous,raised,next);
+        if(j===0)p.moveTo(r*Math.cos(a),-r*Math.sin(a));
+        else p.lineTo(r*Math.cos(a),-r*Math.sin(a));
+      }
+      for(let j=divisions;j>=0;j--){
+        const a=(-.493+j*.986/divisions)*CAM.pitch;
+        p.lineTo(.328*Math.cos(a),-.328*Math.sin(a));
+      }
+      p.closePath();
+      return extrude(p,.125,.012);
+    });
+  }
+  function router(root) {
+    const bench=group(root);bench.scale.set(CAM.scale,1,CAM.scale);
+    mounting(bench,3.02,2.34,'edge');
+    const {x,z,pitch}=CAM;
+    cyl(bench,.665,.69,.082,x,.405,z,'edge',48);
+    // The black waist and axle are part of this same cam, not a second wheel.
+    const wheel=group(bench,x,.49,z);
+    cyl(wheel,.633,.626,.122,0,.035,0,'brass',56);
+    const cells=Array.from({length:8},(_,i)=>{
+      const arm=action(group(wheel),'cam',i);arm.rotation.y=-i*pitch;
+      const tooth=mesh(arm,camSector(false,false,false),'mint',0,.078,0);
+      const rim=cyl(arm,.101,.119,.032,.613,.222,0,'ink',24);
+      const bead=cyl(arm,.071,.077,.039,.613,.245,0,'gold',24);
+      return {tooth,rim,bead};
+    });
+    cyl(wheel,.335,.343,.154,0,.137,0,'edge',48);
+    cyl(wheel,.234,.256,.155,0,.262,0,'brass',8);
+    cyl(wheel,.112,.134,.055,0,.358,0,'teal',16);
+    // Single permanent brass rivet sets the origin of the cycle.
+    cyl(wheel,.040,.046,.019,.265,.224,0,'paper',16);
+    const green='#287e6d', amber='#bf653b';
+    const lowX=x+CAM.low+.10+.21, highX=lowX+travel;
+    function outlet(px,points,tone) {
+      for(let i=1;i<points.length;i++)rod(bench,points[i-1],points[i],.085,tone);
+      for(const p of points.slice(1,-1))ball(bench,.085,...p,tone);
+      cyl(bench,.158,.168,.07,px,.444,.665,tone,28);
+      cyl(bench,.099,.102,.035,px,.489,.665,tone===green?'#73c9ad':'#e4a06a',28);
     }
-    track([[-1.33,.4],[-1.14,.4],[-.92,.29],[-.70,-.01],[pivotX,pivotZ]],'steel','in');
-    track([[.20,pivotZ],[.52,pivotZ],[.75,-.11],[1.09,.32],[1.34,.4]],colors.straight,'straight');
-    track([[-.09,.29],[.04,.51],[.12,.73],[.13,1.10]],colors.side,'side');
-    cyl(root,.47,.50,.06,pivotX,.407,pivotZ,'ink');
-
-    // One pivoting bridge carries a broad white arrow. The bridge points at
-    // the physical chute that will accept a box arriving in this eighth.
-    const switchRail=action(group(root,pivotX,.437,pivotZ),'lever');
-    const bed=plate(switchRail,1.08,.13,.49,.39,.069,0,colors.straight,.13);
-    const arrowShape=new T.Shape();
-    arrowShape.moveTo(.05,-.078);
-    arrowShape.lineTo(.46,-.078); arrowShape.lineTo(.46,-.185);
-    arrowShape.lineTo(.80,0); arrowShape.lineTo(.46,.185);
-    arrowShape.lineTo(.46,.078); arrowShape.lineTo(.05,.078); arrowShape.closePath();
-    mesh(switchRail,geometry('turnout-arrow',()=>extrude(arrowShape,.016,.003)),'paper',0,.140,0);
-    cyl(root,.092,.122,.11,pivotX,.588,pivotZ,'brass',24);
-
+    outlet(highX,[[highX,.404,.665],[1.26,.40,.665],[1.48,.31,.4]],green);
+    outlet(lowX,[[lowX,.399,.665],[lowX,.391,.91],[.49,.31,1.18]],amber);
+    // Incoming manifold under the cam and the bearings on which the valve slides.
+    const inlet=[[-1.50,.31,.50],[-1.26,.389,.50],[-.96,.397,.82],[-.78,.397,.865],
+      [.37,.397,.865],[.57,.397,.665],[highX,.397,.665]];
+    for(let i=1;i<inlet.length;i++)rod(bench,inlet[i-1],inlet[i],.068,'brass');
+    for(const p of inlet.slice(1,-1))ball(bench,.068,...p,'brass');
+    for(const zz of [.50,.826])rod(bench,[lowX-.29,.521,zz],[highX+.28,.521,zz],.036,'steel');
+    const carriage=action(group(bench,0,0,0),'lever');
+    const plateShape=rounded(.82,.41,.065), aperture=new T.Path();
+    aperture.absarc(0,0,.113,0,TAU,true);plateShape.holes.push(aperture);
+    mesh(carriage,geometry('ported-valve',()=>extrude(plateShape,.065,.007)),'steel',.21,.524,.665);
+    rod(carriage,[0,.645,z],[.21,.609,.11],.043,'brass');
+    rod(carriage,[.21,.609,.11],[.21,.578,.50],.049,'brass');
+    cyl(carriage,.102,.105,.151,0,.630,z,'edge',24);
+    cyl(carriage,.049,.053,.031,0,.720,z,'brass',16);
+    const grip=cyl(carriage,.115,.148,.095,.21,.658,.333,'teal',24);
+    bead(carriage,.095,.013,.21,.708,.333,'ivory');
+    const portVec=(xx,yy,zz)=>vec(xx*CAM.scale,yy,zz*CAM.scale);
+    const drive=createCamDrive();
+    camPoses.set(root,drive.pose);
+    let lastRoutes,lastScore;
     return {
-      ports:{in:vec(-1.33,.29,.4),straight:vec(1.34,.29,.4),side:vec(.13,.29,1.10)},
-      update(frame) {
-        const straight=frame.previewRoute ?? frame.tick.straight;
-        switchRail.rotation.y=straight?0:-Math.atan2(.50,.31);
-        bed.material=paint(straight?colors.straight:colors.side);
+      ports:{in:portVec(-1.50,.31,.50),straight:portVec(1.54,.31,.40),side:portVec(.49,.31,1.18)},
+      needsFrame:()=>drive.pose.animating,
+      update(f) {
+        const s=f.selected==='router'&&!f.playing?(f.editState||f.state):f.state;
+        const route=s.routes,pose=drive.update(f,route);
+        wheel.rotation.y=pose.angle;
+        if(lastRoutes!==route){
+          cells.forEach(({tooth},i)=>{
+            tooth.geometry=camSector(route[(i+7)%8],route[i],route[(i+1)%8]);
+            tooth.material=paint(route[i]?'#63b5a2':'#e29b62');
+          });
+          lastRoutes=route;
+        }
+        if(lastScore!==f.steps){
+          cells.forEach(({rim,bead},i)=>{
+            const note=f.steps?.[i]?.activity.router[0];
+            rim.scale.setScalar(note?1:.65);bead.visible=!!note;
+            if(note)bead.material=paint(noteColor(note.pitch));
+          });
+          lastScore=f.steps;
+        }
+        carriage.position.x=x+pose.radius+.10;
+        grip.material=paint(route[pose.reader]?green:amber);
       }
     };
   }
@@ -392,7 +475,7 @@ window.IsoPieces = (() => {
     const assembly=new T.Group();
     assembly.name=id;
     const result=build(assembly);
-    return {group:assembly,ports:result.ports,update:result.update};
+    return {group:assembly,ports:result.ports,update:result.update,needsFrame:result.needsFrame};
   }
   // The service faces are attached to the casting when the camera opens a
   // machine. Geometry and its accessible printed legends share local axes.
@@ -405,10 +488,6 @@ window.IsoPieces = (() => {
       for(const dx of [-1,1])for(const dz of [-1,1]) {
         cyl(shell,.025,.032,.016,x+dx*(w/2-.085),.43,z+dz*(d/2-.085),'brass',8);
       }
-    }
-    if(id==='router') {
-      casework(3.09,1.78,0,-1.84,'teal');
-      for(const x of [-.81,.81])cyl(shell,.11,.11,.39,x,.285,-.95,'brass').rotation.z=Math.PI/2;
     }
     if(id==='source'){
       const ring=new T.Shape();ring.absarc(.55,-.13,1.11,0,TAU,false);
@@ -438,5 +517,5 @@ window.IsoPieces = (() => {
     }
     return {shell,key,capColor};
   }
-  return Object.freeze({create,noteColor,serviceFace});
+  return Object.freeze({create,noteColor,serviceFace,CAM,camRadius,createCamDrive,camPose:root=>camPoses.get(root)});
 })();

@@ -6,15 +6,6 @@
   const ports={out:'Выход',copy:'Копия',straight:'Прямо',side:'Вбок'};
   const pitchName=n=>n==null?'Пауза':['До','До♯','Ре','Ми♭','Ми','Фа','Фа♯','Соль','Соль♯','Ля','Си♭','Си'][n%12];
   window.IsoWorkshopLabels=Object.freeze({names,ports,pitchName});
-  const hints={
-    source:'Коснитесь штифта, чтобы сменить ноту. Поворот обода сдвигает фразу, подъём ступицы усиливает звук.',
-    copy:'У копира два выхода. Выберите выход, затем коснитесь детали, куда должна идти копия.',
-    delay:'Выберите число карманов. Каждый задерживает коробку на одну восьмую.',
-    router:'Коснитесь шага, чтобы увидеть его ленту. Переведите стрелку, чтобы поменять выход.',
-    keys:'Клавиши играют ноту каждой поступившей коробки.',
-    bell:'Колокол звучит, когда до него доходит коробка.',
-    bin:'Попавшие сюда ноты замолкают.'
-  };
   const presets=['duet','straight','echo','answer'],storageKey='biba.note-conveyor.iso.v1';
   function presetState(id){
     const s=F.initial();
@@ -30,7 +21,7 @@
   let revision=F.revision(state);
   // The second cycle includes notes that crossed the bar line in the delay.
   const stepFrames=()=>Array.from({length:F.STEPS},(_,i)=>F.tick(revision,F.STEPS+i));
-  let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,previewStep=0,starting=false;
+  let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,previewStep=0,picked=false,starting=false;
   let cachedRevision,cachedTick,eventFrame,lastLamp=-1,raf=0,focusAfterZoom=null;
   const undo=[],lamps=Array.from({length:F.STEPS},()=>document.createElement('i'));
   $('beat').append(...lamps);
@@ -39,10 +30,9 @@
     const mode=!!(patch||insert),focused=!!selected&&!mode;
     const movable=['copy','router','delay'].includes(selected);
     const links=Object.entries(state.links);
-    $('back-to-table').hidden=!focused;$('part-name').hidden=!focused;
-    $('part-name').textContent=focused?names[selected]:'';
-    $('assembly').hidden=!!selected||mode;
-    if(mode){$('part-name').hidden=false;$('part-name').textContent=patch?'Соединение':'Врезка';}
+    $('back-to-table').hidden=!focused;
+    $('return-to-shop').hidden=focused||mode;
+    $('assembly').hidden=focused||mode;
     $('mount-part').hidden=!(focused&&movable&&links.some(([key,to])=>to!==selected&&!key.startsWith(selected+':')));
     $('bypass-part').hidden=!(focused&&movable&&links.some(([,to])=>to===selected));
     $('cancel-mode').hidden=!mode;$('unplug').hidden=!(patch&&state.links[patch]);
@@ -50,9 +40,9 @@
     const board=$('board');board.parentElement.dataset.mode=mode?'mount':focused?'focus':'overview';
     if(patch){
       const [id,port]=patch.split(':');
-      $('guidance').textContent=names[id]+' · '+ports[port]+'. Коснитесь нового приёмника на столе.';
-    }else if(insert){$('guidance').textContent='Куда вставить «'+names[insert]+'»? Нажмите на подсвеченную ленту.';}
-    else{$('guidance').textContent=focused?hints[selected]:'Коснитесь детали, чтобы приблизить её.';}
+      $('status').textContent=names[id]+' · '+ports[port]+'. Выберите приёмник провода.';
+    }else if(insert){$('status').textContent='Выберите соединение для детали «'+names[insert]+'».';}
+    else{$('status').textContent=focused?names[selected]:'Весь стол';}
   }
   function updateState(next,remember=true){
     if(signature(state)===signature(next))return;
@@ -68,23 +58,34 @@
   function select(id){
     if(id!==null&&!Object.hasOwn(names,id))return;
     const old=selected,keyboard=document.activeElement?.matches(':focus-visible');
-    cancel();selected=id;notice('');refresh();
+    cancel();selected=id;if(old!==id)picked=false;notice('');refresh();
     focusAfterZoom=keyboard&&old!==id?(id?'#back-to-table':'#board [data-station="'+old+'"]'):null;
   }
   function rewind(){const previous=undo.pop();cancel();if(previous)updateState(previous,false);}
   function audition(){
     if(audio&&!audio.wanted())audio.previewRoute(state,previewStep).catch(err=>notice('Не удалось прослушать ноту. '+err.message));
   }
+  function announceCamStep(){
+    const port=state.routes[previewStep]?'straight':'side';
+    const dest=names[state.links['router:'+port]]||'Выход свободен';
+    $('status').textContent='Положение '+(previewStep+1)+' · '+ports[port]+' · '+dest;
+  }
   function pickStep(i){
     if(!Number.isInteger(i)||i<0||i>=F.STEPS)return;
-    previewStep=i;audition();
+    previewStep=i;picked=true;announceCamStep();audition();
   }
-  function flipRoute(){if(act({type:'route',index:previewStep}))audition();}
+  function flipRoute(){
+    if(act({type:'route',index:previewStep})){picked=true;announceCamStep();audition();}
+  }
+  function touchCam(i){
+    if(picked&&i===previewStep)flipRoute();
+    else pickStep(i);
+  }
   function transportUI(){
     const running=Boolean(audio?.wanted());
     $('play').disabled=!audio||starting;
     $('play').setAttribute('aria-pressed',String(running));
-    $('play').querySelector('span').textContent=starting?'Запуск…':running?'Пауза':'Запустить';
+    $('play').setAttribute('aria-label',starting?'Запуск':running?'Пауза':'Запустить');
   }
   async function toggleAudio(){
     if(!audio||starting)return;
@@ -103,7 +104,7 @@
     const lamp=playing?eventFrame.step:-1;
     if(lamp!==lastLamp){lamps[lastLamp]?.classList.remove('on');lamps[lamp]?.classList.add('on');lastLamp=lamp;}
     const previewRoute=selected==='router'&&!patch&&!insert&&!playing?state.routes[previewStep]:null;
-    scene.render({state:active.state,editState:state,revision:active,selected,previewStep,previewRoute,steps,time,playing,tick:eventFrame});
+    scene.render({state:active.state,editState:state,revision:active,selected,previewStep,picked,previewRoute,steps,time,playing,tick:eventFrame});
     if(focusAfterZoom){
       const target=document.querySelector(focusAfterZoom);
       if(target?.getClientRects().length){target.focus({preventScroll:true});focusAfterZoom=null;}
@@ -120,7 +121,7 @@
     if(e.key==='Escape'){if(patch||insert)cancel();else if(selected)select(null);}
     if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();rewind();}
   });
-  const callbacks={select,act,notice,patchChanged,insertChanged,pickStep,flipRoute,
+  const callbacks={select,act,notice,patchChanged,insertChanged,pickStep,touchCam,flipRoute,
     startPatch:key=>scene.setPatch(key),startInsert:id=>scene.setInsert(id),
     connect:(from,to)=>act({type:'connect',from,to}),disconnect:from=>act({type:'disconnect',from})};
   scene=IsoScene.mount($('board'),callbacks)||IsoFlat.mount($('board'),callbacks);

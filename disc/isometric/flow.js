@@ -22,18 +22,18 @@
   }
 
   function verifyLinks(links) {
-    requireThat(links && typeof links === 'object' && !Array.isArray(links), 'Повреждена разводка лент.');
+    requireThat(links && typeof links === 'object' && !Array.isArray(links), 'Повреждена схема соединений.');
     const occupied = new Set();
     for (const [port, node] of Object.entries(links)) {
       requireThat(outputs.includes(port) && typeof node === 'string' && Object.hasOwn(PORTS, node) && node !== 'source', 'Соедините выход детали с входом другой детали.');
       if (!PROCESSORS.includes(node)) continue;
-      requireThat(!occupied.has(node), 'Этот вход уже занят. Сначала снимите его ленту.');
+      requireThat(!occupied.has(node), 'Этот вход уже занят. Сначала отсоедините провод.');
       occupied.add(node);
     }
     const visiting = new Set(), done = new Set();
     function visit(node) {
       if (done.has(node)) return;
-      requireThat(!visiting.has(node), 'Лента замкнула бы путь на себя.');
+      requireThat(!visiting.has(node), 'Такая разводка замкнула бы путь на себя.');
       visiting.add(node);
       for (const port of PORTS[node]) {
         const next = links[node + ':' + port];
@@ -82,7 +82,7 @@
   // Removing a module preserves the path through its primary outlet. Its branch
   // becomes free. Inserting it elsewhere is a single validated graph edit.
   function bypass(links, node) {
-    requireThat(PROCESSORS.includes(node), 'Эту деталь нельзя врезать в ленту.');
+    requireThat(PROCESSORS.includes(node), 'Эту деталь нельзя вставить между двумя другими.');
     const input = Object.keys(links).find(port => links[port] === node);
     const next = links[primary(node)];
     for (const port of PORTS[node]) delete links[node + ':' + port];
@@ -106,7 +106,7 @@
           if (type === 'connect') links[from] = to;
           if (type === 'disconnect') delete links[from];
           if (type === 'insert') {
-            requireThat(links[from] && owner(from) !== node && links[from] !== node, 'Выберите ленту между другими деталями.');
+            requireThat(links[from] && owner(from) !== node && links[from] !== node, 'Выберите провод между другими деталями.');
             bypass(links, node);
             const previous = links[from];
             links[from] = node;

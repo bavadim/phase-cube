@@ -1,139 +1,115 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Route flat belts around station footprints. A crossing has a real raised deck. */
+// Socket leads are routed on the table. Lift one jacket over another at crossings.
 window.IsoBelts = (() => {
-  const deck = .27;
-  const v = (x,z) => new THREE.Vector3(x,deck,z);
-  const unique = values => Array.from(new Set(values.map(x=>Math.round(x*1000)/1000))).sort((a,b)=>a-b);
-  function intersects(a,b,box) {
-    return Math.min(a.x,b.x) < box.right-.002 && Math.max(a.x,b.x) > box.left+.002 &&
-      Math.min(a.z,b.z) < box.bottom-.002 && Math.max(a.z,b.z) > box.top+.002;
-  }
-  function segments(points) { return points.slice(1).map((b,i)=>[points[i],b]); }
-  function crossing(a,b,c,d) {
-    if ((a.x===b.x)===(c.x===d.x)) return null;
-    const vertical=a.x===b.x?[a,b]:[c,d], horizontal=a.x===b.x?[c,d]:[a,b];
-    const {x}=vertical[0], {z}=horizontal[0];
-    if (x <= Math.min(horizontal[0].x,horizontal[1].x)+.01 || x >= Math.max(horizontal[0].x,horizontal[1].x)-.01 ||
-        z <= Math.min(vertical[0].z,vertical[1].z)+.01 || z >= Math.max(vertical[0].z,vertical[1].z)-.01) return null;
-    return v(x,z);
-  }
-  function simplify(points) {
-    const kept=[];
-    for (const p of points) {
-      if(kept.length&&p.distanceToSquared(kept[kept.length-1]) < .00002)continue;
-      if(kept.length>1){
-        const a=kept[kept.length-2],b=kept[kept.length-1];
-        if(Math.abs((b.x-a.x)*(p.z-b.z)-(b.z-a.z)*(p.x-b.x))<.0001 &&
-           ((b.x-a.x)*(p.x-b.x)+(b.z-a.z)*(p.z-b.z))>0)kept.pop();
-      }
-      kept.push(p);
+  const radius=.069;
+  const horizontal=(p,q)=>Math.hypot(q.x-p.x,q.z-p.z);
+  const amount=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+  // Test the open rectangle, so a shortest path can follow its outside edge.
+  function enters(a,b,box) {
+    let lo=0,hi=1;
+    for(const [axis,min,max] of [['x',box.left,box.right],['z',box.top,box.bottom]]){
+      const v=b[axis]-a[axis],start=a[axis],left=min+.001,right=max-.001;
+      if(Math.abs(v)<.0001){if(start<left||start>right)return false;continue;}
+      const t0=(left-start)/v,t1=(right-start)/v;
+      lo=Math.max(lo,Math.min(t0,t1));hi=Math.min(hi,Math.max(t0,t1));
+      if(hi<lo)return false;
     }
-    return kept;
+    return hi>lo+.0001;
   }
-  function plan(start,end,port,boxes,older) {
-    const side=port==='side'||port==='copy';
-    const gap=end.x-start.x;
-    const neck=!side&&gap>0?Math.min(.54,gap*.43):.54;
-    const a=v(start.x+(side?0:neck),start.z+(side?.56:0)), b=v(end.x-neck,end.z);
-    const xs=unique([a.x,b.x,(a.x+b.x)/2,...boxes.flatMap(o=>[o.left-.22,o.right+.22])]);
-    const zs=unique([a.z,b.z,(a.z+b.z)/2,...boxes.flatMap(o=>[o.top-.22,o.bottom+.22])]);
-    const cells=xs.flatMap(x=>zs.map(z=>v(x,z))), nz=zs.length;
-    const nearest=(arr,val)=>arr.reduce((best,x,i)=>Math.abs(x-val)<Math.abs(arr[best]-val)?i:best,0);
-    const index=p=>nearest(xs,p.x)*nz+nearest(zs,p.z), from=index(a), to=index(b);
-    const edges=older.flatMap(p=>segments(p));
-    const queue=[{i:from,dir:-1,score:0,prev:null}], best=new Map();
-    let final;
-    while(queue.length){
-      queue.sort((p,q)=>q.score-p.score);
-      const cur=queue.pop(),u=cells[cur.i];
-      if(cur.i===to){final=cur;break;}
-      if(cur.score>best.get(cur.i*2+cur.dir))continue;
-      const neighbors=[];
-      if(cur.i>=nz)neighbors.push([cur.i-nz,0]);
-      if(cur.i+nz<cells.length)neighbors.push([cur.i+nz,0]);
-      if(cur.i%nz>0)neighbors.push([cur.i-1,1]);
-      if(cur.i%nz<nz-1)neighbors.push([cur.i+1,1]);
-      for(const [j,dir] of neighbors){
-        const w=cells[j];
-        // A belt cannot double back through its own socket. Turn at the
-        // end of the neck, or keep travelling in the inlet/outlet direction.
-        if(cur.i===from && (side?w.z<u.z-.001:w.x<u.x-.001))continue;
-        if(j===to && u.x>w.x+.001)continue;
-        if(boxes.some(o=>intersects(u,w,o)))continue;
-        let cost=u.distanceTo(w)+(cur.dir>=0&&cur.dir!==dir?.34:0);
-        for(const [c,d] of edges){
-          if(crossing(u,w,c,d)){cost+=.4;continue;}
-          const axis=dir===0?'z':'x', len=dir===0?'x':'z';
-          if(Math.abs(c[axis]-d[axis])<.01 && Math.abs(c[axis]-u[axis])<.38){
-            const overlap=Math.min(Math.max(c[len],d[len]),Math.max(u[len],w[len]))-
-              Math.max(Math.min(c[len],d[len]),Math.min(u[len],w[len]));
-            cost+=Math.max(0,overlap)*4;
-          }
-        }
-        const score=cur.score+cost, key=j*2+dir;
-        if(score>=(best.get(key)??Infinity)-.0001)continue;
-        best.set(key,score);queue.push({i:j,dir,score,prev:cur});
+  function near(a,b,p){
+    const dx=b.x-a.x,dz=b.z-a.z;
+    const t=amount(((p.x-a.x)*dx+(p.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1);
+    return Math.hypot(p.x-a.x-t*dx,p.z-a.z-t*dz);
+  }
+  function groundPath(a,b,boxes,previous){
+    const pts=[a,b];
+    for(const box of boxes)for(const x of [box.left,box.right])for(const z of [box.top,box.bottom]){
+      const p=new THREE.Vector3(x,0,z);
+      if(!boxes.some(o=>x>o.left+.001&&x<o.right-.001&&z>o.top+.001&&z<o.bottom-.001))pts.push(p);
+    }
+    const seen=new Set(),cost=pts.map(()=>Infinity),parent=pts.map(()=>-1);
+    cost[0]=0;
+    for(;;){
+      let best=-1;
+      for(let i=0;i<pts.length;i++)if(!seen.has(i)&&Number.isFinite(cost[i])&&(best<0||cost[i]<cost[best]))best=i;
+      if(best===1)break;
+      if(best<0)return null;
+      seen.add(best);
+      const from=pts[best];
+      for(let i=1;i<pts.length;i++){
+        if(seen.has(i)||boxes.some(box=>enters(from,pts[i],box)))continue;
+        const dist=horizontal(from,pts[i]);
+        // Short crossings are fine. Sharing a long run makes the branches hard to trace.
+        let occupied=0;
+        for(const samples of previous)for(const p of samples)if(near(from,pts[i],p)<.18)occupied+=.12;
+        const next=cost[best]+dist+.045+occupied*.8;
+        if(next<cost[i]){cost[i]=next;parent[i]=best;}
       }
     }
-    const path=[];
-    for(let p=final;p;p=p.prev)path.unshift(cells[p.i]);
-    if(!final)path.push(a,v(a.x,b.z),b);
-    const points=simplify([v(start.x,start.z),...path,v(end.x,end.z)]);
-    const crossings=[];
-    for(const [x,y] of segments(points))for(const [c,d] of edges){const p=crossing(x,y,c,d);if(p)crossings.push(p);}
-    return {points,crossings};
+    const result=[];for(let i=1;i!==-1;i=parent[i])result.unshift(pts[i]);return result;
   }
-  function curveFor({points,crossings}) {
-    const path=new THREE.CurvePath();let previous=points[0];
+  function rounded(points){
+    const line=new THREE.CurvePath();
+    let at=points[0];
     for(let i=1;i<points.length-1;i++){
-      const here=points[i],next=points[i+1],r=Math.min(.37,here.distanceTo(previous)*.42,here.distanceTo(next)*.42);
-      const entry=here.clone().addScaledVector(previous.clone().sub(here).normalize(),r);
-      const exit=here.clone().addScaledVector(next.clone().sub(here).normalize(),r);
-      path.add(new THREE.LineCurve3(previous,entry));path.add(new THREE.QuadraticBezierCurve3(entry,here,exit));previous=exit;
+      const here=points[i],next=points[i+1],r=Math.min(.26,horizontal(at,here)*.39,horizontal(next,here)*.39);
+      if(r<.002)continue;
+      const left=here.clone().lerp(at,r/horizontal(at,here)),right=here.clone().lerp(next,r/horizontal(next,here));
+      line.add(new THREE.LineCurve3(at,left));line.add(new THREE.QuadraticBezierCurve3(left,here,right));at=right;
     }
-    path.add(new THREE.LineCurve3(previous,points[points.length-1]));
-    if(!crossings.length)return path;
-    const samples=path.getSpacedPoints(Math.max(16,Math.ceil(path.getLength()*7)));
-    for(const p of samples){
-      const d=Math.min(...crossings.map(c=>p.distanceTo(c)));
-      if(d<1.15)p.y+=.58*.5*(1+Math.cos(d/1.15*Math.PI));
-    }
-    return new THREE.CatmullRomCurve3(samples);
+    line.add(new THREE.LineCurve3(at,points[points.length-1]));return line;
   }
-  function build(group,plan,materials) {
-    const path=curveFor(plan),length=path.getLength(),n=Math.max(8,Math.ceil(length*6));
-    const centers=path.getSpacedPoints(n),normals=centers.map((p,i)=>{
-      const delta=centers[Math.min(i+1,n)].clone().sub(centers[Math.max(i-1,0)]);
-      return new THREE.Vector3(delta.z,0,-delta.x).normalize();
-    });
-    function ribbon(left,right,h,mat) {
-      const vertices=[],indices=[];
-      for(let i=0;i<=n;i++){
-        for(const offset of [left,right]){
-          const p=centers[i].clone().addScaledVector(normals[i],offset); vertices.push(p.x,p.y+h,p.z);
-        }
-        if(i){const a=2*i;indices.push(a-2,a,a-1,a-1,a,a+1);}
+  function plan(start,end,outward,inward,obstacles,previous){
+    const spread=Math.min(.24,horizontal(start,end)*.28);
+    const margin=radius+.035;
+    const boxes=obstacles.map(o=>({left:o.left-margin,right:o.right+margin,top:o.top-margin,bottom:o.bottom+margin}));
+    function anchor(port,dir) {
+      // Two facing jacks may be closer than two normal lengths of strain relief.
+      for(const d of [spread,spread*.75,spread*.5,spread*.25,.015]){
+        const p=port.clone().addScaledVector(dir,d);
+        if(!boxes.some(o=>p.x>o.left&&p.x<o.right&&p.z>o.top&&p.z<o.bottom))return p;
       }
-      const geometry=new THREE.BufferGeometry();
-      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);geometry.computeVertexNormals();
-      const mesh=new THREE.Mesh(geometry,mat);group.add(mesh);
+      return port.clone().addScaledVector(dir,spread);
     }
-    ribbon(-.182,.182,0,materials.belt);
-    for(const rail of [-.184,.184])ribbon(rail-.024,rail+.024,.023,materials.rail);
-    const count=Math.max(1,Math.floor(length/.37)), ties=new THREE.InstancedMesh(new THREE.BoxGeometry(.28,.018,.026),materials.tread,count);
-    const dummy=new THREE.Object3D();
-    for(let i=0;i<count;i++){
-      const t=(i+.5)/count;
-      dummy.position.copy(path.getPointAt(t));dummy.position.y+=.009;
-      const dir=path.getTangentAt(t);dummy.rotation.y=Math.atan2(dir.x,dir.z);
-      dummy.updateMatrix();ties.setMatrixAt(i,dummy.matrix);
+    const a=anchor(start,outward),b=anchor(end,inward);
+    const ground=groundPath(a,b,boxes,previous);
+    const path=rounded([start,...(ground||[a,b]),end].map(p=>new THREE.Vector3(p.x,0,p.z)));
+    const length=path.getLength(),count=Math.max(16,Math.ceil(length*13));
+    const samples=path.getSpacedPoints(count);
+    for(let i=0;i<=count;i++){
+      const p=samples[i],t=i/count,dist=t*length,remaining=length-dist;
+      const taper=Math.min(1,dist/.32,remaining/.32);
+      const arch=Math.sin(Math.PI*t);
+      const ends=THREE.MathUtils.lerp(start.y,end.y,t);
+      const resting=ends-(ends-.108)*arch;
+      p.y=resting;
+      // In extremely close or overlapping holes, use an above-deck jumper.
+      if(!ground)p.y+=1.75*Math.min(1,dist/.56,remaining/.56);
+      for(const older of previous)for(const q of older){
+        const d=horizontal(p,q);
+        if(d>=.35)continue;
+        const lift=(1+Math.cos(Math.PI*d/.35))*.5*taper;
+        p.y=Math.max(p.y,resting+(q.y+.19-resting)*lift);
+      }
     }
-    group.add(ties);
-    for(const c of plan.crossings){
-      const pier=new THREE.Mesh(new THREE.BoxGeometry(.075,.53,.54),materials.rail);
-      pier.position.set(c.x+.42,.26,c.z);group.add(pier);
+    return new THREE.CatmullRomCurve3(samples,false,'centripetal');
+  }
+  function build(group,path,materials){
+    const length=path.getLength();
+    const jacket=new THREE.Mesh(new THREE.TubeGeometry(path,Math.max(20,Math.ceil(length*15)),radius,8,false),materials.belt);
+    group.add(jacket);
+    function collar(distance,r,h,mat){
+      const t=amount(distance/length,0,1),p=path.getPointAt(t),dir=path.getTangentAt(t);
+      const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,10),mat);
+      mesh.position.copy(p);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);group.add(mesh);
     }
-    return path;
+    const neck=Math.min(.13,length*.20);
+    for(const sign of [1,-1]){
+      const at=d=>sign>0?d:length-d;
+      collar(at(neck*.32),.119,neck*.64,materials.rail);
+      collar(at(neck*.96),.095,neck*.74,materials.tread);
+    }
+    return jacket;
   }
   return {plan,build};
 })();

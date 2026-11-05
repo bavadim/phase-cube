@@ -2,7 +2,7 @@
 window.IsoFace=(()=>{
   'use strict';
   const bounds={
-    router:[[-1.62,-.04,-2.79],[1.91,.84,1.54]],
+    router:[[-1.38,-.04,-1.08],[1.42,1.00,1.09]],
     source:[[-1.74,-.04,-1.36],[2.12,1.53,2.29]],
     delay:[[-1.54,-.04,-.96],[1.63,1.14,1.75]],
     copy:[[-1.17,-.05,-.88],[1.60,1.52,1.40]],
@@ -15,9 +15,9 @@ window.IsoFace=(()=>{
   const outlet=(id,port,x,y,z)=>row('port','port-'+id+':'+port,x,y,z,.9,.46,{port,id});
   const layouts={
     router:[
-      ...Array.from({length:8},(_,i)=>row('step','step-'+i,(i%4-1.5)*.736,.517,Math.floor(i/4)*.79-2.242,.674,.693,{i})),
-      row('lever','lever',-.12,.64,-.175,.90,.56),
-      outlet('router','straight',1.19,.50,.42),outlet('router','side',.13,.45,1.29)
+      ...Array.from({length:8},(_,i)=>row('step','step-'+i,0,.745,0,.49,.49,{i})),
+      row('lever','lever',.75,.735,.283,.38,.41),
+      outlet('router','straight',1.29,.34,.34),outlet('router','side',.417,.34,.99)
     ],
     source:[
       ...Array.from({length:8},(_,i)=>{const a=-i*Math.PI/4;
@@ -34,8 +34,20 @@ window.IsoFace=(()=>{
     ...Object.fromEntries(['keys','bell','bin'].map(id=>[id,Array.from({length:8},(_,i)=>
       row('event','arrival-'+i,(i%4-1.5)*.64,.50,1.12+Math.floor(i/4)*.46,.59,.42,{id,i}))]))
   };
-  const capTypes=new Set(['pin','rocker','slot','step','event']);
-  function setText(e,t){if(e.textContent!==t)e.textContent=t;}
+  const capTypes=new Set(['pin','rocker','slot','event']);
+  const paths={
+    phaseUp:'M5 17a7 7 0 1 1 13-7l2-4m-2 4-4-1',
+    phaseDown:'M19 17a7 7 0 1 0-13-7L4 6m2 4 4-1',
+    louder:'M2 9h4l5-4v14l-5-4H2z M14 8q5 4 0 8m3-11q8 7 0 14',
+    softer:'M3 9h4l5-4v14l-5-4H3z M15 9q4 3 0 6',
+    gate:'M4 12h16m-12-4-4 4 4 4m8-8 4 4-4 4',
+    port:'M6 5v4m6-4v4M4 9h10v2a5 5 0 0 1-10 0zm5 7v3q0 2 3 2h5',
+  };
+  function symbol(name){
+    const ns='http://www.w3.org/2000/svg',s=document.createElementNS(ns,'svg'),p=document.createElementNS(ns,'path');
+    s.setAttribute('viewBox','0 0 24 24');s.setAttribute('aria-hidden','true');p.setAttribute('d',paths[name]);s.append(p);return s;
+  }
+
   function attr(e,k,v){if(e.getAttribute(k)!==String(v))e.setAttribute(k,String(v));}
   function rgbaChoice(e,name,value){if(value)e.dataset[name]='true';else delete e.dataset[name];}
   function controlData(def,s,frame){
@@ -45,45 +57,44 @@ window.IsoFace=(()=>{
     if(type==='step'){
       const direct=s.routes[i], recipient=names[s.links['router:'+(direct?'straight':'side')]]||'Свободно';
       const hits=frame.steps?.[i]?.activity?.router||[], name=hits.length?pitchName(hits[0].pitch):'—';
-      return {top:String(i+1),main:name,mark:direct?'→':'↳',chosen:chosen===i,live:playStep===i,
+      return {chosen:chosen===i,live:playStep===i,
         color:direct?green:amber,rest:!hits.length,pressed:chosen===i,
-        label:'Шаг '+(i+1)+', '+(hits.length?name:'пауза')+', '+recipient+'. Показать путь'};
+        label:'Шаг '+(i+1)+', '+(hits.length?name:'пауза')+', '+recipient+(chosen===i&&frame.picked?'. Переключить задвижку':'. Показать путь')};
     }
-    if(type==='lever')return {main:'Сменить путь',label:'Перевести стрелку для шага '+(chosen+1)};
+    if(type==='lever')return {way:s.routes[chosen]?'straight':'side',label:'Переключить задвижку для шага '+(chosen+1)};
     if(type==='pin'){
       const pitch=s.source.notes[i], name=pitch==null?'—':pitchName(pitch);
-      return {top:String(i+1),main:name,live:playStep>=0&&(playStep-s.source.phase+8)%8===i,
+      return {live:playStep>=0&&(playStep-s.source.phase+8)%8===i,
         color:pitch==null?idle:IsoPieces.noteColor(pitch),label:'Штифт '+(i+1)+', '+(pitch==null?'пауза':name)+'. Сменить ноту'};
     }
     if(type==='reading'){
       const name=control==='phase'?'Сдвиг':'Громкость', value=control==='phase'?s.source.phase+'/8':Math.round(s.source.level*100)+'%';
-      return {main:name+' '+value,label:name+' '+value};
+      return {units:control==='phase'?s.source.phase:s.source.level*4,label:name+' '+value};
     }
     if(type==='rocker'){
       const isLevel=control==='level';
-      return {main:sign===1?'+':'−',label:(isLevel?'Громкость':'Сдвиг')+(sign===1?' больше':' меньше'),
+      return {label:(isLevel?'Громкость':'Сдвиг')+(sign===1?' больше':' меньше'),
         color:ivory,disabled:isLevel&&(sign>0?s.source.level>=2:s.source.level<=0)};
     }
-    if(type==='slot')return {main:String(i),chosen:s.delay===i,pressed:s.delay===i,
+    if(type==='slot')return {chosen:s.delay===i,pressed:s.delay===i,
       label:'Задержка: '+i+' восьмых',color:s.delay===i?'#bda4cb':ivory};
     if(type==='event'){
       const hits=frame.steps?.[i]?.hits[id]||[];
-      const pitches=hits.map(h=>pitchName(h.pitch)),list=[...new Set(pitches)];
-      const main=list.map(p=>pitches.filter(v=>v===p).length>1?p+'×'+pitches.filter(v=>v===p).length:p).join('·')||'—';
-      return {top:String(i+1),main,label:'Шаг '+(i+1)+': '+(main==='—'?'пауза':main),
-        color:hits.length?'#e7dbb3':'#b5beb0',live:playStep===i};
+      const notes=hits.map(hit=>pitchName(hit.pitch)).join(', ')||'пауза';
+      return {label:'Шаг '+(i+1)+': '+notes,
+        color:hits.length?IsoPieces.noteColor(hits[0].pitch):'#c0bfae',units:hits.length,live:playStep===i};
     }
     if(type==='port'){
       const connected=names[s.links[id+':'+port]]||'Свободно';
       const pointed=id==='router'&&(s.routes[chosen]?port==='straight':port==='side');
-      return {main:connected,mark:port==='side'||port==='copy'?'↳':'→',chosen:pointed,way:port,
-        label:ports[port]+' → '+connected+'. Переподключить ленту'};
+      return {chosen:pointed,way:port,
+        label:ports[port]+' → '+connected+'. Переподключить провод'};
     }
   }
   function activate(def,frame,cb) {
     const state=frame.editState||frame.state;
     switch(def.type){
-      case 'step': return cb.pickStep(def.i);
+      case 'step':return cb.touchCam(def.i);
       case 'lever':return cb.flipRoute();
       case 'pin': return cb.act({type:'note',index:def.i});
       case 'rocker':return cb.act({type:def.control,delta:def.sign*(def.control==='level'?.25:1)});
@@ -91,16 +102,108 @@ window.IsoFace=(()=>{
       case 'port':return cb.startPatch(def.id+':'+def.port);
     }
   }
+  function sectorTap(element,perform) {
+    let finger=null,released=-Infinity;
+    element.onpointerdown=ev=>{
+      if(!ev.isPrimary||ev.button!==0)return;
+      finger={id:ev.pointerId,x:ev.clientX,y:ev.clientY};
+      element.setPointerCapture(ev.pointerId);
+    };
+    element.onpointercancel=()=>{finger=null;};
+    element.onpointerup=ev=>{
+      if(finger?.id!==ev.pointerId)return;
+      const tap=Math.hypot(ev.clientX-finger.x,ev.clientY-finger.y)<14;
+      released=performance.now();finger=null;
+      if(tap)perform();
+    };
+    element.onclick=ev=>{if(!ev.pointerType&&ev.detail===0&&performance.now()-released>350)perform();};
+  }
+  // A mechanical face for devices without WebGL. Its lobes and drawbar
+  // use the very same profile and drive as the Three.js assembly.
+  function flatCam(root,touch) {
+    const c=IsoPieces.CAM,drive=IsoPieces.createCamDrive(),ns='http://www.w3.org/2000/svg';
+    const svg=(name,parent,attrs={})=>{
+      const e=document.createElementNS(ns,name);
+      for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);
+      parent.append(e);return e;
+    };
+    const minX=-1.17,minY=-1.28,w=2.95,h=2.55;
+    const scene=svg('svg',root,{class:'flat-cam',viewBox:[minX,minY,w,h].join(' '),preserveAspectRatio:'none','aria-hidden':'true'});
+    const path=(p,d,attrs)=>svg('path',p,{d,...attrs});
+    const line=(p,d,color,width)=>path(p,d,{fill:'none',stroke:color,'stroke-width':width,'stroke-linecap':'round','stroke-linejoin':'round'});
+    const dot=(p,x,y,r,fill)=>svg('circle',p,{cx:x,cy:y,r,fill});
+    const pinRadius=.67,low=c.low+.31,high=c.high+.31;
+    line(scene,'M -1.17 .58 H -.95 L -.70 .84 H .61 L .78 .66 H '+high,'#baa06a',.10);
+    line(scene,'M '+high+' .66 H 1.62 V -.46','#287e6d',.12);
+    line(scene,'M '+low+' .66 V 1 H .88','#bf653b',.12);
+    line(scene,'M .77 .53 H 1.65 M .77 .78 H 1.65','#908f7b',.046);
+    dot(scene,low,.66,.137,'#bd714a');dot(scene,high,.66,.137,'#398b77');
+    const wheel=svg('g',scene),teeth=[],stones=[];
+    for(let i=0;i<8;i++){
+      const arm=svg('g',wheel,{class:'flat-wheel-sector',transform:'rotate('+i*45+')'});
+      sectorTap(arm,()=>touch(i));
+      teeth.push(path(arm,'',{stroke:'#40514b','stroke-width':.009,'stroke-linejoin':'round'}));
+      dot(arm,pinRadius,0,.083,'#384640');
+      stones.push(dot(arm,pinRadius,0,.057,'#eec58a'));
+    }
+    dot(wheel,0,0,.30,'#394c44');dot(wheel,0,0,.215,'#c4a55f');
+    dot(wheel,0,0,.119,'#498b77');dot(wheel,.26,0,.034,'#f5e6ad');
+    const arm=svg('g',scene);
+    // The aperture slides over one coloured conduit while the other is covered.
+    path(arm,'M -.16 .51 H .57 V .82 H -.16 Z M .21 .55 a .11 .11 0 1 0 0 .22 a .11 .11 0 1 0 0 -.22 Z',
+      {fill:'#a5b6a8',stroke:'#516964','stroke-width':.024,'fill-rule':'evenodd'});
+    line(arm,'M 0 0 L .21 .23 V .50','#be9e5a',.061);
+    dot(arm,0,0,.097,'#39483e');dot(arm,0,0,.047,'#edc676');
+    const grip=dot(arm,.21,.36,.108,'#287e6d');
+    let lastRoutes,lastSteps,lastAngle;
+    const place=(e,x,y)=>{e.style.left=(100*(x-minX)/w)+'%';e.style.top=(100*(y-minY)/h)+'%';};
+    return {
+      update(frame){
+        const s=frame.playing?frame.state:frame.editState||frame.state;
+        const route=s.routes,pose=drive.update(frame,route);
+        if(lastRoutes!==route){
+          for(let i=0;i<8;i++){
+            const p=teeth[i],points=[];
+            for(let j=0;j<=16;j++){
+              const u=-.495+.99*j/16,a=u*c.pitch,r=IsoPieces.camRadius(u,route[(i+7)%8],route[i],route[(i+1)%8]);
+              points.push([Math.cos(a)*r,Math.sin(a)*r].join(' '));
+            }
+            p.setAttribute('d','M 0 0 L '+points.join(' L ')+' Z');
+            p.setAttribute('fill',route[i]?'#63b5a2':'#e29b62');
+          }
+          lastRoutes=route;
+        }
+        if(lastSteps!==frame.steps){
+          stones.forEach((e,i)=>{
+            const n=frame.steps?.[i]?.activity.router[0];
+            e.setAttribute('fill',n?IsoPieces.noteColor(n.pitch):'transparent');
+          });lastSteps=frame.steps;
+        }
+        if(lastAngle!==pose.angle)wheel.setAttribute('transform','rotate('+(-pose.angle*180/Math.PI)+')');
+        arm.setAttribute('transform','translate('+(pose.radius+.10)+' 0)');
+        grip.setAttribute('fill',route[pose.reader]?'#287e6d':'#bf653b');
+        lastAngle=pose.angle;return pose;
+      },
+      place(e,def,pose){
+        if(def.type==='step'){
+          const a=def.i*c.pitch-pose.angle;
+          place(e,Math.cos(a)*pinRadius,Math.sin(a)*pinRadius);
+        }else if(def.type==='lever')place(e,pose.radius+.31,.36);
+        else if(def.type==='port')def.port==='straight'?place(e,1.62,-.46):place(e,.88,1);
+      }
+    };
+  }
   function makeView({overlay,pieces,projectLocal,callbacks},flat){
     const root=document.createElement('div');root.dataset.face='';
     root.className='iso-face'+(flat?' is-flat':'');overlay.append(root);
     const faces=new Map();
-    let active=null, controls=[], frame=null, state=null, previewStep=-1,step=-2,pose=null;
+    let graphic=null,active=null, controls=[], frame=null, state=null, previewStep=-1,step=-2,pose=null;
     function rebuild(id){
       if(active&&faces.has(active))faces.get(active).shell.visible=false;
-      active=id;root.hidden=!id;root.replaceChildren();controls=[];state=null;pose=null;
+      active=id;root.dataset.part=id||'';root.hidden=!id;root.replaceChildren();controls=[];state=null;pose=null;graphic=null;
       if(!id)return;
       const layout=layouts[id]||[];
+      if(flat&&id==='router')graphic=flatCam(root,callbacks.touchCam);
       let face=faces.get(id);
       if(!flat&&!face){
         face=IsoPieces.serviceFace(id,pieces[id].group);faces.set(id,face);
@@ -110,12 +213,23 @@ window.IsoFace=(()=>{
       for(const d of layout){
         const e=document.createElement(['reading','event'].includes(d.type)?'span':'button');
         e.className='iso-face-control face-'+d.type;e.dataset.faceKey=d.key;
-        const top=document.createElement('small'),main=document.createElement('strong'),mark=document.createElement('i');
-        e.append(top,main,mark);root.append(e);
-        if(e.tagName==='BUTTON'){
-          e.type='button';e.onclick=()=>activate(d,frame,callbacks);
+        const mark=document.createElement('i');mark.setAttribute('aria-hidden','true');e.append(mark);root.append(e);
+        if(d.type==='rocker')mark.append(symbol(d.control==='phase'?(d.sign>0?'phaseUp':'phaseDown'):(d.sign>0?'louder':'softer')));
+        if(d.type==='port')mark.append(symbol('port'));
+        if(d.type==='lever')mark.append(symbol('gate'));
+        if(d.type==='slot'||d.type==='reading'){
+          const count=d.type==='slot'?d.i:8;
+          for(let j=0;j<count;j++)mark.append(document.createElement('b'));
+          if(!count)mark.className='zero';
         }
-        controls.push({d,e,top,main,mark,color:null});
+        if(e.tagName==='BUTTON'){
+          e.type='button';
+          if(d.type==='step'){
+            // Taking the logical index on contact also works on a running cam.
+            sectorTap(e,()=>activate(d,frame,callbacks));
+          }else e.onclick=()=>activate(d,frame,callbacks);
+        }
+        controls.push({d,e,mark,color:null});
       }
 
     }
@@ -134,13 +248,16 @@ window.IsoFace=(()=>{
         moved=!pose||pose[0]!==a.x||pose[1]!==a.y||pose[2]!==b.x||pose[3]!==b.y;
         if(moved)pose=[a.x,a.y,b.x,b.y];
       }
-      if(!changed&&!moved)return;
+      const camView=id!=='router'?null:flat?graphic.update(frame):IsoPieces.camPose(pieces[id].group);
+      if(!changed&&!moved&&!camView)return;
       const face=faces.get(id);
       for(const item of controls){
-        const {d,e,top,main,mark}=item;
+        const {d,e,mark}=item;
+        const cam=d.type==='step'||d.type==='lever'?camView:null;
         if(changed){
           const result=controlData(d,state,frame);
-          setText(top,result.top||'');setText(main,result.main);setText(mark,result.mark||'');
+          if(d.type==='reading')Array.from(mark.children).forEach((lamp,i)=>lamp.classList.toggle('lit',i<result.units));
+          if(d.type==='event')e.dataset.sound=String(result.units>0);
           attr(e,'aria-label',result.label);
           if(result.pressed!==undefined)attr(e,'aria-pressed',result.pressed);
           if(e.tagName==='BUTTON')e.disabled=!!result.disabled;
@@ -150,10 +267,19 @@ window.IsoFace=(()=>{
             face?.capColor(d.key,result.color);e.style.setProperty('--cap-tone',result.color);item.color=result.color;
           }
         }
-        if(!moved)continue;
-        const center=projectLocal(id,d.x,d.y,d.z),right=projectLocal(id,d.x+d.w,d.y,d.z),front=projectLocal(id,d.x,d.y,d.z+d.d);
+        if(d.type==='step')rgbaChoice(e,'atReader',cam.reader===d.i);
+        if(flat&&graphic)graphic.place(e,d,camView);
+        if(flat||(!moved&&!cam))continue;
+        let {x,y,z}=d;
+        if(d.type==='step'){
+          const c=IsoPieces.CAM,a=d.i*c.pitch-cam.angle;
+          const radius=.651;
+          x=c.scale*(c.x+Math.cos(a)*radius);z=c.scale*(c.z+Math.sin(a)*radius);
+        }
+        if(d.type==='lever')x=IsoPieces.CAM.scale*cam.gateX;
+        const center=projectLocal(id,x,y,z),right=projectLocal(id,x+d.w,y,z),front=projectLocal(id,x,y,z+d.d);
         const w=Math.max(1,Math.hypot(right.x-center.x,right.y-center.y)),h=Math.max(1,Math.abs(front.y-center.y));
-        const targetW=d.type==='event'?w:d.type==='port'?Math.min(122,Math.max(60,w)):Math.max(d.type==='pin'?42:44,w);
+        const targetW=d.type==='event'?w:d.type==='port'?44:Math.max(44,w);
         const targetH=d.type==='event'?h:d.type==='reading'?Math.max(16,h):Math.max(44,h);
         e.style.left=center.x+'px';e.style.top=center.y+'px';e.style.width=targetW+'px';e.style.height=targetH+'px';
         e.style.setProperty('--face-size',Math.max(12,Math.min(25,w*(d.type==='pin'?.41:.29)))+'px');
