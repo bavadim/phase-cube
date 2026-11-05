@@ -2,10 +2,14 @@
 /* The application owns transport/lifecycle; the model, native music and view are independent. */
 (() => {
   'use strict';
-  const $=id=>document.getElementById(id),S=strudel,storage='biba.disc.v1.';
+  const $=id=>document.getElementById(id),S=strudel;
+  const gearMode=new URLSearchParams(location.search).get('view')==='gears';
+  const storage=gearMode?'biba.gears.v1.':'biba.disc.v1.';
+  const sceneSchema=gearMode?'gear-train-scene/1':'disc-scene/1';
   const library=new PuzzleCompositions.Loader(S),controls=new DiscControls();
-  const module={id:'disc',title:'Музыкальный диск',manifest:{schema:'mechanism/1',interaction:{requiresSelection:false,allowDeselect:false,hoverActions:false,buttonPreview:false}}};
+  const module={id:gearMode?'gears':'disc',title:gearMode?'Музыкальная передача':'Музыкальный диск',manifest:{schema:'mechanism/1',interaction:{requiresSelection:false,allowDeselect:false,hoverActions:false,buttonPreview:false}}};
   let prepared,model,engine,song,view,soundReady,previewState=null,desiredState=null;
+  let challenge=null;
   let loading=true,starting=false,error=null,slots={},activeSlot='a',saved=false,lastClock=null;
   let analysisData=null,previewTimer=null;
   const transport=new PhaseCubeTransport(S,{outputGain:1,onChange:update,onError:fail});
@@ -26,6 +30,11 @@
     const part=visibleState().parts.find(p=>p.key===model.selected),definition=prepared.modules.find(m=>m.key===part.key);
     $('part-name').textContent=definition.name+' · '+Math.round(part.gain*100)+'%'+(part.installed?'':' · выключено');
     $('part-name').style.color=definition.color;
+    if(challenge){
+      const progress=challenge.evaluate(model.snapshot());
+      const message=progress.solved?'Все три партии настроены':'Настроено '+progress.matched+' из '+progress.total;
+      if($('gear-progress').textContent!==message)$('gear-progress').textContent=message;
+    }
     view?.feedback({selected:model.selected});
   }
   function flushAudio(){
@@ -71,13 +80,13 @@
     catch(e){fail(e);}finally{starting=false;desiredState=model.snapshot();update();}
   }
   function read(kind){try{return JSON.parse(localStorage.getItem(storage+kind)||'null');}catch{return null;}}
-  function serialize(){return{schema:'disc-scene/1',version:1,songId:song.id,state:model.snapshot(),slots,activeSlot};}
+  function serialize(){return{schema:sceneSchema,version:1,songId:song.id,state:model.snapshot(),slots,activeSlot};}
   function persist(kind='auto'){
     try{localStorage.setItem(storage+kind,JSON.stringify(serialize()));return true;}
     catch{notice('Не удалось сохранить в браузере. Можно скачать сборку через меню.',true);return false;}
   }
   function adopt(data,{record=true}={}){
-    if(data?.schema!=='disc-scene/1'||data.version!==1||data.songId!==song.id)throw Error('Это не сборка музыкального диска.');
+    if(data?.schema!==sceneSchema||data.version!==1||data.songId!==song.id)throw Error('Выберите сборку этого инструмента и композиции.');
     const next=model.normalize(data.state),nextSlots={...slots};
     for(const key of ['a','b'])if(data.slots?.[key])nextSlots[key]=model.normalize(data.slots[key]);
     cancelGesture();model.restore(next,{record});slots=nextSlots;activeSlot=data.activeSlot==='b'?'b':'a';
@@ -89,7 +98,7 @@
   function restoreScene(){try{const data=read('saved');if(data){adopt(data);persist();notice('Сохранённая сборка возвращена.');}}catch(e){notice(e.message,true);}}
   function exportScene(){
     const blob=new Blob([JSON.stringify(serialize(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download='music-disc.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    a.href=url;a.download=gearMode?'music-gears.json':'music-disc.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   async function importScene(file){
     if(!file)return;
@@ -101,20 +110,37 @@
     if(transport.analyser){analysisData??=new Float32Array(transport.analyser.fftSize);transport.analyser.getFloatTimeDomainData(analysisData);for(const v of analysisData){peak=Math.max(peak,Math.abs(v));rms+=v*v;}rms=Math.sqrt(rms/analysisData.length);}
     const rows=engine&&model?engine.rows(heardState()):[];
     return{schema:'disc-poc/1',selected:model?.selected,loading,starting,playing:transport.running,pending:!!transport.pending,error,historyLength:model?.history.length||0,preview:!!previewState,activeSlot,songId:song?.id,rms,peak,
-      audioCycle:transport.clock(),visualCycle:lastClock?.position,
+      audioCycle:transport.clock(),visualCycle:lastClock?.position,challenge:challenge?.evaluate(model.snapshot()),
       projection:{events:rows.flat().filter(e=>e.audible!==false&&e.gain!==0).length,signature:JSON.stringify(rows.map(r=>r.map(e=>[e.start,e.duration,e.pitch,e.gain,e.value.s,e.audible])))},
       music:model?engine.diagnostics(heardState()):null,graphics:stage.info(),transport:transport.info(),view:view?.inspect?.()||null};
   }
   async function init(){
+    if(gearMode){
+      document.title=module.title+' — Ночная смена';
+      $('song-title').textContent=module.title;
+      $('scene-instruction').textContent='Крутите цветной обод до совпадения рисок. Тяните втулку ↕ до метки высоты.';
+      $('library-description').textContent='Мотор задаёт темп. Бочка делает оборот за такт, бас и фортепиано — за четыре. Соберите исходный грув из трёх партий.';
+      $('switch-view').href='disc/index.html';$('switch-view').textContent='Открыть музыкальный диск';
+      $('new-setup').hidden=false;$('gear-progress').hidden=false;
+    }
     const repl=await PuzzleAsync.wait(S.initStrudel({sync:false,miniAllStrings:true,setInterval:window.setInterval.bind(window),clearInterval:window.clearInterval.bind(window),prebake:()=>PhaseCubeBank.register(S),defaultOutput:(...args)=>transport.output(...args),onUpdateState:state=>{if(state.error)fail(state.error);}}),'Звуковой движок не загрузился.',15000);
     transport.attach(repl);
     song=await PuzzleAsync.wait(library.load('turkish-circuit'),'Не удалось загрузить мелодию.',20000);
-    prepared=DiscMusic.prepare(S,song);model=DiscModel.create(prepared.modules,{phaseSteps:prepared.phaseSteps});engine=new DiscMusic.Engine(S,prepared);
+    prepared=DiscMusic.prepare(S,song);
+    let viewGame=prepared;
+    if(gearMode){
+      const gearTrain=DiscGears.layout();
+      challenge=DiscGearChallenge.create(prepared,gearTrain);
+      model=challenge.createModel();
+      model.restore(challenge.scramble(model.snapshot()),{record:false});
+      viewGame={...prepared,gearTrain,gearChallenge:challenge};
+    }else model=DiscModel.create(prepared.modules,{phaseSteps:prepared.phaseSteps});
+    engine=new DiscMusic.Engine(S,prepared);
     slots={a:model.snapshot(),b:model.snapshot()};saved=!!read('saved');
     const previous=read('auto');if(previous)try{adopt(previous,{record:false});}catch{notice('Начинаем новую сборку.');}
     transport.setComposition({...song,backing:S.silence});
     const viewModel={snapshot:visibleState,choices:()=>model.choices(),get selected(){return model.selected;}};
-    view=stage.mount(DiscView.create,{module,model:viewModel,game:prepared,binding:{},onSelect:hit,onHover:()=>{},onMove:move=>change(move.key,move.patch),onEditPreview:preview});
+    view=stage.mount(gearMode?GearTrainView.create:DiscView.create,{module,model:viewModel,game:viewGame,binding:{},onSelect:hit,onHover:()=>{},onMove:move=>change(move.key,move.patch),onEditPreview:preview});
     const palette=S.stack(...prepared.modules.flatMap(m=>m.variants.map(v=>v.pattern)));
     soundReady=PuzzleAsync.wait(PhaseCubeBank.preload(S,palette,prepared.periodBars),'Не загрузились звуки. Перезагрузите страницу.',30000);
     await soundReady;loading=false;desiredState=model.snapshot();$('song-title').textContent=song.title;$('song-tempo').textContent=song.bpm+' BPM';update();
@@ -122,6 +148,10 @@
   }
   $('play').addEventListener('click',togglePlayback);$('undo').addEventListener('click',undo);
   $('open-library').addEventListener('click',()=>{cancelGesture();$('library').showModal();});
+  $('new-setup').addEventListener('click',()=>{
+    if(!challenge||loading)return;
+    cancelGesture();model.restore(challenge.scramble(model.snapshot()));queue();persist();notice();update();$('library').close();
+  });
   for(const key of ['a','b'])$('snapshot-'+key).addEventListener('click',()=>{recall(key);$('library').close();});
   $('save-snapshot').addEventListener('click',saveSnapshot);$('save-scene').addEventListener('click',saveScene);$('restore-scene').addEventListener('click',restoreScene);
   $('export-scene').addEventListener('click',exportScene);$('import-scene').addEventListener('click',()=>$('scene-file').click());$('scene-file').addEventListener('change',e=>importScene(e.target.files[0]));
@@ -135,7 +165,9 @@
   window.addEventListener('pagehide',()=>{if(model)persist();transport.stop();});
   function frame(now){
     requestAnimationFrame(frame);transport.poll();flushAudio();
-    if(view&&model){
+    // A stationary gear train only needs a frame after an edit, resize or stop.
+    const needsClock=!gearMode||transport.running||lastClock?.playing||stage.dirty;
+    if(view&&model&&needsClock&&!stage.contextLost){
       const position=transport.clock(),state=heardState();
       lastClock={position,phase:((position/prepared.periodBars)%1+1)%1,periodBars:prepared.periodBars,periodSeconds:prepared.periodBars*240/song.bpm,playing:transport.running,rows:engine.rows(state),state};
       (view.clock||view.updateMusic)?.(lastClock);stage.dirty=true;
@@ -143,7 +175,7 @@
     stage.frame(now);
   }
   window.discTest={ready:null,state:()=>model?.snapshot(),diagnostics,locations:()=>stage.locations(),select,change,undo,stage,transport,recall,saveSnapshot,saveScene,restoreScene,
-    rows:()=>engine?.rows(heardState()),serialize,adopt,view:()=>view?.inspect?.(),clock:()=>lastClock,
+    rows:()=>engine?.rows(heardState()),serialize,adopt,view:()=>view?.inspect?.(),clock:()=>lastClock,challenge:()=>challenge?.evaluate(model.snapshot()),
     ringPath:(key,steps=64)=>(view?.ringPath?.(key,steps)||[]).map(point=>stage.project(point))};
   discTest.ready=init().catch(e=>{loading=false;fail(e);});requestAnimationFrame(frame);
 })();
