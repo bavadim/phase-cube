@@ -20,7 +20,7 @@
         active = null;
       }
     }
-    async function playEvents(events, origin = Number(events[0]?.whole.begin ?? 0)) {
+    async function playEvents(events, origin = Number(events[0]?.whole.begin ?? 0), onScheduled) {
       stop();
       const token = generation;
       const current = () => generation === token && !transport.running && !transport.want;
@@ -56,6 +56,8 @@
           return {note:event.withValue(value => ({...value, orbit:ORBIT})), at, length, end};
         });
         const end = Math.max(...voices.map(v => v.end));
+        active.voices=voices;
+        onScheduled?.(start);
         const gain = bus.output.gain;
         gain.setValueAtTime(transport.outputGain,ctx.currentTime);
         gain.setValueAtTime(transport.outputGain,end - .008);
@@ -73,7 +75,12 @@
       const event = score.noteEvent(key,id);
       return playEvents(event ? [event] : []);
     }
-    return {play,playEvents,stop,get analyser() {return analyser;}};
+    function soundingPitches(){
+      if(!active?.voices)return [];
+      const now=S.getAudioContext().currentTime;
+      return active.voices.filter(v=>v.at<=now&&now<v.end).map(v=>v.note.value.note);
+    }
+    return {play,playEvents,stop,soundingPitches,get analyser() {return analyser;}};
   }
   return {create};
 });

@@ -92,15 +92,16 @@ window.IsoScene = (() => {
     const fill=new THREE.DirectionalLight(0xb7e5f3,.65);fill.position.set(4,5,-6);scene.add(fill);
     const physical=color=>new THREE.MeshStandardMaterial({color,roughness:.76,metalness:.08,side:THREE.DoubleSide});
     const materials={belt:physical(0x365a52),rail:physical(0xb09b6e),tread:physical(0x728b76),
-      target:physical(0x229071),pick:physical(0x9cce9e),a:physical(0x247e77),b:physical(0xc46437),
-      chosenA:physical(0x168e7f),chosenB:physical(0xe47a3c),quiet:physical(0x8d998b),
+      hose:IsoBelts.shell(0x365e63),target:IsoBelts.shell(0x187e63),pick:IsoBelts.shell(0x639880),
+      a:IsoBelts.shell(0x337e78),b:IsoBelts.shell(0x986b4b),chosenA:IsoBelts.shell(0x17694d),
+      chosenB:IsoBelts.shell(0x9b5639),quiet:IsoBelts.shell(0x858e88),
       arrow:new THREE.MeshBasicMaterial({color:0xfff5d2,side:THREE.DoubleSide})};
-    const table=new THREE.Group(),belts=new THREE.Group(),boxes=new THREE.Group(),marks=new THREE.Group();
-    scene.add(table,belts,boxes,marks);
+    const table=new THREE.Group(),belts=new THREE.Group(),marks=new THREE.Group();
+    scene.add(table,belts,marks);
     const overlay=make('div','iso-overlay');host.append(overlay);
     const ghost=make('span','iso-drag-ring');ghost.hidden=true;overlay.append(ghost);
-    const pieces={},buttons={},sockets={},routes=new Map(),tokenPool=[],tokenMaterials=new Map();
-    const tokenGeometry=new THREE.SphereGeometry(.122,12,8),ray=new THREE.Raycaster();
+    const pieces={},buttons={},sockets={},routes=new Map();
+    const ray=new THREE.Raycaster();
     const mutedMaterials=new Map(),originalMaterial=new WeakMap();
     const dormantTone=new THREE.Color(0xc9c6b4);
     function setDormant(part,off){
@@ -122,7 +123,7 @@ window.IsoScene = (() => {
     const vec=(x,y,z)=>new THREE.Vector3(x,y,z);
     let patch=null,insert=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
     let disposed=false,width=0,height=0,activeStation=null,lastPointerAt=-Infinity,modeState=null;
-    let face=null,overview=null,pose=null,focusId=null,transition=null,litOutlet=null,layoutKey=null;
+    let hoseInput=null,face=null,overview=null,pose=null,focusId=null,transition=null,litOutlet=null,layoutKey=null;
     const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     let targetStations=new Set(),targetBelts=new Set(),activeStations=new Set();
     // Touch can synthesize a click with detail=0. Pointer-up has already
@@ -150,12 +151,13 @@ window.IsoScene = (() => {
         b.disabled=!!insert || (!!patch && !targetStations.has(id));
         b.setAttribute('aria-label',(patch?'Соединить с деталью ':'Выбрать: ')+stations[id].label);
       }
-      placeInsertButtons();markBelt(null);dirty=true;
+      placePorts();placeInsertButtons();markBelt(null);dirty=true;
     }
     function clearPatch(){if(patch)setPatch(null);}
     function setPatch(key){
       if(key&&insert)setInsert(null);
       patch=key||null;host.toggleAttribute('data-patching',!!patch);
+      if(!patch)hoseInput?.reset();
       callbacks.patchChanged?.(patch);syncTargets();
     }
     function setInsert(id){
@@ -174,6 +176,18 @@ window.IsoScene = (() => {
       const p=point.clone().project(camera);return {x:(p.x+1)*width/2,y:(1-p.y)*height/2};
     }
     function socketPos(key){const s=sockets[key];return pieces[s.id].group.localToWorld(s.local.clone());}
+    function placePorts(){
+      for(const [key,s] of Object.entries(sockets)){
+        const b=s.button,isInput=s.port==='in';
+        b.hidden=!!transition||!!focusId||!!insert||(patch?(isInput?!targetStations.has(s.id):key!==patch):isInput);
+        if(b.hidden)continue;
+        const p=project(socketPos(key));
+        b.style.left=p.x+'px';b.style.top=p.y+'px';
+        b.dataset.selected=String(patch===key);
+        b.dataset.connected=String(isInput?Object.values(modeState?.links||{}).includes(s.id):!!modeState?.links[key]);
+        b.setAttribute('aria-pressed',String(patch===key));
+      }
+    }
     function placeDOM(){
       scene.updateMatrixWorld(true);camera.updateMatrixWorld();
       for(const [id,part] of Object.entries(pieces)){
@@ -188,6 +202,7 @@ window.IsoScene = (() => {
         button.style.width=size+'px';button.style.height=size+'px';
         button.style.left=p.x+'px';button.style.top=p.y+'px';
       }
+      placePorts();
     }
     function placeInsertButtons(){
       const occupied=[];
@@ -257,7 +272,11 @@ window.IsoScene = (() => {
       b.onclick=e=>{if(accessibleActivation(e)){if(patch)connect(id);else if(!insert)select(id);}};
       buttons[id]=b;overlay.append(b);
       for(const [port,local] of Object.entries(p.ports)){
-        sockets[id+':'+port]={id,local};addSocket(p,s,port,local);
+        const key=id+':'+port,button=make('button','hose-jack');
+        button.type='button';button.dataset.hosePort=key;button.dataset.inlet=String(port==='in');
+        const label=port==='in'?'Вход':port==='copy'?'Второй выход':port==='side'?'Боковой выход':port==='straight'?'Прямой выход':'Выход';
+        button.setAttribute('aria-label',label+' · '+s.label);overlay.append(button);
+        sockets[key]={id,port,local,button};addSocket(p,s,port,local);
       }
     }
     const selectionMaterial=new THREE.MeshBasicMaterial({color:0x26785c,depthWrite:false});
@@ -364,7 +383,7 @@ window.IsoScene = (() => {
       return axisOf(port).applyQuaternion(pieces[owner].group.quaternion);
     }
     function rebuild(links){
-      for(const route of routes.values())route.mountButton.remove();
+      for(const route of routes.values()){route.mountButton.remove();route.fluid.dispose();}
       clearGeometry(belts);routes.clear();
       const prior=[],chassis=footprints();
       const jacks=Object.keys(sockets).map(key=>{
@@ -378,8 +397,8 @@ window.IsoScene = (() => {
         const obstacles=chassis.concat(jacks.filter(jack=>jack.key!==key&&jack.key!==input));
         const path=IsoBelts.plan(socketPos(key),socketPos(input),socketDir(key),socketDir(input),obstacles,prior);
         const carrier=new THREE.Group();belts.add(carrier);
-        const jacket=IsoBelts.build(carrier,path,materials);
-        const tone=key==='router:straight'?materials.a:key==='router:side'?materials.b:materials.belt;
+        const {jacket,fluid}=IsoBelts.build(carrier,path,materials);
+        const tone=key==='router:straight'?materials.a:key==='router:side'?materials.b:materials.hose;
         const worldSamples=path.getSpacedPoints(Math.max(14,Math.ceil(path.getLength()*13)));
         const arrows=key.startsWith('router:')?travelArrows(carrier,path):null;
         const mountButton=make('button','iso-insert-point');mountButton.type='button';
@@ -387,55 +406,45 @@ window.IsoScene = (() => {
         mountButton.dataset.insertBelt=key;
         mountButton.onclick=()=>{if(insert)install(insert,key);};
         overlay.append(mountButton);prior.push(worldSamples);
-        routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,jacket,tone,mountButton});
+        routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,jacket,fluid,tone,mountButton});
       }
       placeInsertButtons();markBelt(null);
     }
-    function tokenAt(i){
-      if(!tokenPool[i]){const m=new THREE.Mesh(tokenGeometry,materials.tread);tokenPool[i]=m;boxes.add(m);}
-      return tokenPool[i];
-    }
-    // An event's path is the full history of this particular box, including
-    // the copier outlet. Share a trunk until the press divides it. The next
-    // attack determines arrival time; a real pocket interrupts the journey.
-    let forecastRevision=null, forecastStep=null, journeys=[];
+    // Give each physical hose one time window and one banded dose per step.
+    // Positive delay starts a new journey when the stored fluid is released.
+    let forecastRevision=null,forecastStep=null,journeys=[];
     function forecast(active,step) {
       if(forecastRevision===active&&forecastStep===step)return;
       forecastRevision=active;forecastStep=step;
-      const events=IsoFlow.tick(active,step).edges, byPath=new Map();
-      const segments=events.map(edge=>{
-        const segment={edge,children:[],start:0,end:1};
-        byPath.set(edge.origin+edge.path,segment);
-        return segment;
-      });
-      const roots=[];
-      for(const s of segments){
-        const e=s.edge, parent=byPath.get(e.origin+e.path.slice(0,e.path.lastIndexOf('/')));
-        if(parent&&!(e.from==='delay:out'&&active.state.delay>0))parent.children.push(s);
-        else roots.push(s);
+      const at=IsoFlow.tick(active,step),segments=new Map(),roots=[];
+      for(const edge of at.edges){
+        let seg=segments.get(edge.from);
+        if(!seg){seg={key:edge.from,to:edge.to,packets:[],children:[]};segments.set(edge.from,seg);}
+        if(edge.gain>0)seg.packets.push(edge);
+      }
+      for(const seg of segments.values()){
+        seg.pitches=IsoFlow.tones(seg.packets);
+        const owner=seg.key.split(':')[0];
+        const previous=at.edges.find(edge=>edge.to===owner);
+        if(previous&&!(owner==='delay'&&active.state.delay>0))segments.get(previous.from).children.push(seg);
+        else roots.push(seg);
       }
       function depth(s){s.depth=1+Math.max(0,...s.children.map(depth));return s.depth;}
       function time(s,start){s.start=start;s.end=start+(1-start)/s.depth;for(const child of s.children)time(child,s.end);}
       for(const r of roots){depth(r);time(r,0);}
-      journeys=segments;
+      journeys=Array.from(segments.values());
     }
-    function showFlow(active,step,progress,playing){
-      let used=0;
-      if(playing){
-        forecast(active,step+1);
-        for(const s of journeys){
-          if(progress<s.start||progress>=s.end)continue;
-          const edge=s.edge,route=routes.get(edge.from);if(!route||edge.to!==route.to)continue;
-          const token=tokenAt(used++),color=IsoPieces.noteColor(edge.pitch);
-          if(!tokenMaterials.has(color))tokenMaterials.set(color,physical(color));
-          token.material=tokenMaterials.get(color);token.visible=true;
-          const along=(progress-s.start)/(s.end-s.start);
-          token.position.copy(route.path.getPointAt(along));
-          token.scale.set(1,.8+Math.min(2,edge.gain??1)*.38,1.35+.28*edge.length);
-          const dir=route.path.getTangentAt(along);token.rotation.y=Math.atan2(dir.x,dir.z);
-        }
+    function showFlow(active,step,progress,running){
+      for(const route of routes.values()){route.fluid.mesh.visible=false;route.pitches=null;}
+      if(!running)return;
+      forecast(active,step);
+      for(const s of journeys){
+        if(progress<s.start||progress>=s.end||!s.pitches.length)continue;
+        const route=routes.get(s.key);
+        if(!route||route.to!==s.to)continue;
+        route.pitches=s.pitches;
+        route.fluid.show(s.pitches,(progress-s.start)/(s.end-s.start),.74);
       }
-      for(let i=used;i<tokenPool.length;i++)tokenPool[i].visible=false;
     }
     function render(next){
       if(disposed)return;
@@ -452,7 +461,7 @@ window.IsoScene = (() => {
       const straight=frame.playing?frame.tick?.straight??frame.state.routes[Math.floor(t*8)%8]:modeState.routes[frame.previewStep??0];
       const outlet=focused==='router'?'router:'+(straight?'straight':'side'):null;
       if(outlet!==litOutlet){litOutlet=outlet;markBelt(null);}
-      if(!frame.playing&&!pieces.router.needsFrame?.()&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep&&prev.paintPitch===frame.paintPitch)return;
+      if(!frame.playing&&!frame.testFluid&&!prev?.testFluid&&!pieces.router.needsFrame?.()&&!dirty&&prev&&lastState===frame.state&&activeStation===frame.selected&&prev.playing===false&&prev.time===t&&prev.previewRoute===frame.previewRoute&&prev.previewStep===frame.previewStep&&prev.paintPitch===frame.paintPitch)return;
       if(linksKey!==key){linksKey=key;rebuild(connections);}
       if(!frame.revision&&lastState!==frame.state)revision=IsoFlow.revision(frame.state);
       lastState=frame.state;
@@ -465,9 +474,11 @@ window.IsoScene = (() => {
       const displayTick=!frame.playing&&typeof frame.previewRoute==='boolean'?{...tick,straight:frame.previewRoute}:tick;
       const view={...frame,state:display,tick:displayTick,progress,focusPart:transition?null:focused};
       for(const [id,part] of Object.entries(pieces)){
-        const asleep=!activeStations.has(id)&&id!==frame.selected&&!patch&&!insert&&!tick.activity[id]?.length;
+        const probe=frame.testFluid;
+        const probing=probe&&(probe.station===id||probe.tick.activity[id].length>0||(id==='delay'&&probe.tick.pockets.length>0));
+        const asleep=!probing&&!activeStations.has(id)&&id!==frame.selected&&!patch&&!insert&&!tick.activity[id]?.length;
         if(asleep&&part.dormant)continue;
-        const muted=asleep||!!focused&&focused!==id;
+        const muted=asleep||!!focused&&focused!==id&&!probing;
         if(!muted)setDormant(part,false);
         part.update(view);
         if(muted)setDormant(part,true);
@@ -485,7 +496,11 @@ window.IsoScene = (() => {
         }
       }
       face?.render(view,view.focusPart);
-      showFlow(frame.revision||revision,step,progress,frame.playing);dirty=false;
+      if(frame.testFluid){
+        const sample=frame.testFluid;
+        showFlow(sample.revision,sample.tick.tick,sample.progress,true);
+      }else showFlow(frame.revision||revision,step,progress,frame.playing);
+      dirty=false;
       try{renderer.render(scene,camera);}catch(error){if(!renderer.getContext().isContextLost())throw error;}
     }
     function setRay(x,y){
@@ -516,13 +531,13 @@ window.IsoScene = (() => {
     }
     function commandFor(a,delta){
       if(a.type==='pin'){
-        return frame.paintPitch===undefined?{type:'note',index:a.index,delta}:{type:'note',index:a.index,value:frame.paintPitch};
+        return frame.paintPitch===undefined?{type:'note',index:a.index,delta}:{type:'pour',index:a.index,value:frame.paintPitch};
       }
       return {...a,delta:a.type==='level'?delta*.25:delta};
     }
-    function beltUnder(x,y,node){
+    function beltUnder(x,y,node,radius=25){
       const rect=host.getBoundingClientRect(),p={x:x-rect.left,y:y-rect.top};
-      let best=25, result=null;
+      let best=radius,result=null;
       for(const [key,r] of routes){
         if(r.to===node||key.startsWith(node+':')||(insert&&!targetBelts.has(key)))continue;
         for(let i=1;i<r.samples.length;i++){
@@ -539,13 +554,17 @@ window.IsoScene = (() => {
         let tone=activeStations.has(id.split(':')[0])?r.tone:materials.quiet;
         if(litOutlet&&r.arrows)tone=id===litOutlet?(id==='router:straight'?materials.chosenA:materials.chosenB):materials.quiet;
         if(r.arrows)r.arrows.visible=id===litOutlet;
-        r.jacket.material=id===key?materials.target:insert&&targetBelts.has(id)?materials.pick:tone;
+        r.jacket.material=id===key||id===patch?materials.target:insert&&targetBelts.has(id)?materials.pick:tone;
       }
       dirty=true;
     }
     function start(e){
       if(lost||gesture||transition||e.button!==0||e.target.closest('[data-face],[data-insert-belt]'))return;
       const hit=targetAt(e.clientX,e.clientY);
+      if(!hit&&!patch&&!insert&&!focusId){
+        const hose=beltUnder(e.clientX,e.clientY,null,10);
+        if(hose){e.preventDefault();setPatch(hose);return;}
+      }
       if((!hit&&!insert)||(focusId&&hit?.id!==focusId))return;
       const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,change:0,patch,insert};
       if(!insert&&!patch&&hit){
@@ -664,13 +683,16 @@ window.IsoScene = (() => {
       const beltPoints=Object.fromEntries([...routes].map(([key,r])=>[key,r.samples.map(client)]));
       const cableLengths=Object.fromEntries([...routes].map(([key,r])=>[key,r.path.getLength()]));
       const cableHeights=Object.fromEntries([...routes].map(([key,r])=>[key,Math.max(...r.worldSamples.map(p=>p.y))]));
-      return {webgl:true,cableLengths,cableHeights,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:tokenPool.filter(m=>m.visible).length};
+      const fluidHoses=Object.fromEntries([...routes].filter(([,r])=>r.fluid.mesh.visible).map(([key,r])=>[key,r.pitches]));
+      return {webgl:true,fluidHoses,cableLengths,cableHeights,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:Object.keys(fluidHoses).length};
     }
     face=window.IsoFace?.mount({overlay,pieces,projectLocal,callbacks:{startPatch:setPatch,startInsert:setInsert,...callbacks}});
+    hoseInput=IsoHoseGesture.mount(host,{key:()=>patch,begin:setPatch,finish:connect,cancel:clearPatch,canJoin:id=>targetStations.has(id)});
     const observer=new ResizeObserver(resize);observer.observe(host);resize();
     return {render,setPatch,setInsert,cancelMode,inspect,dispose(){
-      disposed=true;observer.disconnect();events.abort();gesture=null;face?.dispose();
-      clearGeometry(scene,true);mutedMaterials.forEach(m=>m.dispose());tokenMaterials.forEach(m=>m.dispose());Object.values(materials).forEach(m=>m.dispose());tokenGeometry.dispose();
+      disposed=true;observer.disconnect();events.abort();gesture=null;face?.dispose();hoseInput?.dispose();
+      for(const r of routes.values())r.fluid.dispose();
+      clearGeometry(scene,true);mutedMaterials.forEach(m=>m.dispose());Object.values(materials).forEach(m=>m.dispose());
       renderer.dispose();overlay.remove();canvas.remove();
     }};
   }

@@ -7,20 +7,20 @@ window.IsoFlat = {
     const face=IsoFace.mountFlat({overlay:detail,callbacks});
     const ns='http://www.w3.org/2000/svg';
     const icons={
-      source:'<path fill="#df9753" d="m5 7 1-4h6l2 4 4 1 3 5-3 4-1 4H8l-2-4-4-2 1-6Z"/><circle fill="#fcdf97" cx="11.5" cy="12" r="5"/><path d="m11 12 2-2"/>',
+      source:'<path fill="#b3d0be" d="M3 3h5L6 8H5zm7 0h5l-2 5h-1zm7 0h5l-2 5h-1Z"/><circle fill="#d5ba83" cx="12" cy="15" r="6.5"/><g stroke="none"><circle fill="#ec7851" cx="12" cy="10.5" r="1.5"/><circle fill="#60c5b6" cx="16.5" cy="15" r="1.5"/><circle fill="#e9af44" cx="12" cy="19.5" r="1.5"/></g>',
       router:'<path fill="#85bdab" d="m3 8 2-3 4 1 1-3 4 1 1 3 4 1v4l-3 2-1 3-5 1-2-2-4-1v-4Z"/><circle cx="10.5" cy="10" r="2"/><path d="m14 19 4-6 4 1m-4-1 3-5"/>',
       keys:'<rect x="2" y="5" width="20" height="14" rx="1.6" fill="#fff7d8"/><path stroke-width="1.3" d="M6 6v13m4-13v13m4-13v13m4-13v13"/><path stroke-width="2.8" d="M6 6v7m4-7v7m8-7v7"/>',
       bell:'<path fill="#edb94e" d="M3 17h18l-2-3c0-6-3-9-7-9s-7 3-7 9Z"/><path d="M10 20q2 2 4 0M12 4V3"/>',
-      bin:'<path fill="#c1d8c8" d="M4 6h16l-2 15H6Z"/><path stroke-width="1.2" d="M8 8l1 10m3-10v10m4-10-1 10M5 12h14"/><path d="M3 5h18"/>',
-      delay:'<rect x="2" y="7" width="20" height="12" rx="2" fill="#c3adca"/><path d="M5 9v7m4-7v7m4-7v7m4-7v7"/><circle cx="15" cy="6" r="2" fill="#e5b259"/>',
-      copy:'<path d="M4 7h6m3 0v7M7 12v2M3 19h18"/><path fill="#d1855f" d="M3 3h16v4H3zM4 14h5v3H4zm7 0h5v3h-5z"/>'
+      bin:'<path fill="#acc2b4" d="M3 6h18v4l-6 6v3l-6 2v-5l-6-6Z"/><path d="M4 8h16m-13 3h10m-8 3h6" stroke-width="1.1"/>',
+      delay:'<path d="M3 2v3h18M3 5v15h17v3"/><g stroke-width="1.2" fill="#c8e2d3"><rect x="5" y="6" width="3.8" height="11" rx="1.5"/><rect x="11" y="6" width="3.8" height="11" rx="1.5"/><rect x="17" y="6" width="3.8" height="11" rx="1.5"/></g><path stroke="#65aa9d" d="M7 13v2m6-4v4"/>',
+      copy:'<path d="M12 2v3m-7 1h14M5 18v4m14-4v4"/><g stroke-width="1.4" fill="#d2e6d7"><rect x="2" y="7" width="7" height="12" rx="2"/><rect x="15" y="7" width="7" height="12" rx="2"/></g><path stroke="#64978a" d="M5.5 6v6m13-6v6M3 14.5h5m8 0h5"/>'
     };
     const svg=(tag,attrs)=>{
       const node=document.createElementNS(ns,tag);
       for(const [key,value] of Object.entries(attrs))node.setAttribute(key,value);
       return node;
     };
-    let frame,patch=null,insert=null,lastState,lastFocus,litTick=null,wirePaths=new Map();
+    let frame,patch=null,insert=null,lastState,lastFocus,hose,wirePaths=new Map();
     function can(action){try{IsoFlow.apply(frame.editState,action);return true;}catch{return false;}}
     function choice(label,icon,pos,handler){
       const b=document.createElement('button');b.type='button';b.setAttribute('aria-label',label);
@@ -28,15 +28,20 @@ window.IsoFlat = {
       const drawing=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true'});drawing.innerHTML=icon;
       b.append(drawing);fleet.append(b);return b;
     }
-    function jack(button,port,x){
-      const node=document.createElement('i');
-      node.className='flat-jack';node.dataset.port=port;node.style.left=x+'%';
-      node.setAttribute('aria-hidden','true');button.append(node);return node;
+    function placeJack(key,cx,cy,label,input,available) {
+      const node=document.createElement('button');
+      node.type='button';node.className='flat-socket';node.dataset.hosePort=key;
+      node.dataset.io=input?'in':'out';node.style.left=cx+'px';node.style.top=cy+'px';
+      node.setAttribute('aria-label',label);
+      node.disabled=input?(!patch||!available):Boolean(insert||(patch&&patch!==key));
+      if(!input)node.setAttribute('aria-pressed',String(key===patch));
+      node.classList.toggle('ready',Boolean(input&&patch&&available));
+      fleet.append(node);return node;
     }
     function draw(){
       if(!frame)return;
       const s=frame.editState,focus=!patch&&!insert&&frame.selected;
-      lastState=s;lastFocus=focus;litTick=null;
+      lastState=s;lastFocus=focus;
       fleet.hidden=!!focus;detail.hidden=!focus;fleet.replaceChildren();wirePaths.clear();
       if(focus)return;
       const {names,ports}=IsoWorkshopLabels;
@@ -47,27 +52,60 @@ window.IsoFlat = {
       const layout=IsoScene.layout(s.links,host.clientWidth/host.clientHeight<1.18);
       const xs=Object.values(layout).map(p=>p.x),zs=Object.values(layout).map(p=>p.z);
       const loX=Math.min(...xs),loZ=Math.min(...zs),spanX=Math.max(...xs)-loX,spanZ=Math.max(...zs)-loZ;
-      const sockets=new Map();
+      const sockets=new Map(),bodies=[];
       for(const [id,p] of Object.entries(layout)){
         const pos=[15+70*(p.x-loX)/(spanX||1),12+76*(p.z-loZ)/(spanZ||1)];
         const b=choice((patch?'Соединить с деталью ':'Выбрать: ')+names[id],icons[id],pos,()=>{
           if(patch){if(callbacks.connect(patch,id))setPatch(null);}else callbacks.select(id);
         });
         b.dataset.station=id;b.disabled=!!insert||!!(patch&&!can({type:'connect',from:patch,to:id}));
-        if(id!=='source')sockets.set(id+':in',jack(b,'in',50));
+        const r=b.getBoundingClientRect();
+        const cx=r.left+r.width/2-box.left,y=r.top-box.top;
+        bodies.push({left:(r.left-box.left)/50,right:(r.right-box.left)/50,top:y/50,bottom:(y+r.height)/50});
+        if(id!=='source'){
+          const key=id+':in',open=patch&&can({type:'connect',from:patch,to:id});
+          sockets.set(key,placeJack(key,cx,y-4,'Вход: '+names[id],true,open));
+        }
         const outputs=IsoFlow.PORTS[id];
-        outputs.forEach((port,i)=>sockets.set(id+':'+port,jack(b,port,outputs.length===1?50:68-i*36)));
+        outputs.forEach((port,i)=>{
+          const key=id+':'+port;
+          const x=outputs.length===1?cx:cx+(i===0?1:-1)*Math.max(22,r.width*.24);
+          sockets.set(key,placeJack(key,x,y+r.height+4,ports[port]+': '+names[id],false,true));
+        });
       }
       function point(key){
         const r=sockets.get(key).getBoundingClientRect();
         return [(r.left+r.width/2-box.left)*100/box.width,(r.top+r.height/2-box.top)*100/box.height];
       }
+      // Plan around the screen-space bodies using the same hose solver as the
+      // 3D workbench. Its coordinate system is just scaled pixels on a plane.
+      const previous=[];
+      function cablePath(ax,ay,bx,by,from,to){
+        if(!window.THREE){
+          const bend=Math.max(3,Math.min(15,Math.abs(by-ay)*.5));
+          return 'M '+ax+' '+ay+' C '+ax+' '+(ay+bend)+' '+bx+' '+(by-bend)+' '+bx+' '+by;
+        }
+        const v=(x,z)=>new THREE.Vector3(x,.2,z);
+        const point3=(x,y)=>v(x*box.width/5000,y*box.height/5000);
+        const otherJacks=[];
+        for(const key of sockets.keys())if(key!==from&&key!==to+':in'){
+          const [x,y]=point(key),p=point3(x,y);
+          otherJacks.push({left:p.x-.15,right:p.x+.15,top:p.z-.06,bottom:p.z+.06});
+        }
+        const path=IsoBelts.plan(point3(ax,ay),point3(bx,by),new THREE.Vector3(0,0,1),
+          new THREE.Vector3(0,0,-1),bodies.concat(otherJacks),previous);
+        const points=path.getSpacedPoints(Math.max(14,Math.ceil(path.getLength()*7)));
+        previous.push(points);
+        return 'M '+points.map(p=>(p.x*5000/box.width).toFixed(2)+' '+(p.z*5000/box.height).toFixed(2)).join(' L ');
+      }
       for(const [from,to] of Object.entries(s.links)){
         const [owner,port]=from.split(':'),[ax,ay]=point(from),[bx,by]=point(to+':in');
-        const bend=Math.max(3,Math.min(15,Math.abs(by-ay)*.5));
-        const wire=svg('path',{d:'M '+ax+' '+ay+' C '+ax+' '+(ay+bend)+' '+bx+' '+(by-bend)+' '+bx+' '+by,
-          fill:'none',stroke:port==='side'?'#b56e3d':'#40796a','stroke-linecap':'round','stroke-width':5,'vector-effect':'non-scaling-stroke'});
-        lines.append(wire);wirePaths.set(from,wire);
+        const d=cablePath(ax,ay,bx,by,from,to);
+        const jacket=svg('path',{d,fill:'none',stroke:'#6f9389','stroke-linecap':'round','stroke-width':11,'vector-effect':'non-scaling-stroke'});
+        const wire=svg('path',{d,fill:'none',stroke:from===patch?'#a3dbc2':'#dceadc','stroke-linecap':'round','stroke-width':7,'vector-effect':'non-scaling-stroke'});
+        lines.append(jacket,wire);
+        const dose=document.createElement('span');dose.className='flat-hose-dose';dose.hidden=true;fleet.append(dose);
+        wirePaths.set(from,{wire,dose,length:wire.getTotalLength(),box});
         const action={type:'insert',node:insert,from};
         if(insert&&can(action)){
           const half=wire.getPointAtLength(wire.getTotalLength()/2);
@@ -80,21 +118,39 @@ window.IsoFlat = {
     }
     const resize=new ResizeObserver(draw);
     resize.observe(host);
-    function setPatch(key){patch=key;if(key&&insert)setInsert(null);callbacks.patchChanged(patch);draw();}
+    function setPatch(key){if(!key)hose?.reset();patch=key;if(key&&insert)setInsert(null);callbacks.patchChanged(patch);draw();}
     function setInsert(id){insert=id;if(id&&patch)setPatch(null);callbacks.insertChanged(insert);draw();}
     function cancelMode(){if(patch)setPatch(null);if(insert)setInsert(null);}
+    hose=IsoHoseGesture.mount(host,{
+      key:()=>patch,begin:setPatch,cancel:()=>setPatch(null),
+      finish:id=>{if(patch&&callbacks.connect(patch,id))setPatch(null);},
+      canJoin:id=>Boolean(patch&&can({type:'connect',from:patch,to:id}))
+    });
+    function showFlow(tick,phase){
+      for(const [key,r] of wirePaths){
+        const tones=IsoFlow.tones(tick?.edges.filter(edge=>edge.from===key)||[]);
+        r.dose.hidden=!tones.length;
+        if(!tones.length)continue;
+        const palette=tones.join(',');
+        if(r.dose.dataset.tones!==palette){
+          r.dose.dataset.tones=palette;r.dose.replaceChildren();
+          for(const pitch of tones){
+            const dye=document.createElement('i');dye.style.background=IsoPieces.noteColor(pitch);r.dose.append(dye);
+          }
+        }
+        const distance=phase*r.length,p=r.wire.getPointAtLength(distance),a=r.wire.getPointAtLength(Math.max(0,distance-.1)),b=r.wire.getPointAtLength(Math.min(r.length,distance+.1));
+        const angle=Math.atan2((b.y-a.y)*r.box.height,(b.x-a.x)*r.box.width);
+        r.dose.style.left=p.x+'%';r.dose.style.top=p.y+'%';
+        r.dose.style.transform='translate(-50%,-50%) rotate('+angle+'rad)';
+      }
+    }
     return {setPatch,setInsert,cancelMode,
       render(next){
-        frame=next;
+        const old=frame;frame=next;
         const focus=!patch&&!insert&&frame.selected;
         if(lastState!==frame.editState||lastFocus!==focus)draw();
         face.render(frame,focus||null);
-        const tick=frame.playing?frame.tick:null;
-        if(!focus&&tick!==litTick){
-          const live=new Set(tick?.edges.map(edge=>edge.from));
-          for(const [from,path] of wirePaths)path.setAttribute('stroke-width',live.has(from)?8:5);
-          litTick=tick;
-        }
+        if(!focus&&(frame.playing||old?.playing))showFlow(frame.playing?frame.tick:null,(frame.time*IsoFlow.STEPS)%1);
       },
       inspect:()=>({webgl:false,focus:lastFocus||null})
     };

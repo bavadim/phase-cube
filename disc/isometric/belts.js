@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 // Socket leads are routed on the table. Lift one jacket over another at crossings.
 window.IsoBelts = (() => {
-  const radius=.069;
+  const radius=.095;
   const horizontal=(p,q)=>Math.hypot(q.x-p.x,q.z-p.z);
   const amount=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
   // Test the open rectangle, so a shortest path can follow its outside edge.
@@ -94,22 +94,104 @@ window.IsoBelts = (() => {
     }
     return new THREE.CatmullRomCurve3(samples,false,'centripetal');
   }
+  function shell(color){
+    return new THREE.ShaderMaterial({
+      uniforms:{tint:{value:new THREE.Color(color)}},transparent:true,depthWrite:false,
+      vertexShader:`
+        varying vec3 wallNormal;
+        void main(){
+          wallNormal=normalMatrix*normal;
+          gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+        }`,
+      fragmentShader:`
+        uniform vec3 tint;
+        varying vec3 wallNormal;
+        void main(){
+          float rim=1.0-abs(normalize(wallNormal).z);
+          vec3 hue=mix(vec3(.50,.79,.74),tint,smoothstep(.0,.51,rim));
+          gl_FragColor=vec4(hue,.28+.68*pow(rim,.72));
+          #include <colorspace_fragment>
+        }`
+    });
+  }
+  // Separate coloured laminae across the bore of a single dose. The striping is
+  // perpendicular to the projected centreline, so every constituent stays
+  // visible from either camera, including on the far side of a bend.
+  function liquid(group,path,rings){
+    const sides=16,geometry=new THREE.TubeGeometry(path,rings,radius*.84,sides,false);
+    const axes=new Float32Array(geometry.attributes.position.count*3);
+    for(let i=0;i<=rings;i++){
+      const tangent=path.getTangentAt(i/rings);
+      for(let j=0;j<=sides;j++)tangent.toArray(axes,(i*(sides+1)+j)*3);
+    }
+    geometry.setAttribute('axis',new THREE.BufferAttribute(axes,3));
+    const pixels=new Uint8Array(128*4),palette=new THREE.DataTexture(pixels,128,1);
+    palette.needsUpdate=true;
+    const shader=new THREE.ShaderMaterial({
+      uniforms:{ink:{value:palette},tones:{value:1},interval:{value:new THREE.Vector2()}},
+      vertexShader:`
+        attribute vec3 axis;
+        varying float distanceAlong;
+        varying float crossSection;
+        void main(){
+          vec2 d=(mat3(modelViewMatrix)*axis).xy;
+          vec2 across=vec2(-d.y,d.x)/max(length(d),.001);
+          crossSection=dot(normalize(normalMatrix*normal).xy,across)*.5+.5;
+          distanceAlong=uv.x;
+          gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);
+        }`,
+      fragmentShader:`
+        uniform sampler2D ink;
+        uniform float tones;
+        uniform vec2 interval;
+        varying float distanceAlong;
+        varying float crossSection;
+        void main(){
+          if(distanceAlong<interval.x || distanceAlong>interval.y)discard;
+          float stripe=floor(clamp(crossSection,0.,.99999)*tones);
+          vec3 dye=texture2D(ink,vec2((stripe+.5)/128.,.5)).rgb;
+          gl_FragColor=vec4(dye*(.83+.17*sin(clamp(crossSection,0.,1.)*3.14159)),1.);
+          #include <colorspace_fragment>
+        }`
+    });
+    const stream=new THREE.Mesh(geometry,shader),color=new THREE.Color();
+    stream.visible=false;group.add(stream);
+    let signature=null;
+    return {
+      mesh:stream,
+      show(pitches,at,span){
+        const key=pitches.join(',');
+        if(key!==signature){
+          signature=key;
+          pitches.forEach((pitch,i)=>{
+            color.set(IsoPieces.noteColor(pitch));
+            pixels.set([255*color.r,255*color.g,255*color.b,255],i*4);
+          });
+          palette.needsUpdate=true;shader.uniforms.tones.value=pitches.length;
+        }
+        const head=at*(1+span);
+        shader.uniforms.interval.value.set(Math.max(0,head-span),Math.min(1,head));
+        stream.visible=!!pitches.length;
+      },
+      dispose(){shader.dispose();palette.dispose();}
+    };
+  }
   function build(group,path,materials){
-    const length=path.getLength();
-    const jacket=new THREE.Mesh(new THREE.TubeGeometry(path,Math.max(20,Math.ceil(length*15)),radius,8,false),materials.belt);
+    const length=path.getLength(),rings=Math.max(18,Math.ceil(length*14));
+    const jacket=new THREE.Mesh(new THREE.TubeGeometry(path,rings,radius,14,false),materials.hose);
     group.add(jacket);
     function collar(distance,r,h,mat){
       const t=amount(distance/length,0,1),p=path.getPointAt(t),dir=path.getTangentAt(t);
-      const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,10),mat);
+      const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,12),mat);
       mesh.position.copy(p);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);group.add(mesh);
     }
     const neck=Math.min(.13,length*.20);
     for(const sign of [1,-1]){
       const at=d=>sign>0?d:length-d;
-      collar(at(neck*.32),.119,neck*.64,materials.rail);
-      collar(at(neck*.96),.095,neck*.74,materials.tread);
+      collar(at(neck*.32),.128,neck*.64,materials.rail);
+      collar(at(neck*.96),.108,neck*.74,materials.tread);
     }
-    return jacket;
+    return {jacket,fluid:liquid(group,path,rings)};
   }
-  return {plan,build};
+  return {plan,build,shell};
 })();

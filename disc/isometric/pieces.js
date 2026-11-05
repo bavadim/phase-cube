@@ -18,14 +18,18 @@ window.IsoPieces = (() => {
   ];
   function noteColor(pitch) {
     if (!Number.isFinite(pitch)) return pigments.edge;
-    return noteColors[((Math.round(pitch) % 12) + 12) % 12];
+    const n=Math.round(pitch);
+    if(n>=60&&n<72)return noteColors[n-60];
+    return 'hsl('+Math.round((n*137.508+27)%360)+',64%,'+(43+(7*n)%22)+'%)';
   }
   const materials = new Map(), geometries = new Map();
   function paint(tone) {
     const hex = pigments[tone] || tone;
     if (!materials.has(hex)) {
       const metal = tone === 'brass' || tone === 'steel';
-      materials.set(hex, new T.MeshStandardMaterial({
+      materials.set(hex, tone==='glass'?new T.MeshStandardMaterial({
+        color:0x9cd9d1,roughness:.20,transparent:true,opacity:.19,depthWrite:false
+      }):new T.MeshStandardMaterial({
         color: hex, roughness: metal ? .42 : .64, metalness: metal ? .36 : .1
       }));
     }
@@ -99,6 +103,36 @@ window.IsoPieces = (() => {
     plate(p,w,.22,d,0,.205,0,tone,.24);
     plate(p,w-.08,.06,d-.09,0,.334,0,'ivory',.20);
   }
+  // Clip parallel bands to the same meniscus. One dose containing C+E
+  // keeps two separate colour bands, irrespective of camera or instrument.
+  function bandGeometry(index,count) {
+    return geometry('meniscus:'+index+'/'+count,()=>{
+      const a=Math.acos(2*index/count-1),b=Math.acos(2*(index+1)/count-1);
+      const shape=new T.Shape();
+      shape.moveTo(Math.cos(a),Math.sin(a));shape.absarc(0,0,1,a,b,true);
+      shape.lineTo(Math.cos(b),-Math.sin(b));shape.absarc(0,0,1,-b,-a,true);
+      shape.closePath();return extrude(shape,1);
+    });
+  }
+  function liquid(parent,x,y,z,rx,rz,h) {
+    const body=group(parent,x,y,z),stripes=[];
+    body.scale.set(rx,h,rz);body.visible=false;
+    let last=[];
+    function set(pitches){
+      if(last.length===pitches.length&&last.every((p,i)=>p===pitches[i]))return;
+      last=pitches.slice();body.visible=last.length>0;
+      while(stripes.length<last.length)stripes.push(mesh(body,bandGeometry(0,1),'mint',0,0,0));
+      stripes.forEach((band,i)=>{
+        band.visible=i<last.length;
+        if(band.visible){band.geometry=bandGeometry(i,last.length);band.material=paint(noteColor(last[i]));}
+      });
+    }
+    return {body,set};
+  }
+  function pipe(parent,points,r,tone) {
+    for(let i=1;i<points.length;i++)rod(parent,points[i-1],points[i],r,tone);
+    for(const p of points.slice(1,-1))ball(parent,r,...p,tone);
+  }
   function hit(frame, id) {
     return frame.playing && frame.tick.activity[id].length ? Math.max(0,1-frame.progress*2.6) : 0;
   }
@@ -136,18 +170,22 @@ window.IsoPieces = (() => {
     const drive={wheel:null,angle:0};
     sourceDrives.set(root,drive);
     mounting(root,3.22,2.08,'teal');
-    // Three pitch wells and an empty one for rests share the same rim and axle.
+    // The meniscus sits below the lip; the fourth glass is empty for rests.
     const pitches=window.IsoFlow.PALETTE.filter(pitch=>pitch!==null).concat(null);
     const pitchers=pitches.map((pitch,i)=>{
       const x=(i-1.5)*.8, p=group(root,x,.36,-.72);
       const tone=pitch===null?'edge':noteColor(pitch);
       cyl(p,.13,.19,.19,0,.12,0,'brass');
       cyl(p,.092,.098,.18,0,.238,0,'paper');
-      lathe(p,[[.078,0],[.098,0],[.124,.15],[.31,.39],[.315,.43],[.27,.43],[.080,.11],[.065,.025]],
-        0,.285,0,tone);
-      bead(p,.296,.022,0,.718,0,'ivory');
-      const note=pitch===null?null:ball(p,.108,0,.63,0,tone);
-      return {body:p,note,pitch};
+      lathe(p,[[.078,0],[.14,.08],[.236,.18],[.288,.25],[.295,.43],[.275,.43],[.26,.25],[.074,.05]],
+        0,.285,0,'glass');
+      bead(p,.292,.024,0,.715,0,'steel');
+      const fill=pitch===null?null:cyl(p,.261,.121,.236,0,.521,0,tone);
+      if(fill){
+        bead(p,.242,.009,0,.641,0,tone);
+        rod(p,[-.16,.587,-.16],[-.10,.665,-.22],.012,'paper');
+      }
+      return {body:p,fill,pitch};
     });
     rod(root,[-1.20,.414,-.55],[1.41,.414,-.55],.07,'teal');
     rod(root,[1.41,.414,-.55],[1.41,.40,.88],.07,'teal');
@@ -172,9 +210,9 @@ window.IsoPieces = (() => {
     const pins = Array.from({length:8},(_,i)=>{
       const a = -i*TAU/8, px=.472*Math.sin(a), pz=.472*Math.cos(a);
       const pin = action(group(sleeve,px,.102,pz),'pin',i);
-      cyl(pin,.142,.13,.027,0,.003,0,'ink',20);
-      const cap=cyl(pin,.122,.125,.095,0,.044,0,'paper',20);
-      return cap;
+      cyl(pin,.142,.13,.027,0,.003,0,'ink',24);
+      bead(pin,.128,.015,0,.038,0,'steel');
+      return liquid(pin,0,.023,0,.114,.114,.036);
     });
     const stem = group(root,x,.81,z);
     action(stem,'level');
@@ -201,14 +239,12 @@ window.IsoPieces = (() => {
         sleeve.visible=!editing;sleeve.rotation.y=turn-phase*TAU/8;
         handle.position.y=.045+.145*level;
         notes.forEach((pitch,i)=>{
-          const cap=pins[i], rest=pitch===null;
-          cap.scale.setScalar(rest?.50:1); cap.position.y=rest?.010:.066;
-          cap.material=paint(rest?'steel':noteColor(pitch));
+          pins[i].set(IsoFlow.pitches(pitch));
         });
         const e=f.tick.activity.source[0], pulse=hit(f,'source');
-        pitchers.forEach(({body,note,pitch})=>{
+        pitchers.forEach(({body,fill,pitch})=>{
           body.position.z=editing?-1.88:-.72;
-          if(note)note.position.y=.63+(e?.pitch===pitch?pulse*.09:0);
+          if(fill)fill.scale.y=f.tick.activity.source.some(packet=>packet.pitch===pitch)?1-.14*pulse:1;
         });
         reader.visible=!editing;
         lamp.material=paint(pulse>.12?noteColor(e.pitch):'paper');
@@ -216,64 +252,114 @@ window.IsoPieces = (() => {
     };
   }
 
+  function horizontalSleeve(parent,x,y,z,r,length,tone) {
+    const sleeve=cyl(parent,r,r,length,x,y,z,tone,32);
+    sleeve.rotation.x=Math.PI/2;return sleeve;
+  }
   function copier(root) {
-    mounting(root,1.75,1.60,'brick');
-    plate(root,1.48,.095,1.05,0,.42,.08,'edge',.13);
-    const head=group(root,0,0,.04);
-    [-.43,.43].forEach(x=>{
-      plate(root,.57,.07,.69,x,.495,.1,'brass',.07);
-      cyl(root,.086,.105,.92,x,.86,-.48,'steel');
-      cyl(root,.14,.14,.09,x,.452,-.48,'ink');
-      plate(head,.47,.16,.55,x,.74,.065,'orange',.08);
-      cyl(head,.09,.14,.22,x,.92,.065,'brass');
-      rod(head,[x,1.052,.065],[x,1.052,-.52],.052,'ivory');
-      cyl(head,.114,.114,.15,x,1.053,-.52,'brick');
+    mounting(root,1.75,1.60,'teal');
+    // Positive-displacement twin head: the manifold charges two equal
+    // cylinders. A common stroke ejects a full measure from each branch.
+    const xLeft=-.44,xRight=.44,y=.57;
+    pipe(root,[[0,.29,-.88],[0,.446,-.46],[0,.446,-.12]],.074,'brass');
+    pipe(root,[[xLeft,.446,-.12],[xRight,.446,-.12]],.063,'teal');
+    const crosshead=group(root), button=group(root,0,.664,-.56);
+    plate(crosshead,1.14,.12,.15,0,y,-.56,'teal',.057);
+    cyl(button,.16,.183,.10,0,-.025,0,'ink');
+    cyl(button,.138,.154,.080,0,.040,0,'orange');
+    const cylinders=[xLeft,xRight].map(x=>{
+      horizontalSleeve(root,x,y,.08,.208,.79,'glass');
+      for(const z of [-.29,.47]){
+        horizontalSleeve(root,x,y,z,.222,.07,'brass');
+        horizontalSleeve(root,x,y,z+.035,.191,.027,'edge');
+      }
+      // A slim glint reveals a curved transparent wall even when empty.
+      rod(root,[x-.105,y+.176,-.23],[x-.105,y+.176,.38],.010,'ivory');
+      pipe(root,[[x,y,.48],[x,.39,.66],[x,.29,.85]],.073,'teal');
+      const piston=group(crosshead,x,y,-.245);
+      horizontalSleeve(piston,0,0,-.16,.045,.40,'steel');
+      horizontalSleeve(piston,0,0,0,.179,.065,'edge');
+      horizontalSleeve(piston,0,0,.039,.174,.022,'brass');
+      const dose=liquid(root,x,y,-.202,.164,.164,.62);
+      dose.body.name=x===xLeft?'copy:copy':'copy:out';
+      dose.body.rotation.x=Math.PI/2;
+      return dose;
     });
-    plate(root,1.06,.115,.24,0,1.318,-.48,'brick',.081);
-    plate(head,1.34,.16,.31,0,1.085,.065,'ivory',.10);
-    rod(root,[0,.39,-.44],[0,1.38,-.44],.11,'edge');
-    plate(root,.31,.16,.65,0,1.34,-.21,'brick');
-    const shaft=cyl(root,.068,.068,.37,0,1.18,.065,'steel');
-    for(const x of [-.44,.44])rod(root,[x,.40,.41],[x,.30,.85],.065,'brass');
     return {
       ports:{in:vec(0,.29,-.99),out:vec(.44,.29,.99),copy:vec(-.44,.29,.99)},
-      update(f) {
-        const drop=.17*hit(f,'copy'); head.position.y=-drop;
-        shaft.position.y=1.18-drop/2; shaft.scale.y=1+drop/.37;
+      update(frame) {
+        const view=frame,batch=IsoFlow.tones(view.tick.activity.copy);
+        const u=batch.length?view.progress:0;
+        // Fast delivery, then both plungers retract together.
+        const stroke=batch.length?Math.sin(Math.PI*u)**2:0;
+        crosshead.position.z=.53*stroke;
+        button.position.y=.664-.066*stroke;
+        cylinders.forEach(dose=>{
+          dose.set(batch);
+          dose.body.position.z=-.202+crosshead.position.z;
+          dose.body.scale.y=.62-crosshead.position.z;
+        });
       }
     };
   }
 
   function delay(root) {
-    mounting(root,2.09,1.37,'plum');
-    const handle=action(group(root),'delay'), pockets=[];
-    for (const z of [-.38,.38]) rod(handle,[-.93,.565,z],[.94,.565,z],.045,'steel');
-    for (let i=0;i<window.IsoFlow.MAX_DELAY;i++) {
-      const p=group(handle);
-      plate(p,.32,.085,.68,0,.49,0,'edge',.055);
-      for(const z of [-.29,.29]) plate(p,.31,.18,.075,0,.58,z,'violet',.03);
-      plate(p,.052,.23,.63,-.14,.60,0,'plum',.022);
-      const note=plate(p,.220,.17,.28,0,.63,0,'gold',.035);
-      pockets.push({p,note});
-    }
-    const slider=group(handle,0,0,-.39);
-    cyl(slider,.09,.12,.23,0,.68,0,'brass');
-    cyl(slider,.161,.186,.12,0,.84,0,'plum',16);
-    cyl(slider,.124,.151,.029,0,.916,0,'paper',16);
-    rod(root,[-.70,.30,-.76],[-.70,.42,-.34],.065,'brass');
-    rod(root,[.89,.42,.34],[.98,.30,.73],.065,'brass');
+    mounting(root,2.09,1.37,'teal');
+    const byX=-.84, socketX=i=>-.50+i*.44;
+    pipe(root,[[-.70,.29,-.77],[-.70,.44,-.48],[-.84,.44,-.36],[byX,.44,.43]],.050,'steel');
+    pipe(root,[[-.70,.43,-.40],[-.50,.43,-.35],[-.50,.51,-.14]],.050,'brass');
+    pipe(root,[[byX,.424,.43],[.98,.424,.43],[.98,.29,.78]],.060,'teal');
+    const doseValve=group(root,-.72,.531,-.51);
+    cyl(doseValve,.147,.154,.10,0,-.018,0,'ink');
+    cyl(doseValve,.118,.136,.10,0,.067,0,'orange');
+    const direct=liquid(root,byX,.485,.0,.05,.275,.018);
+    const selector=action(group(root),'delay');
+    const cells=Array.from({length:IsoFlow.MAX_DELAY},(_,i)=>{
+      const x=socketX(i),vial=group(root,x,0,-.012);
+      cyl(vial,.202,.207,.09,0,.42,0,'edge',28);
+      cyl(vial,.187,.178,.43,0,.647,0,'glass',32);
+      const lip=bead(vial,.181,.024,0,.862,0,'steel');
+      rod(vial,[-.116,.505,-.12],[-.116,.794,-.12],.010,'ivory');
+      const contents=liquid(vial,0,.466,0,.152,.152,.32);
+      contents.body.name='delay:measure-'+(i+1);
+      // The tap below each cylinder leads to the common discharge pipe.
+      pipe(root,[[x,.437,.105],[x,.454,.26],[x,.424,.43]],.048,'brass');
+      const tap=cyl(selector,.072,.092,.08,x,.492,.235,'steel',12);
+      return {lip,contents,tap};
+    });
+    // Short upward siphons make the order visible: only the first measure
+    // is fed directly. Each subsequent measure borrows one more clock step.
+    const bridges=cells.slice(1).map((_,i)=>{
+      const x=socketX(i),next=socketX(i+1),bridge=group(root);
+      pipe(bridge,[[x+.095,.70,-.125],[x+.095,.816,-.241],[next-.095,.816,-.241],
+        [next-.095,.735,-.125]],.040,'brass');
+      return bridge;
+    });
+    const directTap=cyl(selector,.084,.095,.08,byX,.492,.32,'steel',12);
+    const cursor=bead(selector,.105,.024,0,.548,.23,'teal');
     return {
       ports:{in:vec(-.70,.29,-.87),out:vec(.98,.29,.90)},
-      update(f) {
-        const count=f.state.delay, slots=f.tick.pockets;
-        pockets.forEach(({p,note},i)=>{
-          const value=slots.find(packet=>f.tick.tick-packet.entered===i);
-          p.visible=i<count || Boolean(value);
-          p.position.x=-.70+i*.40;
-          note.visible=Boolean(value);
-          if(value) note.material=paint(noteColor(value.pitch));
+      update(frame) {
+        const view=frame,tick=view.tick,n=frame.state.delay;
+        const active=i=>i===n?'teal':'steel';
+        directTap.material=paint(active(0));
+        const now=tick.tick, inlet=IsoFlow.tones(tick.activity.delay);
+        direct.set(n===0?inlet:[]);
+        doseValve.position.y=.531-(inlet.length?.047*Math.sin(Math.PI*view.progress):0);
+        cursor.position.x=n?socketX(n-1):byX;
+        cursor.position.z=n?.235:.32;
+        bridges.forEach((bridge,i)=>{
+          bridge.visible=i+1<n||tick.pockets.some(p=>p.due-p.entered>i+1);
         });
-        slider.position.x=-.90+count*.40;
+        cells.forEach(({lip,contents,tap},i)=>{
+          const resident=tick.pockets.filter(p=>now-p.entered===i);
+          const pitches=IsoFlow.tones(resident);
+          contents.set(pitches);
+          const draining=resident.some(p=>p.due===now+1);
+          contents.body.scale.y=draining?.32*(1-.58*view.progress):.32;
+          lip.material=paint(i<n||resident.length?'mint':'steel');
+          tap.material=paint(active(i+1));
+        });
       }
     };
   }
@@ -350,8 +436,8 @@ window.IsoPieces = (() => {
       const arm=action(group(wheel),'cam',i);arm.rotation.y=-i*pitch;
       const tooth=mesh(arm,camSector(false,false,false),'mint',0,.078,0);
       const rim=cyl(arm,.101,.119,.032,.613,.222,0,'ink',24);
-      const bead=cyl(arm,.071,.077,.039,.613,.245,0,'gold',24);
-      return {tooth,rim,bead};
+      const sample=liquid(arm,.613,.240,0,.082,.082,.029);
+      return {tooth,rim,sample};
     });
     cyl(wheel,.335,.343,.154,0,.137,0,'edge',48);
     cyl(wheel,.234,.256,.155,0,.262,0,'brass',8);
@@ -402,10 +488,10 @@ window.IsoPieces = (() => {
           lastRoutes=route;
         }
         if(lastScore!==f.steps){
-          cells.forEach(({rim,bead},i)=>{
-            const note=f.steps?.[i]?.activity.router[0];
-            rim.scale.setScalar(note?1:.65);bead.visible=!!note;
-            if(note)bead.material=paint(noteColor(note.pitch));
+          cells.forEach(({rim,sample},i)=>{
+            const pitches=IsoFlow.tones(f.steps?.[i]?.activity.router||[]);
+            rim.scale.setScalar(pitches.length?1:.65);
+            sample.set(pitches);
           });
           lastScore=f.steps;
         }
@@ -415,11 +501,23 @@ window.IsoPieces = (() => {
     };
   }
 
+  function receiverWindow(parent,x,y,z,rx,rz,inX,inZ) {
+    pipe(parent,[[inX,.30,inZ],[inX,.47,z],[x,y-.04,z]],.063,'brass');
+    const base=cyl(parent,1,1,.047,x,y,z,'edge');
+    base.scale.set(rx,1,rz);
+    const window=liquid(parent,x,y+.025,z,rx*.89,rz*.81,.026);
+    window.body.name='receiver:sight-glass';
+    return (frame,id)=>{
+      const sounding=frame.tick.hits[id].filter(p=>p.gain>0&&frame.progress<p.length);
+      window.set(IsoFlow.tones(sounding));
+    };
+  }
   function keys(root) {
     mounting(root,1.91,1.51,'brick');
     plate(root,1.75,.22,1.15,0,.465,0,'wood',.14);
     plate(root,1.58,.11,.82,0,.615,.121,'ink',.04);
     plate(root,1.72,.24,.29,0,.665,-.39,'orange');
+    const fill=receiverWindow(root,0,.797,-.39,.73,.113,0,-.81);
     const keyboard=[];
     for (let i=0;i<7;i++) {
       const key=group(root,(i-3)*.212,.711,-.17);
@@ -431,6 +529,7 @@ window.IsoPieces = (() => {
     }
     const keyIndex={60:0,64:2,67:4};
     return {ports:{in:vec(0,.29,-.94)},update(f) {
+      fill(f,'keys');
       const struck=f.tick.hits.keys, strength=hit(f,'keys');
       keyboard.forEach((key,i)=>{
         key.rotation.x=struck.some(box=>keyIndex[box.pitch]===i)?strength*.16:0;
@@ -443,6 +542,7 @@ window.IsoPieces = (() => {
     cyl(root,.475,.535,.135,.08,.423,0,'edge');
     cyl(root,.424,.450,.10,.08,.523,0,'brass');
     const dome=group(root,.08,.573,0);
+    const fill=receiverWindow(root,-.08,.612,-.530,.40,.105,-.21,-.76);
     lathe(dome,[[.002,.007],[.45,.007],[.459,.035],[.435,.066],[.41,.19],
       [.35,.34],[.255,.448],[.14,.50],[.047,.524],[.002,.524]],0,0,0,'gold');
     bead(dome,.45,.021,0,.031,0,'brass');
@@ -453,6 +553,7 @@ window.IsoPieces = (() => {
     rod(hammer,[0,0,0],[.10,.37,-.03],.036,'brass');
     ball(hammer,.095,.10,.37,-.03,'orange');
     return {ports:{in:vec(-.21,.29,-.90)},update(f) {
+      fill(f,'bell');
       const strike=hit(f,'bell');
       hammer.rotation.z=.32-strike*.86;
       dome.rotation.z=strike*Math.sin(f.progress*Math.PI*8)*.037;
@@ -460,26 +561,18 @@ window.IsoPieces = (() => {
   }
 
   function bin(root) {
-    mounting(root,1.46,1.38,'plum');
-    cyl(root,.32,.29,.10,0,.423,0,'edge');
-    const can=group(root,0,.46,0);
-    cyl(can,.28,.27,.051,0,.026,0,'ink');
-    for(let i=0;i<12;i++) {
-      const a=i*TAU/12, b=a+.14;
-      rod(can,[.285*Math.sin(a),.025,.285*Math.cos(a)],
-        [.423*Math.sin(b),.665,.423*Math.cos(b)],.026,'steel');
-    }
-    for(const y of [.18,.40]) bead(can,.285+.204*y,.018,0,y,0,'steel');
-    bead(can,.425,.036,0,.674,0,'teal');
-    const scrap=plate(can,.18,.16,.23,0,0,0,'gold',.025);
+    mounting(root,1.46,1.38,'teal');
+    pipe(root,[[0,.29,-.76],[0,.58,-.42],[0,.62,-.28]],.083,'brass');
+    lathe(root,[[.16,0],[.32,.075],[.484,.212],[.48,.255],[.42,.25],[.23,.118],[.12,.111]],
+      0,.37,.09,'steel');
+    bead(root,.469,.022,0,.622,.09,'ivory');
+    cyl(root,.23,.22,.032,0,.477,.09,'ink');
+    for(const x of [-.117,0,.117])rod(root,[x,.504,-.077],[x,.504,.25],.020,'steel');
+    const spill=liquid(root,0,.521,.09,.320,.310,.030);
     return {ports:{in:vec(0,.29,-.88)},update(f) {
-      const note=f.tick.hits.bin[0];
-      scrap.visible=Boolean(f.playing && note && f.progress<.61);
-      if(scrap.visible) {
-        scrap.position.y=.83-1.8*f.progress*f.progress;
-        scrap.rotation.set(f.progress*2.9,0,f.progress*1.6);
-        scrap.material=paint(noteColor(note.pitch));
-      }
+      spill.set(IsoFlow.tones(f.progress<.78?f.tick.hits.bin:[]));
+      const remaining=Math.max(.1,1-f.progress);
+      spill.body.scale.x=.320*remaining;spill.body.scale.z=.310*remaining;
     }};
   }
   const makers = {source,copy:copier,delay,router,keys,bell,bin};
@@ -489,12 +582,17 @@ window.IsoPieces = (() => {
     const assembly=new T.Group();
     assembly.name=id;
     const result=build(assembly);
-    return {group:assembly,ports:result.ports,update:result.update,needsFrame:result.needsFrame};
+    return {group:assembly,ports:result.ports,needsFrame:result.needsFrame,
+      update(frame){
+        const probe=frame.testFluid;
+        if(!probe||id==='source'){result.update(frame);return;}
+        result.update({...frame,tick:probe.tick,progress:probe.progress,playing:true,time:probe.age/IsoFlow.STEPS});
+      }};
   }
   // The service faces are attached to the casting when the camera opens a
   // machine. Geometry and its accessible printed legends share local axes.
   function serviceFace(id,parent) {
-    const shell=group(parent), caps=new Map();
+    const shell=group(parent), caps=new Map(),windows=new Map();
     let scoreWheel;
     shell.name=id+'-service';shell.visible=false;
     function casework(w,d,x,z,tone) {
@@ -531,10 +629,6 @@ window.IsoPieces = (() => {
       for(let i=0;i<4;i++)rod(shell,[(i-1.5)*.8,.39,-1.88],[(i-1.5)*.8,.39,-.54],.055,'brass');
       for(const x of [-1,1])rod(shell,[x,.23,.82],[x,.23,1.39],.075,'brass');
     }
-    if(id==='delay'){
-      casework(2.80,.93,-.66,1.15,'plum');
-      for(const x of [-.80,.38])rod(shell,[x,.23,.57],[x,.23,1.04],.070,'steel');
-    }
     if(['keys','bell','bin'].includes(id)){
       casework(2.80,1.16,0,1.34,'edge');
       for(const x of [-.46,.46])rod(shell,[x,.23,.57],[x,.23,1.05],.060,'brass');
@@ -543,15 +637,23 @@ window.IsoPieces = (() => {
       const pin=scoreWheel&&key.startsWith('pin-');
       const mount=pin?scoreWheel:shell;
       const px=pin?x-.55:x, pz=pin?z-.13:z;
-      const pad=round?cyl(mount,w/2,w/2+.008,.078,px,y-.045,pz,'paper',32):
-        plate(shell,w,.080,d,x,y-.043,z,'paper',.067);
+      const wet=pin||key.startsWith('arrival-');
+      const pad=round?cyl(mount,w/2,w/2+.008,.078,px,y-.045,pz,wet?'edge':'paper',32):
+        plate(shell,w,.080,d,x,y-.043,z,wet?'edge':'paper',.067);
+      if(wet){
+        const rx=w*.43,rz=(round?w:d)*.43;
+        const well=liquid(mount,px,y-.004,pz,rx,rz,.035);
+        windows.set(key,well);
+        if(pin)bead(mount,w*.457,.011,px,y+.002,pz,'steel');
+      }
       if(pin)action(pad,'pin',Number(key.slice(4)));
       caps.set(key,pad);
     }
     function capColor(key,color){
       const cap=caps.get(key);if(cap)cap.material=paint(color);
     }
-    return {shell,key,capColor};
+    function capFluid(key,pitches){windows.get(key)?.set(pitches);}
+    return {shell,key,capColor,capFluid};
   }
   return Object.freeze({create,noteColor,serviceFace,scorePin,CAM,camRadius,createCamDrive,camPose:root=>camPoses.get(root)});
 })();

@@ -6,7 +6,7 @@
   position:absolute;transform:translate(-50%,-50%);min-width:44px;min-height:44px;padding:0;border:0;border-radius:50%;
   background:transparent;box-shadow:none;pointer-events:auto;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;
 }
-.iso-part-hit:focus-visible,.iso-board[data-patching] .iso-part-hit[data-destination=true]{
+.iso-part-hit:focus-visible{
   outline:2px solid #286c5a;outline-offset:1px;background:#b5ebd31c
 }
 .iso-part-hit:disabled{pointer-events:none;opacity:0}
@@ -16,3 +16,20 @@
 .iso-insert-point{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;width:44px;height:44px;background:#f2ffe8;color:#1a5444;border:2px solid #347561;border-radius:50%;z-index:2;display:grid;place-items:center;padding:0}
 .iso-insert-point::before,.iso-insert-point::after{position:absolute;content:"";width:15px;height:3px;border-radius:4px;background:currentColor}
 .iso-insert-point::after{transform:rotate(90deg)}
+/* The small ring belongs to the physical nozzle. Its hit area extends beyond
+   the ring for fingers; an outlet becomes an intake target only while patching. */
+.iso-board .hose-jack{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:44px;height:44px;
+  padding:0;border:0;background:transparent;color:#315c56;box-shadow:none;border-radius:50%;pointer-events:auto;touch-action:none;cursor:grab}
+.hose-jack::before{content:"";width:12px;height:12px;border:2px solid #375c56;background:#f7eacb;
+  border-radius:50%;box-shadow:0 0 0 2px #eed3a0,inset 0 0 0 2px #dba55f}
+.hose-jack[data-connected=true]::before{background:#52877b;box-shadow:0 0 0 2px #e5c798,inset 0 0 0 2px #d5ac72}
+.hose-jack[data-selected=true]::before,.hose-jack:focus-visible::before{outline:3px solid #257963;outline-offset:3px}
+.hose-jack[data-inlet=true]::before{width:20px;height:20px;background:#b4dfcc;box-shadow:0 0 0 2px #fbedd2,inset 0 0 0 4px #438470}
+.hose-jack[data-ready=true]::before{outline:4px solid #298769;outline-offset:2px;background:#fff5ce}
+.iso-hose-guide{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:4;display:none}
+.iso-hose-guide.visible{display:block}
+.iso-hose-guide path{fill:none;stroke-linecap:round}
+.iso-hose-guide .outline{stroke:#356e69;stroke-width:11;opacity:.85}
+.iso-hose-guide .bore{stroke:#b5e0cf;stroke-width:6}
+.iso-hose-guide .plug{fill:#fcf2d2;stroke:#986f40;stroke-width:4}
+.iso-hose-guide.snapped .plug{fill:#a2e1bd;stroke:#28735c}

@@ -99,8 +99,31 @@
           Flow.revision(desired, Math.ceil(transport.cursor * Flow.STEPS), stopped);
       }
     }
+    // Follow the same gates and releases as the two playback patches. A
+    // delayed bell can still ring when the next piano attack reaches the mix.
+    const stepSeconds=30/BPM;
+    let meterRevision,meterTick,voices=[];
+    function soundingPitches(rev,position,playing) {
+      if(!playing)return audition.soundingPitches();
+      const step=Math.floor(position);
+      if(rev!==meterRevision||step!==meterTick){
+        meterRevision=rev;meterTick=step;voices=[];
+        for(let at=Math.max(rev.begin,step-1);at<=step;at++){
+          const {hits}=Flow.tick(rev,at);
+          for(const [id,patch] of [['keys',keys],['bell',BELL]]){
+            for(const box of hits[id])if(box.gain>0)voices.push({pitch:box.pitch,until:at+box.length+patch.release/stepSeconds});
+          }
+        }
+      }
+      return voices.filter(v=>position<v.until).map(v=>v.pitch);
+    }
     return Object.freeze({
-      bpm:BPM, transport, queue, clock:() => transport.clock(),
+      bpm:BPM, stepSeconds, transport, queue, soundingPitches, clock:() => transport.clock(),
+      previewDose(rev,onScheduled) {
+        const haps=pattern(S,rev,keys).queryArc(0,(Flow.MAX_DELAY+1)/Flow.STEPS);
+        return audition.playEvents(haps,0,start=>onScheduled(()=>Math.max(0,(S.getAudioContext().currentTime-start)/stepSeconds)));
+      },
+      stopPreview:audition.stop,
       previewRoute(state,index) {
         return audition.playEvents(routeEvents(S,state,index,keys),1 + index / Flow.STEPS);
       },

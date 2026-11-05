@@ -2,13 +2,18 @@
 (() => {
   'use strict';
   const $=id=>document.getElementById(id),F=window.IsoFlow;
-  const names={source:'Шестерня',copy:'Копир',delay:'Задержка',router:'Развилка',keys:'Клавиши',bell:'Колокол',bin:'Корзина'};
+  const names={source:'Нотный насос',copy:'Двойной дозатор',delay:'Камеры задержки',router:'Задвижка',keys:'Клавиши',bell:'Колокол',bin:'Слив'};
   const ports={out:'Выход',copy:'Копия',straight:'Прямо',side:'Вбок'};
   const pitchName=n=>n==null?'Пауза':['До','До♯','Ре','Ми♭','Ми','Фа','Фа♯','Соль','Соль♯','Ля','Си♭','Си'][n%12];
   window.IsoWorkshopLabels=Object.freeze({names,ports,pitchName});
-  const presets=['duet','straight','echo','answer'],storageKey='biba.note-conveyor.iso.v1';
+  const presets=['hydraulic','duet','straight','echo','answer'];
+  const seed=new URLSearchParams(location.search).get('preset');
+  const namedPreset=presets.includes(seed)?seed:null;
+  const storageKey='biba.note-conveyor.iso.v1'+(namedPreset?'.'+namedPreset:'');
   function presetState(id){
     const s=F.initial();
+    if(id==='hydraulic')return F.restore({...s,source:{...s.source,notes:[[60,64],null,67,null,64,null,[60,67],null]},
+      links:{'source:out':'copy','copy:out':'keys','copy:copy':'delay','delay:out':'bell'}});
     if(id==='duet')return F.restore({...s,links:{'source:out':'router','router:straight':'keys','router:side':'bell'}});
     if(id==='straight')return F.restore({...s,links:{'source:out':'keys'}});
     if(id==='answer')return F.restore({...s,links:{'source:out':'copy','copy:out':'keys','copy:copy':'router','router:side':'bin','router:straight':'delay','delay:out':'bell'}});
@@ -16,13 +21,15 @@
   }
   const signature=s=>JSON.stringify([s.source,s.routes,s.delay,Object.entries(s.links).sort()]);
   const presetKeys=Object.fromEntries(presets.map(id=>[signature(presetState(id)),id]));
-  let state=presetState('duet');
+  let state=presetState(namedPreset||'hydraulic');
   try{const raw=localStorage.getItem(storageKey);if(raw)state=F.restore(JSON.parse(raw));}catch{/* Start from the duet if a saved bench cannot be read. */}
   let revision=F.revision(state);
   // The second cycle includes notes that crossed the bar line in the delay.
   const stepFrames=()=>Array.from({length:F.STEPS},(_,i)=>F.tick(revision,F.STEPS+i));
   let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,previewStep=0,picked=false,starting=false;
-  let paintPitch,cachedRevision,cachedTick,eventFrame,raf=0,focusAfterZoom=null;
+  let paintPitch,dose=null,lastDoseCell=state.source.notes.find(cell=>cell!==null)??60;
+  let cachedRevision,cachedTick,eventFrame,raf=0,focusAfterZoom=null;
+  let lastMix='';
   const undo=[],menu=$('workbench-menu');
   function notice(text){$('notice').textContent=text;$('notice').hidden=!text;}
   function refresh(){
@@ -43,12 +50,13 @@
     const board=$('board');board.parentElement.dataset.mode=mode?'mount':focused?'focus':'overview';
     if(patch){
       const [id,port]=patch.split(':');
-      $('status').textContent=names[id]+' · '+ports[port]+'. Выберите приёмник провода.';
+      $('status').textContent=names[id]+' · '+ports[port]+'. Коснитесь входа, чтобы подключить шланг.';
     }else if(insert){$('status').textContent='Выберите соединение для детали «'+names[insert]+'».';}
     else{$('status').textContent=focused?names[selected]:'Весь стол';}
   }
   function updateState(next,remember=true){
     if(signature(state)===signature(next))return;
+    stopDose();
     if(remember){undo.push(state);if(undo.length>96)undo.shift();}
     state=next;revision=F.revision(next);steps=stepFrames();audio?.queue(next);
     try{localStorage.setItem(storageKey,JSON.stringify(next));}catch{/* Keep session edits when storage is unavailable. */}
@@ -60,10 +68,14 @@
   function act(action){
     try{
       if(action.type==='note'&&selected==='source'&&paintPitch!==undefined&&!Object.hasOwn(action,'value')){
-        action={...action,value:paintPitch};
+        action={...action,type:'pour',value:paintPitch};
       }
       updateState(F.apply(state,action));
-      if(action.type==='note')playPreview(engine=>engine.previewPin(state,action.index));
+      if(action.type==='note'||action.type==='pour'){
+        const cell=state.source.notes[action.index];
+        if(cell!==null)lastDoseCell=cell;
+        playPreview(engine=>engine.previewPin(state,action.index));
+      }
       return true;
     }catch(err){notice(err.message);return false;}
   }
@@ -72,14 +84,31 @@
     paintPitch=pitch;$('status').textContent=pitch===null?'Пауза':pitchName(pitch);
     playPreview(engine=>engine.previewPitch(pitch));
   }
-  function patchChanged(key){patch=key;if(key)insert=null;refresh();}
-  function insertChanged(id){insert=id;if(id)patch=null;refresh();}
+  function stopDose(){if(dose){dose=null;audio?.stopPreview();}}
+  function testDose(station){
+    if(station!==selected||!['copy','delay'].includes(station)||audio?.wanted())return;
+    stopDose();
+    const rev=F.testDose(state,station,lastDoseCell),start=performance.now();
+    const probe={revision:rev,station,pitches:rev.dose.pitches,pitch:rev.dose.pitches[0],delay:state.delay,
+      clock:()=>(performance.now()-start)/1000/(audio?.stepSeconds||30/IsoAudio.BPM)};
+    dose=probe;
+    playPreview(engine=>engine.previewDose(rev,clock=>{if(dose===probe)probe.clock=clock;}));
+  }
+  function localDoseFrame(){
+    if(!dose)return null;
+    const age=dose.clock(),step=Math.floor(age);
+    if(step>F.MAX_DELAY){dose=null;return null;}
+    if(dose.step!==step){dose.step=step;dose.tick=F.tick(dose.revision,step);}
+    return {...dose,age,progress:age-step};
+  }
+  function patchChanged(key){patch=key;if(key){insert=null;stopDose();}refresh();}
+  function insertChanged(id){insert=id;if(id){patch=null;stopDose();}refresh();}
   function cancel(){scene?.cancelMode();}
   function select(id){
     if(id!==null&&!Object.hasOwn(names,id))return;
     const old=selected,keyboard=document.activeElement?.matches(':focus-visible');
     cancel();selected=id;menu.open=false;
-    if(old!==id){picked=false;paintPitch=undefined;}
+    if(old!==id){picked=false;paintPitch=undefined;stopDose();}
     notice('');refresh();
     focusAfterZoom=keyboard&&old!==id?(id?'#back-to-table':'#board [data-station="'+old+'"]'):null;
   }
@@ -112,7 +141,7 @@
   async function toggleAudio(){
     if(!audio||starting)return;
     if(audio.wanted()){audio.pause();transportUI();return;}
-    starting=true;transportUI();notice('');
+    stopDose();starting=true;transportUI();notice('');
     try{await audio.start(state);}catch(err){notice('Не удалось включить звук. '+err.message);}
     finally{starting=false;transportUI();}
   }
@@ -124,7 +153,14 @@
       eventFrame=F.tick(active,tick);cachedTick=tick;cachedRevision=active;
     }
     const previewRoute=selected==='router'&&!patch&&!insert&&!playing?state.routes[previewStep]:null;
-    scene.render({state:active.state,editState:state,revision:active,selected,paintPitch,previewStep,picked,previewRoute,steps,time,playing,tick:eventFrame});
+    const mix=[...new Set(audio?.soundingPitches(active,time*F.STEPS,playing)??[])].sort((a,b)=>a-b);
+    if(mix.join()!==lastMix){
+      lastMix=mix.join();
+      const glass=$('mix-glass');glass.dataset.pitches=lastMix;
+      const bands=mix.map((p,i)=>IsoPieces.noteColor(p)+' '+(100*i/mix.length)+'% '+(100*(i+1)/mix.length)+'%');
+      glass.style.setProperty('--liquid',mix.length?'linear-gradient(to right,'+bands.join(',')+')':'transparent');
+    }
+    scene.render({state:active.state,editState:state,revision:active,selected,paintPitch,previewStep,picked,previewRoute,steps,time,playing,tick:eventFrame,testFluid:localDoseFrame()});
     if(focusAfterZoom){
       const target=document.querySelector(focusAfterZoom);
       if(target?.getClientRects().length){target.focus({preventScroll:true});focusAfterZoom=null;}
@@ -145,11 +181,11 @@
     }
     if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();rewind();}
   });
-  const callbacks={select,act,choosePitch,notice,patchChanged,insertChanged,pickStep,touchCam,flipRoute,
+  const callbacks={select,act,choosePitch,testDose,notice,patchChanged,insertChanged,pickStep,touchCam,flipRoute,
     startPatch:key=>scene.setPatch(key),startInsert:id=>scene.setInsert(id),
     connect:(from,to)=>act({type:'connect',from,to}),disconnect:from=>act({type:'disconnect',from})};
   scene=IsoScene.mount($('board'),callbacks)||IsoFlat.mount($('board'),callbacks);
-  const stop=()=>{audio?.pause();transportUI();};
+  const stop=()=>{stopDose();audio?.pause();transportUI();};
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){stop();cancelAnimationFrame(raf);raf=0;}else if(!raf)raf=requestAnimationFrame(render);
   });

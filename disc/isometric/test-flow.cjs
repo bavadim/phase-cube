@@ -139,4 +139,26 @@ assert.deepEqual(pinPreview(phased,0),[[7,'bell',60],[9,'keys',60]],'only this p
 assert.deepEqual(pinPreview(phased,2),[[1,'bell',64],[3,'keys',64]],'phase wraps back to the start');
 assert.deepEqual(pinPreview(phased,1),[],'empty pin stays silent despite adjacent notes in the query');
 assert.deepEqual(pinPreview(edit(phased,'connect',{from:'source:out',to:'bin'}),0),[],'basket silences the pin');
+const hydraulic=Flow.restore({...initial,links:{'source:out':'copy','copy:out':'keys','copy:copy':'delay','delay:out':'bell'}});
+const layered=edit(hydraulic,'pour',{index:0,value:64});
+assert.deepEqual(layered.source.notes[0],[60,64]);
+assert.equal(edit(layered,'pour',{index:0,value:64}),layered,'adding the same liquid does not double the voice');
+assert.equal(edit(layered,'pour',{index:0,value:null}).source.notes[0],null);
+assert.deepEqual(Flow.restore(JSON.parse(JSON.stringify(layered))),layered);
+assert.throws(()=>edit(layered,'note',{index:0,value:[60,'64']}));
+assert.deepEqual(pinPreview(layered,0),[[0,'keys',60],[0,'keys',64],[2,'bell',60],[2,'bell',64]]);
+for(let wait=0;wait<=Flow.MAX_DELAY;wait++){
+  const settings=Flow.restore({...layered,delay:wait});
+  const trial=Flow.testDose(settings,'copy',[60,64,67]);
+  const injected=Flow.tick(trial,0);
+  assert.equal(injected.activity.source.length,0,'a manual stroke is independent of the score');
+  for(const outlet of ['copy:out','copy:copy']){
+    assert.deepEqual(Flow.tones(injected.edges.filter(e=>e.from===outlet)),[60,64,67]);
+  }
+  assert.deepEqual(notes(trial,'keys',0,10),[[0,60],[0,64],[0,67]]);
+  assert.deepEqual(notes(trial,'bell',0,10),[[wait,60],[wait,64],[wait,67]]);
+  const onlyDelay=Flow.testDose(settings,'delay',64);
+  assert.deepEqual(notes(onlyDelay,'keys',0,10),[]);
+  assert.deepEqual(notes(onlyDelay,'bell',0,10),[[wait,64]]);
+}
 console.log('PASS: graph edits, delay handover, eight-step routing, v1 save migration, cold start and native Strudel onsets.');

@@ -15,6 +15,16 @@
   const outputs = Object.keys(PORTS).flatMap(node => PORTS[node].map(port => node + ':' + port));
   const wrap = (n, length = STEPS) => ((n % length) + length) % length;
   const within = (n, lo, hi) => Number.isInteger(n) && n >= lo && n <= hi;
+  const pitches = cell => cell == null ? [] : Array.isArray(cell) ? cell : [cell];
+  const distinct = values => [...new Set(values)].sort((a,b)=>a-b);
+  const tones = packets => distinct(packets.map(packet=>packet.pitch));
+  function canonicalCell(cell) {
+    const notes=distinct(pitches(cell));
+    return notes.length>1?Object.freeze(notes):notes[0]??null;
+  }
+  function validCell(cell) {
+    return cell===null||within(cell,0,127)||(Array.isArray(cell)&&cell.length<=128&&Array.from(cell).every(p=>within(p,0,127)));
+  }
   const owner = port => port.split(':')[0];
   const primary = node => node + ':' + PORTS[node][0];
   function requireThat(condition, message) {
@@ -27,7 +37,7 @@
     for (const [port, node] of Object.entries(links)) {
       requireThat(outputs.includes(port) && typeof node === 'string' && Object.hasOwn(PORTS, node) && node !== 'source', 'Соедините выход детали с входом другой детали.');
       if (!PROCESSORS.includes(node)) continue;
-      requireThat(!occupied.has(node), 'Этот вход уже занят. Сначала отсоедините провод.');
+      requireThat(!occupied.has(node), 'Этот вход уже занят. Сначала отсоедините шланг.');
       occupied.add(node);
     }
     const visiting = new Set(), done = new Set();
@@ -61,12 +71,12 @@
   function restore(raw) {
     const source = raw?.source;
     requireThat(source && Array.isArray(source.notes) && source.notes.length === STEPS &&
-      Array.from(source.notes).every(n => n === null || within(n, 0, 127)) &&
+        Array.from(source.notes).every(validCell) &&
       within(source.phase, 0, STEPS - 1) && Number.isFinite(source.level) && within(source.level * 4, 0, 8), 'Повреждена шестерня с нотами.');
     requireThat(within(raw.delay, 0, MAX_DELAY), 'Повреждены настройки накопителя.');
     verifyLinks(raw.links);
     return Object.freeze({
-      source:Object.freeze({notes:Object.freeze([...source.notes]), phase:source.phase, level:source.level}),
+      source:Object.freeze({notes:Object.freeze(source.notes.map(canonicalCell)), phase:source.phase, level:source.level}),
       delay:raw.delay, routes:restoreRoutes(raw),
       links:Object.freeze({...raw.links})
     });
@@ -106,7 +116,7 @@
           if (type === 'connect') links[from] = to;
           if (type === 'disconnect') delete links[from];
           if (type === 'insert') {
-            requireThat(links[from] && owner(from) !== node && links[from] !== node, 'Выберите провод между другими деталями.');
+            requireThat(links[from] && owner(from) !== node && links[from] !== node, 'Выберите шланг между другими деталями.');
             bypass(links, node);
             const previous = links[from];
             links[from] = node;
@@ -137,11 +147,17 @@
         next.routes = [...state.routes];
         next.routes[index] = Object.hasOwn(action, 'value') ? action.value : !state.routes[index];
         break;
+      case 'pour':
       case 'note':
         requireThat(within(index, 0, STEPS - 1) && Number.isInteger(delta), 'Выберите штифт шестерни.');
         source.notes = [...source.notes];
-        source.notes[index] = Object.hasOwn(action, 'value') ? action.value :
-          PALETTE[wrap(PALETTE.indexOf(source.notes[index]) + delta, PALETTE.length)];
+        if(type==='pour'){
+          requireThat(action.value===null||within(action.value,0,127),'Выберите жидкость.');
+          source.notes[index]=action.value===null?null:canonicalCell([...pitches(source.notes[index]),action.value]);
+        }else{
+          source.notes[index]=Object.hasOwn(action,'value')?action.value:
+            PALETTE[wrap(PALETTE.indexOf(source.notes[index])+delta,PALETTE.length)];
+        }
         next.source = source;
         break;
       default: throw new Error('Неизвестная операция с линией.');
@@ -187,8 +203,16 @@
       const releasing = waiting.filter(box => box.due === now);
       waiting = waiting.filter(box => box.due > now);
       for (const box of releasing) send('delay:out', box);
-      const pin = wrap(now - state.source.phase), pitch = state.source.notes[pin];
-      if (pitch !== null) visit('source', {pin, pitch, gain:state.source.level, length:pin % 4 === 0 ? .92 : .72, origin:now, path:''});
+      if(rev.dose){
+        if(now===begin)for(const pitch of rev.dose.pitches){
+          visit(rev.dose.station,{pin:null,pitch,gain:1,length:.92,origin:now,path:''});
+        }
+      }else{
+        const pin=wrap(now-state.source.phase);
+        for(const pitch of pitches(state.source.notes[pin])){
+          visit('source',{pin,pitch,gain:state.source.level,length:pin%4===0?.92:.72,origin:now,path:''});
+        }
+      }
     }
     for (let now = Math.max(begin, at - MAX_DELAY); now <= at; now++) run(now);
     frame.pockets = waiting;
@@ -199,6 +223,11 @@
     const carry = previous?.begin === begin ? previous.carry : previous ? tick(previous, begin - 1).pockets : [];
     return Object.freeze({state, begin, carry:Object.freeze(carry.map(box => Object.freeze({...box})))});
   }
+  function testDose(state,station,cell) {
+    requireThat(station==='copy'||station==='delay','Выберите дозатор или задержку.');
+    requireThat(validCell(cell)&&pitches(cell).length,'Для пробы нужна жидкость.');
+    return Object.freeze({...revision(state),dose:{station,pitches:pitches(canonicalCell(cell))}});
+  }
 
-  return Object.freeze({STEPS, MAX_DELAY, PALETTE, PORTS, initial, restore, apply, revision, tick});
+  return Object.freeze({STEPS, MAX_DELAY, PALETTE, PORTS, pitches, tones, initial, restore, apply, revision, tick, testDose});
 });

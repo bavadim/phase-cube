@@ -35,7 +35,7 @@ try {
     await waitView(null);
   }
 
-  await page.goto(session.url+'/disc/isometric/index.html');
+  await page.goto(session.url+'/disc/isometric/index.html?preset=duet');
   await page.locator('#play:enabled').waitFor();
   const pianoFiles=await page.evaluate(()=>performance.getEntriesByType('resource')
     .map(entry=>new URL(entry.name).pathname.split('/').slice(-2).join('/'))

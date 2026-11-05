@@ -30,6 +30,15 @@ button,select{font:inherit;color:inherit;cursor:pointer}
 .play svg{fill:currentColor;stroke:none}
 .play .bars,.play[aria-pressed=true] .triangle{display:none}
 .play[aria-pressed=true] .bars{display:initial}
+.tool.play,.bench[data-mode=focus] .play{width:88px;gap:8px}
+.mix-glass{position:relative;display:block;width:35px;height:17px;overflow:hidden;border:2px solid #9aab9b;border-radius:6px;
+  background:#223e38;box-shadow:inset 0 1px 4px #122a27}
+.mix-glass::before{content:"";position:absolute;inset:1px 0 0;background:var(--liquid,transparent)}
+.mix-glass::after{content:"";position:absolute;inset:1px 2px auto;height:2px;background:#fff9;border-radius:3px}
+#unplug{width:auto;padding:0 9px;gap:6px;font-size:.94rem}
+#unplug svg{width:18px}
+.bench[data-mode=mount] .mix-glass{display:none}
+@media(max-width:350px){.tool.play,.bench[data-mode=focus] .play{width:70px;gap:5px}.mix-glass{width:27px}}
 #workbench-menu{position:relative}
 #workbench-menu summary{list-style:none;touch-action:manipulation}
 #workbench-menu summary::-webkit-details-marker{display:none}

@@ -4,8 +4,8 @@ window.IsoFace=(()=>{
   const bounds={
     router:[[-1.38,-.04,-1.08],[1.42,1.00,1.09]],
     source:[[-1.88,-.04,-2.23],[1.79,1.53,2.29]],
-    delay:[[-2.14,-.04,-1.06],[1.40,1.14,1.75]],
-    copy:[[-1.17,-.05,-.88],[1.60,1.52,1.40]],
+    delay:[[-1.18,-.04,-1.08],[1.20,1.0,1.13]],
+    copy:[[-1.03,-.04,-1.08],[1.06,1.13,1.10]],
     keys:[[-1.47,-.08,-.93],[1.47,1.05,2.02]],
     bell:[[-1.47,-.07,-.92],[1.47,1.48,2.02]],
     bin:[[-1.47,-.08,-.84],[1.47,1.20,2.02]]
@@ -14,6 +14,7 @@ window.IsoFace=(()=>{
   const row=(type,key,x,y,z,w,d,extra={})=>({type,key,x,y,z,w,d,...extra});
   const outlet=(id,port)=>row('port','port-'+id+':'+port,0,0,0,.56,.46,{port,id});
   const paintTools=[...IsoFlow.PALETTE.filter(pitch=>pitch!==null),null];
+  const primer=(id,x,y,z)=>row('primer','test-'+id,x,y,z,.39,.40,{id});
   const layouts={
     router:[
       ...Array.from({length:8},(_,i)=>row('step','step-'+i,0,.745,0,.49,.49,{i})),
@@ -31,19 +32,21 @@ window.IsoFace=(()=>{
       row('reading','level-value',.30,.43,1.39,1.16,.28,{control:'level'}),
       outlet('source','out')
     ],
-    delay:[...Array.from({length:5},(_,i)=>row('slot','delay-'+i,(i-2)*.52-.66,.53,1.18,.47,.64,{i})),outlet('delay','out')],
-    copy:[outlet('copy','out'),outlet('copy','copy')],
+    delay:[primer('delay',-.72,.65,-.57),row('slot','delay-0',-.84,.50,.32,.35,.45,{i:0}),
+      ...Array.from({length:4},(_,n)=>row('slot','delay-'+(n+1),-.50+n*.44,.53,.20,.38,.48,{i:n+1})),outlet('delay','out')],
+    copy:[primer('copy',0,.72,-.56),outlet('copy','out'),outlet('copy','copy')],
     ...Object.fromEntries(['keys','bell','bin'].map(id=>[id,Array.from({length:8},(_,i)=>
       row('event','arrival-'+i,(i%4-1.5)*.64,.50,1.12+Math.floor(i/4)*.46,.59,.42,{id,i}))]))
   };
-  const capTypes=new Set(['pin','rocker','slot','event']);
+  const capTypes=new Set(['pin','rocker','event']);
   const paths={
     phaseUp:'M5 17a7 7 0 1 1 13-7l2-4m-2 4-4-1',
     phaseDown:'M19 17a7 7 0 1 0-13-7L4 6m2 4 4-1',
     louder:'M2 9h4l5-4v14l-5-4H2z M14 8q5 4 0 8m3-11q8 7 0 14',
     softer:'M3 9h4l5-4v14l-5-4H3z M15 9q4 3 0 6',
     gate:'M4 12h16m-12-4-4 4 4 4m8-8 4 4-4 4',
-    port:'M6 5v4m6-4v4M4 9h10v2a5 5 0 0 1-10 0zm5 7v3q0 2 3 2h5',
+    port:'M8 3h8v5H8zm-2 5h12v5H6zm3 5v3a5 5 0 0 0 5 5h4',
+    prime:'M12 2S5 10.4 5 15a7 7 0 0 0 14 0c0-4.6-7-13-7-13zm-4 13a4 4 0 0 0 4 4',
     erase:'m3 14 9-10 8 7-9 10H8Zm5-5 8 7',
   };
   function symbol(name){
@@ -53,17 +56,22 @@ window.IsoFace=(()=>{
 
   function attr(e,k,v){if(e.getAttribute(k)!==String(v))e.setAttribute(k,String(v));}
   function rgbaChoice(e,name,value){if(value)e.dataset[name]='true';else delete e.dataset[name];}
+  function fluidFill(colors){
+    if(colors.length<2)return colors[0]||'transparent';
+    return 'linear-gradient(90deg,'+colors.map((c,i)=>c+' '+(100*i/colors.length)+'% '+(100*(i+1)/colors.length)+'%').join(',')+')';
+  }
   function controlData(def,s,frame){
     const {names,ports,pitchName}=window.IsoWorkshopLabels;
     const chosen=frame.previewStep??0, playStep=frame.playing?frame.tick.step:-1;
     const {type,i,sign,control,port,id}=def;
     if(type==='step'){
       const direct=s.routes[i], recipient=names[s.links['router:'+(direct?'straight':'side')]]||'Свободно';
-      const hits=frame.steps?.[i]?.activity?.router||[], name=hits.length?pitchName(hits[0].pitch):'—';
+      const tones=IsoFlow.tones(frame.steps?.[i]?.activity.router||[]);
       return {chosen:chosen===i,live:playStep===i,
-        color:direct?green:amber,rest:!hits.length,pressed:chosen===i,
-        label:'Шаг '+(i+1)+', '+(hits.length?name:'пауза')+', '+recipient+(chosen===i&&frame.picked?'. Переключить задвижку':'. Показать путь')};
+        color:direct?green:amber,tones,rest:!tones.length,pressed:chosen===i,
+        label:'Шаг '+(i+1)+', '+(tones.map(pitchName).join(', ')||'пауза')+', '+recipient+(chosen===i&&frame.picked?'. Переключить задвижку':'. Показать путь')};
     }
+    if(type==='primer')return {disabled:frame.playing,label:'Подать пробную порцию в '+(id==='copy'?'двойной дозатор':'линию задержки')};
     if(type==='lever')return {way:s.routes[chosen]?'straight':'side',label:'Переключить задвижку для шага '+(chosen+1)};
     if(type==='brush'){
       const pitch=def.pitch,chosen=frame.paintPitch===pitch;
@@ -71,10 +79,10 @@ window.IsoFace=(()=>{
         label:pitch===null?'Пауза. Убрать ноту со штифта':pitchName(pitch)+'. Выбрать и послушать ноту'};
     }
     if(type==='pin'){
-      const pitch=s.source.notes[i], name=pitch==null?'—':pitchName(pitch);
+      const tones=IsoFlow.pitches(s.source.notes[i]), name=tones.map(pitchName).join(', ')||'пауза';
       const brush=frame.paintPitch;
-      return {live:playStep>=0&&(playStep-s.source.phase+8)%8===i,rest:pitch===null,
-        color:pitch==null?idle:IsoPieces.noteColor(pitch),label:'Штифт '+(i+1)+', '+(pitch==null?'пауза':name)+'. '+(brush===undefined?'Сменить ноту':brush===null?'Поставить паузу':'Поставить '+pitchName(brush))};
+      return {live:playStep>=0&&(playStep-s.source.phase+8)%8===i,rest:!tones.length,tones,
+        color:tones.length?IsoPieces.noteColor(tones[0]):idle,label:'Штифт '+(i+1)+', '+name+'. '+(brush===undefined?'Сменить ноту':brush===null?'Слить жидкость':'Добавить '+pitchName(brush))};
     }
     if(type==='reading'){
       const name=control==='phase'?'Сдвиг':'Громкость', value=control==='phase'?s.source.phase+'/8':Math.round(s.source.level*100)+'%';
@@ -89,26 +97,29 @@ window.IsoFace=(()=>{
       label:'Задержка: '+i+' восьмых',color:s.delay===i?'#bda4cb':ivory};
     if(type==='event'){
       const hits=frame.steps?.[i]?.hits[id]||[];
-      const notes=hits.map(hit=>pitchName(hit.pitch)).join(', ')||'пауза';
+      const tones=IsoFlow.tones(hits),notes=tones.map(pitchName).join(', ')||'пауза';
       return {label:'Шаг '+(i+1)+': '+notes,
-        color:hits.length?IsoPieces.noteColor(hits[0].pitch):'#c0bfae',units:hits.length,live:playStep===i};
+        color:tones.length?IsoPieces.noteColor(tones[0]):'#c0bfae',tones,units:hits.length,live:playStep===i};
     }
     if(type==='port'){
       const connected=names[s.links[id+':'+port]]||'Свободно';
       const pointed=id==='router'&&(s.routes[chosen]?port==='straight':port==='side');
       return {chosen:pointed,way:port,
-        label:ports[port]+' → '+connected+'. Переподключить провод'};
+        label:ports[port]+' → '+connected+'. Подключить или снять шланг'};
     }
   }
   function activate(def,frame,cb) {
     const state=frame.editState||frame.state;
     switch(def.type){
+      case 'primer':return cb.testDose(def.id);
       case 'brush':return cb.choosePitch(def.pitch);
       case 'step':return cb.touchCam(def.i);
       case 'lever':return cb.flipRoute();
       case 'pin': return cb.act({type:'note',index:def.i});
       case 'rocker':return cb.act({type:def.control,delta:def.sign*(def.control==='level'?.25:1)});
-      case 'slot':return cb.act({type:'delay',delta:def.i-state.delay});
+      case 'slot':
+        if(cb.act({type:'delay',delta:def.i-state.delay})&&!frame.playing)cb.testDose('delay');
+        return;
       case 'port':return cb.startPatch(def.id+':'+def.port);
     }
   }
@@ -222,13 +233,129 @@ window.IsoFace=(()=>{
       place(e,d,frame){const p=IsoPieces.scorePin(frame,d.i);
         e.style.left=(50+(p.x-.55)*100/2.6)+'%';e.style.top=(50+(p.z-.13)*100/2.6)+'%';}};
   }
+  // The fallback has the same two fluid paths as the cast models. Glass shows
+  // separate bands for the pitches in a dose, including after the source changes.
+  function flatVessels(root,id){
+    const ns='http://www.w3.org/2000/svg';
+    const create=(tag,attrs,parent)=>{
+      const el=document.createElementNS(ns,tag);
+      for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);
+      parent.append(el);return el;
+    };
+    const diagram=create('svg',{viewBox:'0 0 320 240','aria-hidden':'true',class:'flat-fluid-drawing'},root);
+    const line=(d,color,w,parent=diagram)=>create('path',{d,fill:'none',stroke:color,'stroke-width':w,'stroke-linecap':'round','stroke-linejoin':'round'},parent);
+    const pipe=d=>{line(d,'#65827b',13);line(d,'#dcece0',8);};
+    const box=(x,y,w,h,r,fill,stroke,width=2,parent=diagram)=>create('rect',{x,y,width:w,height:h,rx:r,fill,stroke,'stroke-width':width},parent);
+    const well=(x,y,w,h)=>{
+      const shell=box(x,y,w,h,6,'#e2efe1','#60877d',3);
+      const bands=create('g',{},diagram);
+      line('M '+(x+5)+' '+(y+7)+' v '+(h*.47),'#fff9e1',2.2);
+      let key,barHeight=-1;
+      return {shell,fill(packets,amount){
+        const pitches=IsoFlow.tones(packets),next=pitches.join(',');
+        const height=Math.round(Math.max(0,Math.min(1,amount))*(h-9));
+        if(key===next&&barHeight===height)return;
+        if(key!==next){
+          bands.replaceChildren();
+          for(const [i,pitch] of pitches.entries()){
+            const width=(w-8)/pitches.length;
+            box(x+4+i*width,y,width+.15,1,0,IsoPieces.noteColor(pitch),'none',0,bands);
+          }
+          key=next;
+        }
+        for(const band of bands.children){band.setAttribute('y',y+h-4-height);band.setAttribute('height',height);}
+        barHeight=height;
+      }};
+    };
+    const coords={};
+    const addPort=(port,x,y)=>{coords['port-'+id+':'+port]=[x,y];box(x-12,y-5,24,13,3,'#c2a673','#52665e');};
+    const guide=(linePath)=>line(linePath,'#233e36',2);
+    let update;
+    if(id==='copy'){
+      pipe('M160 4V65 Q160 76 145 76H98V105');pipe('M160 63Q160 76 175 76H222V105');
+      for(const x of [98,222])pipe('M'+x+' 158 V219');
+      const wells=[98,222].map(x=>well(x-25,99,50,69));
+      addPort('copy',98,218);addPort('out',222,218);
+      const piston=create('g',{},diagram);
+      for(const x of [98,222]){
+        line('M'+x+' 65 V120','#415f58',8,piston);
+        box(x-20,113,40,7,2,'#749e91','#35594f',2,piston);
+      }
+      box(86,57,148,11,5,'#719383','#476359',2,piston);
+      box(136,41,48,17,8,'#4b796c','#365d55',2,piston);
+      coords['test-copy']=[160,50];
+      for(const x of [98,222])guide('M'+(x-5)+' 183 l5 6 5-6');
+      update=(state,tick,phase)=>{
+        const hits=tick?.activity.copy||[];
+        const stroke=hits.length?Math.sin(Math.PI*phase):0;
+        piston.setAttribute('transform','translate(0 '+(stroke*20)+')');
+        for(const tank of wells)tank.fill(hits,phase<.4?.22+phase*1.5:1-phase);
+      };
+    }else{
+      const xs=[91,147,203,259];
+      pipe('M31 8V187Q31 202 47 202H270V218');
+      pipe('M31 53H91V79');
+      const siphons=xs.slice(1).map((x,i)=>{
+        const bridge=create('g',{},diagram),d='M'+(xs[i]+9)+' 82 v-17 q0-7 7-7 h24 q7 0 7 7 v17';
+        line(d,'#65827b',9,bridge);line(d,'#cadac8',5,bridge);
+        return bridge;
+      });
+      const tanks=xs.map(x=>{
+        pipe('M'+x+' 157V202');
+        return well(x-18,75,36,83);
+      });
+      box(15,33,32,26,7,'#719486','#41685f');
+      coords['test-delay']=[31,43];coords['delay-0']=[31,136];
+      for(const [i,x] of xs.entries()){
+        coords['delay-'+(i+1)]=[x,139];
+        line('M'+(x-14)+' 102h6m-6 15h6','#608578',2);
+      }
+      addPort('out',270,218);
+      const gate=box(0,176,25,12,4,'#9d7640','#725a3e');
+      const stream=create('g',{},diagram);
+      let released='';
+      update=(state,tick,phase)=>{
+        siphons.forEach((bridge,i)=>bridge.setAttribute('visibility',state.delay>i+1||tick?.pockets.some(p=>p.due-p.entered>i+1)?'visible':'hidden'));
+        tanks.forEach((tank,i)=>{
+          tank.shell.setAttribute('fill',i<state.delay?'#e0f1e3':'#c8d2c8');
+          const waiting=tick?.pockets.filter(box=>tick.tick-box.entered===i)||[];
+          tank.fill(waiting,waiting.length?.80-.14*phase:0);
+        });
+        gate.setAttribute('x',(state.delay?xs[state.delay-1]:31)-12.5);
+        const output=tick?.edges.filter(e=>e.from==='delay:out')||[];
+        const tones=IsoFlow.tones(output.length?output:state.delay===0?tick?.activity.delay||[]:[]);
+        const signature=tones.join(',');
+        if(released!==signature){
+          stream.replaceChildren();
+          tones.forEach((pitch,i)=>box(0,8*i/tones.length,16,8/tones.length,0,IsoPieces.noteColor(pitch),'none',0,stream));
+          released=signature;
+        }
+        if(tones.length){
+          const from=state.delay?xs[state.delay-1]:31;
+          stream.setAttribute('transform','translate('+(from+(262-from)*phase)+' 198)');
+        }
+      };
+    }
+    let lastTick,lastPhase,lastState;
+    return {update(frame){
+      const test=frame.testFluid?.station===id?frame.testFluid:null;
+      const tick=test?.tick||(frame.playing?frame.tick:null);
+      const phase=test?.progress??(frame.time*IsoFlow.STEPS)%1;
+      const state=frame.editState||frame.state;
+      if(tick===lastTick&&phase===lastPhase&&state===lastState)return;
+      update(state,tick,phase);lastTick=tick;lastPhase=phase;lastState=state;
+    },place(e,d){
+      const [x,y]=coords[d.key];
+      e.style.left=(x/320*100)+'%';e.style.top=(y/240*100)+'%';
+    }};
+  }
   function makeView({overlay,pieces,projectLocal,callbacks},flat){
     const root=document.createElement('div');root.dataset.face='';
     root.className='iso-face'+(flat?' is-flat':'');overlay.append(root);
     const faces=new Map();
     let graphic=null,active=null, controls=[], frame=null, state=null, previewStep=-1,step=-2,pose=null,paintPitch;
     let lastScoreTime,lastScorePhase;
-    function transferGrain(pin,pitch){
+    function pour(pin,pitch){
       if(!root.animate||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
       const brush=root.querySelector('[data-face-key="brush-'+(pitch??'rest')+'"]');
       if(!brush)return;
@@ -236,7 +363,7 @@ window.IsoFace=(()=>{
         end=(pitch===null?brush:pin).getBoundingClientRect();
       const x=start.left+start.width/2-box.left,y=start.top+start.height/2-box.top;
       const dx=end.left+end.width/2-box.left-x,dy=end.top+end.height/2-box.top-y;
-      const bead=document.createElement('span');bead.className='painted-grain';bead.setAttribute('aria-hidden','true');
+      const bead=document.createElement('span');bead.className='poured-drop';bead.setAttribute('aria-hidden','true');
       bead.style.left=x+'px';bead.style.top=y+'px';
       bead.style.background=pitch===null?getComputedStyle(pin).getPropertyValue('--cap-tone'):IsoPieces.noteColor(pitch);
       root.append(bead);
@@ -254,6 +381,7 @@ window.IsoFace=(()=>{
       const layout=layouts[id]||[];
       if(flat&&id==='router')graphic=flatCam(root,callbacks.touchCam);
       if(flat&&id==='source')graphic=flatScore(root);
+      if(flat&&(id==='copy'||id==='delay'))graphic=flatVessels(root,id);
       let face=faces.get(id);
       if(!flat&&!face){
         face=IsoPieces.serviceFace(id,pieces[id].group);faces.set(id,face);
@@ -272,6 +400,7 @@ window.IsoFace=(()=>{
         if(d.type==='rocker')mark.append(symbol(d.control==='phase'?(d.sign>0?'phaseUp':'phaseDown'):(d.sign>0?'louder':'softer')));
         if(d.type==='port')mark.append(symbol('port'));
         if(d.type==='lever')mark.append(symbol('gate'));
+        if(d.type==='primer')mark.append(symbol('prime'));
         if(d.type==='slot'||d.type==='reading'){
           const count=d.type==='slot'?d.i:8;
           for(let j=0;j<count;j++)mark.append(document.createElement('b'));
@@ -280,8 +409,9 @@ window.IsoFace=(()=>{
         if(e.tagName==='BUTTON'){
           e.type='button';
           const perform=()=>{
-            if(d.type==='pin'&&frame.paintPitch!==undefined&&frame.paintPitch!==frame.editState.source.notes[d.i]){
-              transferGrain(e,frame.paintPitch);
+            if(d.type==='pin'&&frame.paintPitch!==undefined){
+              const tones=IsoFlow.pitches(frame.editState.source.notes[d.i]);
+              if(frame.paintPitch===null?tones.length:!tones.includes(frame.paintPitch))pour(e,frame.paintPitch);
             }
             activate(d,frame,callbacks);
           };
@@ -315,6 +445,10 @@ window.IsoFace=(()=>{
       const camView=id!=='router'?null:flat?graphic.update(frame):IsoPieces.camPose(pieces[id].group);
       const scoreMoves=id==='source'&&(lastScoreTime!==frame.time||lastScorePhase!==frame.state.source.phase);
       if(scoreMoves){lastScoreTime=frame.time;lastScorePhase=frame.state.source.phase;}
+      if(flat&&(id==='copy'||id==='delay')){
+        graphic.update(frame);
+        if(changed)controls.forEach(({d,e})=>graphic.place(e,d));
+      }
       if(flat&&scoreMoves)graphic.update(frame);
       if(!changed&&!moved&&!camView&&!scoreMoves)return;
       const face=faces.get(id);
@@ -330,8 +464,18 @@ window.IsoFace=(()=>{
           if(e.tagName==='BUTTON')e.disabled=!!result.disabled;
           rgbaChoice(e,'chosen',result.chosen);rgbaChoice(e,'live',result.live);rgbaChoice(e,'rest',result.rest);
           if(result.way)e.dataset.way=result.way;
+          if(result.tones){
+            const signature=result.tones.join(',');
+            if(item.fluid!==signature){
+              item.fluid=signature;e.dataset.tones=signature;
+              const colors=result.tones.map(IsoPieces.noteColor);
+              e.style.setProperty('--liquid',fluidFill(colors));
+              if(d.type==='event'||d.type==='pin')face?.capFluid(d.key,result.tones);
+            }
+          }
           if(result.color&&item.color!==result.color){
-            face?.capColor(d.key,result.color);e.style.setProperty('--cap-tone',result.color);item.color=result.color;
+            if(!result.tones)face?.capColor(d.key,result.color);
+            e.style.setProperty('--cap-tone',result.color);item.color=result.color;
           }
         }
         if(d.type==='step')rgbaChoice(e,'atReader',cam.reader===d.i);
