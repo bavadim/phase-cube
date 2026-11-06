@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {S} = require('../../test-runtime.cjs');
 const Flow = require('./flow.js');
 const Audio = require('./sound.js');
+const Layout = require('./layout.js');
 
 const initial = Flow.initial();
 const rev = Flow.revision(initial);
@@ -179,4 +180,24 @@ for(let wait=0;wait<=Flow.MAX_DELAY;wait++){
   assert.deepEqual(notes(onlyDelay,'keys',0,10),[]);
   assert.deepEqual(notes(onlyDelay,'bell',0,10),[[wait,64]]);
 }
-console.log('PASS: graph edits, delay handover, eight-step routing, v1 save migration, cold start and native Strudel onsets.');
+const desk=Layout.initial(),deskJson=JSON.stringify(desk);
+assert.deepEqual(Layout.restore(undefined),desk,'older musical saves receive the three-row bench');
+const swapped=Layout.move(desk,{id:'copy',row:0,col:2});
+assert.deepEqual(swapped.devices,[['router','delay','copy']]);
+const lower=Layout.move(desk,{id:'copy',row:1,col:1,insert:true});
+assert.deepEqual(lower.devices,[[null,'delay','router'],[null,'copy',null]]);
+assert.deepEqual(Layout.move(lower,{id:'copy',row:0,col:0}),desk,'moving the sole item out removes its empty subrow');
+for(const arrangement of [desk,swapped,lower])for(const id of Object.keys(Layout.positions(arrangement))){
+  for(const target of Layout.targets(arrangement,id)){
+    const next=Layout.move(arrangement,{id,...target});
+    assert.deepEqual(Layout.restore(JSON.parse(JSON.stringify(next))),next);
+    const p=Layout.positions(next);
+    assert.deepEqual(Object.keys(p).sort(),['bell','bin','copy','delay','keys','router','source']);
+    assert.ok(p.source.z<Math.min(p.copy.z,p.router.z,p.delay.z));
+    assert.ok(Math.min(p.bell.z,p.keys.z,p.bin.z)>Math.max(p.copy.z,p.router.z,p.delay.z));
+  }
+}
+assert.equal(JSON.stringify(desk),deskJson,'moves preserve the previous arrangement for undo');
+assert.throws(()=>Layout.restore({...desk,devices:[['copy','copy','router']]}));
+assert.throws(()=>Layout.move(desk,{id:'source',row:1,col:0,insert:true}));
+console.log('PASS: routing, native Strudel onsets, save migration, player placement, swaps and device subrows.');

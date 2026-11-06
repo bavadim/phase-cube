@@ -20,7 +20,94 @@ window.IsoFlat = {
       for(const [key,value] of Object.entries(attrs))node.setAttribute(key,value);
       return node;
     };
-    let frame,patch=null,insert=null,lastState,lastFocus,hose,wirePaths=new Map();
+    let frame,patch=null,lastState,lastLayout,lastFocus,hose,projection,drag=null,keyboardStation=null;
+    const wirePaths=new Map();
+    let released=-Infinity;
+    function targets(station){
+      if(!projection)return [];
+      const {box,point}=projection;
+      return IsoLayout.targets(frame.layout,station).map(target=>{
+        const p=point(target.x,target.z);
+        return {...target,x:box.left+p.x*box.width/100,y:box.top+p.y*box.height/100};
+      });
+    }
+    function cancelDrag(){
+      const old=drag;drag=null;
+      if(!old)return;
+      old.ghost?.remove();old.targets?.forEach(target=>target.marker?.remove());
+      old.body.removeAttribute('data-moving');old.body.removeAttribute('aria-grabbed');
+      host.removeAttribute('data-arranging');
+      if(host.hasPointerCapture(old.id))host.releasePointerCapture(old.id);
+    }
+    function moveDrag(event){
+      const current=drag;
+      if(!current||event.pointerId!==current.id)return;
+      event.preventDefault();
+      if(current.patch){current.moved||=Math.hypot(event.clientX-current.x,event.clientY-current.y)>8;return;}
+      if(!current.moved){
+        if(Math.hypot(event.clientX-current.x,event.clientY-current.y)<8)return;
+        current.moved=true;current.body.dataset.moving='true';current.body.setAttribute('aria-grabbed','true');
+        host.dataset.arranging='true';
+        current.targets=targets(current.station);
+        const box=fleet.getBoundingClientRect();
+        for(const target of current.targets){
+          const marker=document.createElement('span');marker.className='flat-drop-target';
+          marker.dataset.insert=String(Boolean(target.insert));
+          marker.style.left=target.x-box.left+'px';marker.style.top=target.y-box.top+'px';
+          fleet.append(marker);target.marker=marker;
+        }
+        current.ghost=current.body.cloneNode(true);
+        current.ghost.removeAttribute('data-station');current.ghost.removeAttribute('data-moving');
+        current.ghost.removeAttribute('aria-grabbed');current.ghost.setAttribute('aria-hidden','true');current.ghost.tabIndex=-1;
+        current.ghost.className='flat-layout-ghost';fleet.append(current.ghost);
+      }
+      const box=fleet.getBoundingClientRect();
+      const inside=event.clientX>=box.left&&event.clientX<=box.right&&event.clientY>=box.top&&event.clientY<=box.bottom;
+      let nearest=null,distance=Infinity;
+      for(const target of current.targets){
+        const d=Math.hypot(event.clientX-target.x,event.clientY-target.y);
+        if(d<distance){nearest=target;distance=d;}
+      }
+      current.target=inside&&distance<=Math.max(42,Math.min(80,box.width*.18))?nearest:null;
+      current.targets.forEach(target=>target.marker.dataset.ready=String(current.target===target));
+      const point=current.target||{x:event.clientX,y:event.clientY};
+      current.ghost.style.left=point.x-box.left+'px';current.ghost.style.top=point.y-box.top+'px';
+    }
+    function startDrag(event){
+      if(drag||!event.isPrimary||event.button!==0||lastFocus)return;
+      const body=event.target.closest('[data-station]');
+      if(!body||body.disabled)return;
+      event.preventDefault();
+      drag={id:event.pointerId,station:body.dataset.station,body,x:event.clientX,y:event.clientY,moved:false,patch};
+      host.setPointerCapture(event.pointerId);
+    }
+    function finishDrag(event,cancelled=false){
+      const current=drag;
+      if(!current||event.pointerId!==current.id)return;
+      released=performance.now();event.preventDefault();cancelDrag();
+      if(cancelled)return;
+      if(current.patch){
+        if(!current.moved&&callbacks.connect(current.patch,current.station))setPatch(null);
+      }else if(current.moved){
+        if(current.target){const {row,col,insert}=current.target;callbacks.movePart({id:current.station,row,col,insert});}
+      }else if(IsoFlow.EDITABLE.includes(current.station))callbacks.select(current.station);
+    }
+    host.addEventListener('pointerdown',startDrag);
+    host.addEventListener('pointermove',moveDrag);
+    host.addEventListener('pointerup',event=>finishDrag(event));
+    host.addEventListener('pointercancel',event=>finishDrag(event,true));
+    host.addEventListener('lostpointercapture',event=>finishDrag(event,true));
+    host.addEventListener('keydown',event=>{
+      const station=event.target.closest('[data-station]')?.dataset.station;
+      if(!station||lastFocus||patch||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
+      const pos=IsoLayout.positions(frame.layout)[station],horizontal=event.key==='ArrowLeft'||event.key==='ArrowRight';
+      const axis=horizontal?'x':'z',other=horizontal?'z':'x',sign=event.key==='ArrowLeft'||event.key==='ArrowUp'?-1:1;
+      const options=IsoLayout.targets(frame.layout,station).filter(target=>(target[axis]-pos[axis])*sign>.01)
+        .sort((a,b)=>Math.abs(a[axis]-pos[axis])+Math.abs(a[other]-pos[other])*2-Math.abs(b[axis]-pos[axis])-Math.abs(b[other]-pos[other])*2);
+      if(!options.length)return;
+      event.preventDefault();keyboardStation=station;
+      const {row,col,insert}=options[0];callbacks.movePart({id:station,row,col,insert});
+    });
     function can(action){try{IsoFlow.apply(frame.editState,action);return true;}catch{return false;}}
     function choice(label,icon,pos,handler){
       const b=document.createElement('button');b.type='button';b.setAttribute('aria-label',label);
@@ -33,15 +120,15 @@ window.IsoFlat = {
       node.type='button';node.className='flat-socket';node.dataset.hosePort=key;
       node.dataset.io=input?'in':'out';node.style.left=cx+'px';node.style.top=cy+'px';
       node.setAttribute('aria-label',label);
-      node.disabled=input?(!patch||!available):Boolean(insert||(patch&&patch!==key));
+      node.disabled=input?(!patch||!available):Boolean(patch&&patch!==key);
       if(!input)node.setAttribute('aria-pressed',String(key===patch));
       node.classList.toggle('ready',Boolean(input&&patch&&available));
       fleet.append(node);return node;
     }
     function draw(){
       if(!frame)return;
-      const s=frame.editState,focus=!patch&&!insert&&frame.selected;
-      lastState=s;lastFocus=focus;
+      const s=frame.editState,focus=!patch&&frame.selected;
+      lastState=s;lastLayout=frame.layout;lastFocus=focus;
       fleet.hidden=!!focus;detail.hidden=!focus;fleet.replaceChildren();wirePaths.clear();
       if(focus)return;
       const {names,ports}=IsoWorkshopLabels;
@@ -49,17 +136,28 @@ window.IsoFlat = {
       fleet.append(lines);
       const box=fleet.getBoundingClientRect();
       if(!box.width||!box.height)return;
-      const layout=IsoScene.layout(s.links,host.clientWidth/host.clientHeight<1.18);
+      const layout=IsoLayout.positions(frame.layout);
       const xs=Object.values(layout).map(p=>p.x),zs=Object.values(layout).map(p=>p.z);
       const loX=Math.min(...xs),loZ=Math.min(...zs),spanX=Math.max(...xs)-loX,spanZ=Math.max(...zs)-loZ;
+      const rows=frame.layout.devices.length+2;
+      const bodyHeight=Math.max(36,Math.min(80,box.width*.17/1.23,(box.height-44)/(rows-1)*.58));
+      const bodyWidth=Math.max(44,bodyHeight*1.23),margin=bodyHeight/2+28;
+      projection={box,point:(x,z)=>({x:15+70*(x-loX)/(spanX||1),
+        y:(margin+(box.height-2*margin)*(z-loZ)/(spanZ||1))*100/box.height})};
+      for(const zone of IsoLayout.zones(frame.layout)){
+        const top=Math.max(1,projection.point(0,zone.minZ).y),bottom=Math.min(99,projection.point(0,zone.maxZ).y);
+        lines.append(svg('rect',{x:3,y:top,width:94,height:bottom-top,rx:2,fill:zone.id==='devices'?'#c9d5bb':'#ddd7be',opacity:.24,'data-layout-zone':zone.id}));
+      }
       const sockets=new Map(),bodies=[];
       for(const [id,p] of Object.entries(layout)){
-        const pos=[15+70*(p.x-loX)/(spanX||1),12+76*(p.z-loZ)/(spanZ||1)];
-        const b=choice((patch?'Соединить с деталью ':'Выбрать: ')+names[id],icons[id],pos,()=>{
+        const point=projection.point(p.x,p.z),pos=[point.x,point.y];
+        const b=choice((patch?'Соединить с деталью ':'Переместить или настроить: ')+names[id],icons[id],pos,event=>{
+          if(event.detail||event.pointerType||performance.now()-released<350)return;
           if(patch){if(callbacks.connect(patch,id))setPatch(null);}else if(IsoFlow.EDITABLE.includes(id))callbacks.select(id);
         });
         b.dataset.station=id;b.dataset.passive=String(!IsoFlow.EDITABLE.includes(id));
-        b.disabled=!!insert||(patch?!can({type:'connect',from:patch,to:id}):!IsoFlow.EDITABLE.includes(id));
+        b.style.width=bodyWidth+'px';b.style.height=bodyHeight+'px';
+        b.disabled=Boolean(patch&&!can({type:'connect',from:patch,to:id}));
         const r=b.getBoundingClientRect();
         const cx=r.left+r.width/2-box.left,y=r.top-box.top;
         bodies.push({left:(r.left-box.left)/50,right:(r.right-box.left)/50,top:y/50,bottom:(y+r.height)/50});
@@ -100,28 +198,20 @@ window.IsoFlat = {
         return 'M '+points.map(p=>(p.x*5000/box.width).toFixed(2)+' '+(p.z*5000/box.height).toFixed(2)).join(' L ');
       }
       for(const [from,to] of Object.entries(s.links)){
-        const [owner,port]=from.split(':'),[ax,ay]=point(from),[bx,by]=point(to+':in');
+        const [ax,ay]=point(from),[bx,by]=point(to+':in');
         const d=cablePath(ax,ay,bx,by,from,to);
         const jacket=svg('path',{d,fill:'none',stroke:'#6f9389','stroke-linecap':'round','stroke-width':11,'vector-effect':'non-scaling-stroke'});
         const wire=svg('path',{d,fill:'none',stroke:from===patch?'#a3dbc2':'#dceadc','stroke-linecap':'round','stroke-width':7,'vector-effect':'non-scaling-stroke'});
         lines.append(jacket,wire);
         const dose=document.createElement('span');dose.className='flat-hose-dose';dose.hidden=true;fleet.append(dose);
         wirePaths.set(from,{wire,dose,length:wire.getTotalLength(),box});
-        const action={type:'insert',node:insert,from};
-        if(insert&&can(action)){
-          const half=wire.getPointAtLength(wire.getTotalLength()/2);
-          const b=choice('Вставить между '+names[owner]+' ('+ports[port]+') и '+names[to],'<path d="M4 12h16m-8-8v16"/>',[half.x,half.y],()=>{
-            if(callbacks.act(action))setInsert(null);
-          });
-          b.className='wire-joint';b.style.zIndex=2;
-        }
       }
+      if(keyboardStation){fleet.querySelector('[data-station="'+keyboardStation+'"]')?.focus({preventScroll:true});keyboardStation=null;}
     }
-    const resize=new ResizeObserver(draw);
+    const resize=new ResizeObserver(()=>{cancelDrag();draw();});
     resize.observe(host);
-    function setPatch(key){if(!key)hose?.reset();patch=key;if(key&&insert)setInsert(null);callbacks.patchChanged(patch);draw();}
-    function setInsert(id){insert=id;if(id&&patch)setPatch(null);callbacks.insertChanged(insert);draw();}
-    function cancelMode(){if(patch)setPatch(null);if(insert)setInsert(null);}
+    function setPatch(key){cancelDrag();if(!key)hose?.reset();patch=key;callbacks.patchChanged(patch);draw();}
+    function cancelMode(){cancelDrag();if(patch)setPatch(null);}
     hose=IsoHoseGesture.mount(host,{
       key:()=>patch,begin:setPatch,cancel:()=>setPatch(null),
       finish:id=>{if(patch&&callbacks.connect(patch,id))setPatch(null);},
@@ -145,15 +235,17 @@ window.IsoFlat = {
         r.dose.style.transform='translate(-50%,-50%) rotate('+angle+'rad)';
       }
     }
-    return {setPatch,setInsert,cancelMode,
+    return {setPatch,cancelMode,
       render(next){
         const old=frame;frame=next;
-        const focus=!patch&&!insert&&frame.selected;
-        if(lastState!==frame.editState||lastFocus!==focus)draw();
+        const focus=!patch&&frame.selected;
+        if(!drag&&(lastState!==frame.editState||lastLayout!==frame.layout||lastFocus!==focus))draw();
         face.render(frame,focus||null);
         if(!focus&&(frame.playing||old?.playing))showFlow(frame.playing?frame.tick:null,(frame.time*IsoFlow.STEPS)%1);
       },
-      inspect:()=>({webgl:false,focus:lastFocus||null})
+      inspect:()=>({webgl:false,focus:lastFocus||null,positions:frame?IsoLayout.positions(frame.layout):{},
+        nodes:Object.fromEntries([...fleet.querySelectorAll('[data-station]')].map(element=>{const r=element.getBoundingClientRect();return[element.dataset.station,{x:r.x+r.width/2,y:r.y+r.height/2}]})),
+        dropTargets:drag?.moved?drag.targets.map(({marker,...target})=>({...target,id:drag.station})):[]})
     };
   }
 };

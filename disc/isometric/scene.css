@@ -10,12 +10,17 @@
   outline:2px solid #286c5a;outline-offset:1px;background:#b5ebd31c
 }
 .iso-part-hit:disabled{pointer-events:none;opacity:0}
-.iso-board[data-inserting] canvas{cursor:crosshair}
-.iso-drag-ring{position:absolute;width:24px;height:24px;transform:translate(-50%,-50%);border-radius:50%;border:4px solid #e9d9a5;box-shadow:0 0 0 2px #344943}
-.iso-drag-ring[data-ready=true]{background:#2fa978}
-.iso-insert-point{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;width:44px;height:44px;background:#f2ffe8;color:#1a5444;border:2px solid #347561;border-radius:50%;z-index:2;display:grid;place-items:center;padding:0}
-.iso-insert-point::before,.iso-insert-point::after{position:absolute;content:"";width:15px;height:3px;border-radius:4px;background:currentColor}
-.iso-insert-point::after{transform:rotate(90deg)}
+.iso-board .iso-part-hit{cursor:grab}
+.iso-board[data-moving] canvas,.iso-board[data-moving] .iso-part-hit{cursor:grabbing}
+.iso-board[data-moving] .hose-jack{opacity:.28;pointer-events:none}
+.iso-placement{position:absolute;inset:0;pointer-events:none;z-index:2}
+.iso-drop-target{position:absolute;transform:translate(-50%,-50%);border:2px dashed #708d78;border-radius:12px;
+  background:#e9f5da36;box-shadow:0 0 0 2px #fff7db33}
+.iso-drop-target[data-insert=true]{border-radius:6px;border-color:#658c7c;background:#fff7db66}
+.iso-drop-target[data-insert=true]::before,.iso-drop-target[data-insert=true]::after{content:"";position:absolute;left:50%;top:50%;
+  width:12px;height:2px;transform:translate(-50%,-50%);background:#3c6e59;border-radius:1px}
+.iso-drop-target[data-insert=true]::after{transform:translate(-50%,-50%) rotate(90deg)}
+.iso-drop-target[data-active=true]{border-style:solid;border-color:#23775c;background:#64b18a4f;box-shadow:0 0 0 3px #e8f3d9aa}
 /* The small ring belongs to the physical nozzle. Its hit area extends beyond
    the ring for fingers; an outlet becomes an intake target only while patching. */
 .iso-board .hose-jack{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:44px;height:44px;

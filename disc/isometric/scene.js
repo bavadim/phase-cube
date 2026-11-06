@@ -9,59 +9,8 @@ window.IsoScene = (() => {
     delay:{label:'Задержка',w:2.09,d:1.37,h:1.05},
     bin:{label:'Корзина',w:1.46,d:1.38,h:1.15}
   };
-  // The validated patch is acyclic. Layer by upstream depth so even a
-  // custom order of processors has outlets facing its downstream inputs.
-  function layout(links,portrait){
-    const processors=['copy','router','delay'], sinks=['bell','keys','bin'];
-    const upstream=id=>Object.keys(links).filter(key=>links[key]===id);
-    const owner=key=>key.split(':')[0];
-    const rank=id=>id==='source'?0:Math.max(1,...upstream(id).map(key=>rank(owner(key))+1));
-    const live=reachable(links);
-    const last=Math.max(...processors.map(rank))+1;
-    const rows=Array.from({length:last+1},()=>[]);
-    rows[0].push('source');
-    const loose=[];
-    for(const id of processors){
-      if(!upstream(id).length&&!Object.keys(links).some(key=>owner(key)===id))loose.push(id);
-      else rows[rank(id)].push(id);
-    }
-    for(const id of loose){
-      // On a tall phone park one idle unit beside the hopper. Additional
-      // spare units share an intermediate row, leaving room for finger targets.
-      const shelf=portrait&&rows[0].length===1?rows[0]:
-        rows.slice(1,last).reduce((a,b)=>b.length<a.length?b:a);
-      shelf.push(id);
-    }
-    rows[last]=sinks;
-    const result={};
-    let z=0,prevDepth=0;
-    for(let i=0;i<rows.length;i++){
-      const row=rows[i], depth=Math.max(...row.map(id=>stations[id].d));
-      const branchX=id=>{
-        const parents=upstream(id);
-        if(!parents.length)return id==='source'?0:Infinity;
-        return parents.reduce((sum,key)=>{
-          const split=key.split(':'),port=split[1];
-          const offset=port==='copy'||port==='side'?-.5:.5;
-          return sum+(result[owner(key)]?.x??0)+offset;
-        },0)/parents.length;
-      };
-      row.sort((a,b)=>branchX(a)-branchX(b));
-      // Centre the live path when spare stations fit to either side.
-      if(row.length===3&&row.filter(id=>live.has(id)).length===1)row.unshift(row.pop());
-      const gap=portrait?.27:.46;
-      const width=row.reduce((sum,id)=>sum+stations[id].w,0)+gap*(row.length-1);
-      let x=-width/2;
-      if(i)z+=(prevDepth+depth)/2+.98;
-      for(const id of row){
-        result[id]={x:x+stations[id].w/2,z:i===0&&id!=='source'?z+.43:z};
-        x+=stations[id].w+gap;
-      }
-      prevDepth=depth;
-    }
-    return result;
-  }
-  const inserts=new Set(['copy','delay','router']);
+  // Spatial rows belong to the player's arrangement, independently of wiring.
+  const layout=arrangement=>IsoLayout.positions(arrangement);
   const make=(tag,cls)=>Object.assign(document.createElement(tag),{className:cls});
   function allowed(state,action) {
     try { IsoFlow.apply(state,action); return true; }
@@ -99,7 +48,7 @@ window.IsoScene = (() => {
     const table=new THREE.Group(),belts=new THREE.Group(),marks=new THREE.Group();
     scene.add(table,belts,marks);
     const overlay=make('div','iso-overlay');host.append(overlay);
-    const ghost=make('span','iso-drag-ring');ghost.hidden=true;overlay.append(ghost);
+    const placement=make('div','iso-placement');placement.hidden=true;overlay.append(placement);
     const pieces={},buttons={},sockets={},routes=new Map();
     const ray=new THREE.Raycaster();
     const mutedMaterials=new Map(),originalMaterial=new WeakMap();
@@ -121,11 +70,12 @@ window.IsoScene = (() => {
     }
     const events=new AbortController(),opt={signal:events.signal};
     const vec=(x,y,z)=>new THREE.Vector3(x,y,z);
-    let patch=null,insert=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
+    let patch=null,gesture=null,frame=null,revision=null,lastState=null,linksKey=null,portrait=null,lost=false,dirty=true;
     let disposed=false,width=0,height=0,activeStation=null,lastPointerAt=-Infinity,modeState=null;
     let hoseInput=null,face=null,overview=null,pose=null,focusId=null,transition=null,litOutlet=null,layoutKey=null;
     const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-    let targetStations=new Set(),targetBelts=new Set(),activeStations=new Set();
+    let targetStations=new Set(),activeStations=new Set();
+    let placementGhost=null,placementTargets=[];
     // Touch can synthesize a click with detail=0. Pointer-up has already
     // committed that action. Keyboard and assistive activation still use click.
     function accessibleActivation(e){
@@ -139,39 +89,30 @@ window.IsoScene = (() => {
       modeState=state;
       activeStations=reachable(state.links);
       targetStations=new Set();
-      targetBelts=new Set();
       if(patch) for(const id of Object.keys(stations)){
         if(allowed(state,{type:'connect',from:patch,to:id}))targetStations.add(id);
-      }
-      if(insert) for(const from of Object.keys(state.links)){
-        if(allowed(state,{type:'insert',node:insert,from}))targetBelts.add(from);
       }
       for(const [id,b] of Object.entries(buttons)){
         b.dataset.active=String(activeStations.has(id));
         b.dataset.destination=String(targetStations.has(id));
-        b.disabled=!!insert || (patch ? !targetStations.has(id) : !editable(id));
-        b.setAttribute('aria-label',(patch?'Соединить с деталью ':editable(id)?'Настроить: ':'')+stations[id].label);
+        b.disabled=!!patch&&!targetStations.has(id);
+        b.dataset.passive=String(!editable(id));
+        b.setAttribute('aria-label',(patch?'Соединить с деталью ':editable(id)?'Настроить или переместить: ':'Переместить: ')+stations[id].label);
       }
-      placePorts();placeInsertButtons();markBelt(null);dirty=true;
+      placePorts();markBelt(null);dirty=true;
     }
     function clearPatch(){if(patch)setPatch(null);}
     function setPatch(key){
-      if(key&&insert)setInsert(null);
       patch=key||null;host.toggleAttribute('data-patching',!!patch);
       if(!patch)hoseInput?.reset();
       callbacks.patchChanged?.(patch);syncTargets();
     }
-    function setInsert(id){
-      if(id&&patch)setPatch(null);
-      insert=inserts.has(id)?id:null;host.toggleAttribute('data-inserting',!!insert);
-      callbacks.insertChanged?.(insert);syncTargets();
+    function cancelMode(){
+      if(gesture){const id=gesture.id;gesture=null;if(host.hasPointerCapture(id))host.releasePointerCapture(id);}
+      clearPlacement();dirty=true;if(patch)setPatch(null);
     }
-    function cancelMode(){if(patch)setPatch(null);if(insert)setInsert(null);}
     function connect(id){
       if(targetStations.has(id)&&callbacks.connect(patch,id)!==false)clearPatch();
-    }
-    function install(id,from){
-      if(from&&callbacks.act({type:'insert',node:id,from})!==false)setInsert(null);
     }
     function project(point){
       const p=point.clone().project(camera);return {x:(p.x+1)*width/2,y:(1-p.y)*height/2};
@@ -180,7 +121,7 @@ window.IsoScene = (() => {
     function placePorts(){
       for(const [key,s] of Object.entries(sockets)){
         const b=s.button,isInput=s.port==='in';
-        b.hidden=!!transition||!!focusId||!!insert||(patch?(isInput?!targetStations.has(s.id):key!==patch):isInput);
+        b.hidden=!!transition||!!focusId||(patch?(isInput?!targetStations.has(s.id):key!==patch):isInput);
         if(b.hidden)continue;
         const p=project(socketPos(key));
         b.style.left=p.x+'px';b.style.top=p.y+'px';
@@ -205,24 +146,6 @@ window.IsoScene = (() => {
       }
       placePorts();
     }
-    function placeInsertButtons(){
-      const occupied=[];
-      for(const [key,r] of routes){
-        const b=r.mountButton;
-        b.hidden=!insert||!!transition||!targetBelts.has(key);
-        if(b.hidden)continue;
-        const n=r.samples.length-1;
-        let point=r.samples[Math.floor(n/2)],best=-Infinity;
-        for(let i=1;i<n;i++){
-          const p=r.samples[i],screenSpace=Math.min(p.x,width-p.x,p.y,height-p.y);
-          const gap=Math.min(65,...occupied.map(q=>Math.hypot(q.x-p.x,q.y-p.y)));
-          const score=gap+Math.min(28,screenSpace)-Math.abs(i/n-.5)*23;
-          if(score>best){best=score;point=p;}
-        }
-        const x=Math.max(24,Math.min(width-24,point.x)),y=Math.max(24,Math.min(height-24,point.y));
-        b.style.left=x+'px';b.style.top=y+'px';occupied.push({x,y});
-      }
-    }
     function projectLocal(id,x,y,z){
       return project(pieces[id].group.localToWorld(vec(x,y,z)));
     }
@@ -233,16 +156,20 @@ window.IsoScene = (() => {
       }});
       shapes.forEach(g=>g.dispose());mats.forEach(m=>{m.map?.dispose();m.dispose();});group.clear();
     }
-    function skinTable(bounds){
+    function skinTable(bounds,arrangement){
       clearGeometry(table,true);
       const {left,right,top,bottom}=bounds,w=right-left,d=bottom-top,cx=(left+right)/2,cz=(top+bottom)/2;
       const base=new THREE.Mesh(new THREE.BoxGeometry(w,.25,d),physical(0xdddcc8));base.position.set(cx,-.16,cz);table.add(base);
       const edge=new THREE.Mesh(new THREE.BoxGeometry(w+.03,.15,d+.03),physical(0x95a394));edge.position.set(cx,-.35,cz);table.add(edge);
-      const grid=[];
-      for(let x=Math.ceil(left);x<right;x+=1)grid.push(x,-.028,top,x,-.028,bottom);
-      for(let z=Math.ceil(top);z<bottom;z+=1)grid.push(left,-.028,z,right,-.028,z);
-      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(grid,3));
-      table.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x71877a,transparent:true,opacity:.14})));
+      const colors={inputs:0xe5dfc8,devices:0xdbe2d2,outputs:0xe0e0d2};
+      for(const zone of IsoLayout.zones(arrangement)){
+        const front=Math.max(top,zone.minZ),back=Math.min(bottom,zone.maxZ);
+        const strip=new THREE.Mesh(new THREE.PlaneGeometry(w-.05,back-front),new THREE.MeshBasicMaterial({color:colors[zone.id]}));
+        strip.rotation.x=-Math.PI/2;strip.position.set(cx,-.029,(front+back)/2);table.add(strip);
+        if(zone.id==='inputs')continue;
+        const seam=new THREE.Mesh(new THREE.BoxGeometry(w-.08,.012,.025),physical(0x9caa96));
+        seam.position.set(cx,-.021,front);table.add(seam);
+      }
       const feetMat=new THREE.MeshBasicMaterial({color:0x334b3b,transparent:true,opacity:.1,depthWrite:false});
       for(const [id,p] of Object.entries(pieces)){
         const shade=new THREE.Mesh(new THREE.CircleGeometry(1,32),feetMat);shade.rotation.x=-Math.PI/2;
@@ -270,7 +197,7 @@ window.IsoScene = (() => {
       const p=IsoPieces.create(id);pieces[id]=p;p.group.userData.station=id;scene.add(p.group);
       const b=make('button','iso-part-hit');b.type='button';b.dataset.station=id;
       b.setAttribute('aria-label','Выбрать: '+s.label);
-      b.onclick=e=>{if(accessibleActivation(e)){if(patch)connect(id);else if(!insert)select(id);}};
+      b.onclick=e=>{if(accessibleActivation(e)){if(patch)connect(id);else select(id);}};
       buttons[id]=b;overlay.append(b);
       for(const [port,local] of Object.entries(p.ports)){
         const key=id+':'+port,button=make('button','hose-jack');
@@ -324,7 +251,7 @@ window.IsoScene = (() => {
       camera.top=pose.cy+pose.half;camera.bottom=pose.cy-pose.half;
       camera.updateProjectionMatrix();
       for(const route of routes.values())route.samples=route.worldSamples.map(project);
-      placeDOM();placeInsertButtons();dirty=true;
+      placeDOM();dirty=true;
     }
     function aim(id,animate=true){
       focusId=id;host.toggleAttribute('data-detail',!!id);
@@ -342,24 +269,25 @@ window.IsoScene = (() => {
       for(const key of Object.keys(to))result[key]=THREE.MathUtils.lerp(from[key],to[key],blend);
       placeCamera(result);
     }
-    function placeStations(links){
-      const positions=layout(links,portrait);
+    function placeStations(arrangement){
+      const positions=layout(arrangement);
       for(const [id,p] of Object.entries(pieces)){
         const {x,z}=positions[id];p.group.position.set(x,0,z);
       }
       const footprintsAll=footprints();
       const bounds={left:Math.min(...footprintsAll.map(o=>o.left))-.39,right:Math.max(...footprintsAll.map(o=>o.right))+.39,
         top:Math.min(...footprintsAll.map(o=>o.top))-.39,bottom:Math.max(...footprintsAll.map(o=>o.bottom))+.39};
-      skinTable(bounds);scene.updateMatrixWorld(true);
+      skinTable(bounds,arrangement);scene.updateMatrixWorld(true);
       overview=fit(null);
-      aim(frame?.selected&&!patch&&!insert?frame.selected:null,false);
-      linksKey=null;dirty=true;layoutKey=JSON.stringify(links);
+      aim(frame?.selected&&!patch?frame.selected:null,false);
+      linksKey=null;dirty=true;layoutKey=JSON.stringify(arrangement);
     }
     function resize(){
       if(disposed)return;
+      if(gesture)cancelMode();
       width=Math.max(1,host.clientWidth);height=Math.max(1,host.clientHeight);
       renderer.setSize(width,height,false);portrait=width/height<1.18;
-      placeStations((frame?.editState||frame?.state)?.links||{});
+      placeStations(frame?.layout||IsoLayout.initial());
       if(frame)render(frame);
     }
     function travelArrows(carrier,path){
@@ -378,7 +306,7 @@ window.IsoScene = (() => {
       return axisOf(port).applyQuaternion(pieces[owner].group.quaternion);
     }
     function rebuild(links){
-      for(const route of routes.values()){route.mountButton.remove();route.fluid.dispose();}
+      for(const route of routes.values())route.fluid.dispose();
       clearGeometry(belts);routes.clear();
       const prior=[],chassis=footprints();
       const jacks=Object.keys(sockets).map(key=>{
@@ -396,14 +324,10 @@ window.IsoScene = (() => {
         const tone=key==='router:straight'?materials.a:key==='router:side'?materials.b:materials.hose;
         const worldSamples=path.getSpacedPoints(Math.max(14,Math.ceil(path.getLength()*13)));
         const arrows=key.startsWith('router:')?travelArrows(carrier,path):null;
-        const mountButton=make('button','iso-insert-point');mountButton.type='button';
-        mountButton.setAttribute('aria-label','Вставить между деталями «'+stations[key.split(':')[0]].label+'» и «'+stations[id].label+'»');
-        mountButton.dataset.insertBelt=key;
-        mountButton.onclick=()=>{if(insert)install(insert,key);};
-        overlay.append(mountButton);prior.push(worldSamples);
-        routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,jacket,fluid,tone,mountButton});
+        prior.push(worldSamples);
+        routes.set(key,{path,to:id,worldSamples,samples:worldSamples.map(project),arrows,jacket,fluid,tone});
       }
-      placeInsertButtons();markBelt(null);
+      markBelt(null);
     }
     // Give each physical hose one time window and one banded dose per step.
     // Positive delay starts a new journey when the stored fluid is released.
@@ -447,10 +371,11 @@ window.IsoScene = (() => {
       if(lost || !width || !frame.state)return;
       const t=Number.isFinite(frame.time)?frame.time:0;
       if(modeState!==(frame.editState||frame.state))syncTargets();
-      const focused=patch||insert?null:frame.selected||null;
-      const connections=(patch||insert||focused)?modeState.links:frame.state.links;
+      const focused=patch?null:frame.selected||null;
+      const connections=(patch||focused)?modeState.links:frame.state.links;
       const key=JSON.stringify(connections);
-      if(layoutKey!==key&&!hoseInput?.dragging)placeStations(connections);
+      const arrangement=frame.layout||IsoLayout.initial();
+      if(layoutKey!==JSON.stringify(arrangement)&&!gesture?.arrange&&!hoseInput?.dragging)placeStations(arrangement);
       if(focusId!==focused)aim(focused);
       moveCamera();
       const straight=frame.playing?frame.tick?.straight??frame.state.routes[Math.floor(t*8)%8]:modeState.routes[frame.previewStep??0];
@@ -474,7 +399,7 @@ window.IsoScene = (() => {
         part.group.visible=!isolate||id===focused;
         const probe=frame.testFluid;
         const probing=probe&&(probe.station===id||probe.tick.activity[id].length>0||(id==='delay'&&probe.tick.pockets.length>0));
-        const asleep=!probing&&!activeStations.has(id)&&id!==frame.selected&&!patch&&!insert&&!tick.activity[id]?.length;
+        const asleep=!probing&&!activeStations.has(id)&&id!==frame.selected&&!patch&&!tick.activity[id]?.length;
         const muted=!!focused&&focused!==id&&!probing;
         if(asleep&&part.dormant&&muted)continue;
         if(!muted)setDormant(part,false);
@@ -487,7 +412,7 @@ window.IsoScene = (() => {
           b.dataset.selected=String(id===activeStation);
           b.setAttribute('aria-pressed',String(id===activeStation));
         }
-        const piece=pieces[activeStation];selection.visible=!!piece&&!focusId&&!patch&&!insert;
+        const piece=pieces[activeStation];selection.visible=!!piece&&!focusId&&!patch;
         if(piece){
           const s=stations[activeStation];selection.scale.set(s.w*.58,s.d*.65,1);
           selection.position.copy(piece.group.position);selection.position.y=.012;
@@ -537,7 +462,7 @@ window.IsoScene = (() => {
       const rect=host.getBoundingClientRect(),p={x:x-rect.left,y:y-rect.top};
       let best=radius,result=null;
       for(const [key,r] of routes){
-        if(r.to===node||key.startsWith(node+':')||(insert&&!targetBelts.has(key)))continue;
+        if(r.to===node||key.startsWith(node+':'))continue;
         for(let i=1;i<r.samples.length;i++){
           const a=r.samples[i-1],b=r.samples[i],dx=b.x-a.x,dy=b.y-a.y;
           const at=THREE.MathUtils.clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);
@@ -552,42 +477,83 @@ window.IsoScene = (() => {
         let tone=activeStations.has(id.split(':')[0])?r.tone:materials.quiet;
         if(litOutlet&&r.arrows)tone=id===litOutlet?(id==='router:straight'?materials.chosenA:materials.chosenB):materials.quiet;
         if(r.arrows)r.arrows.visible=id===litOutlet;
-        r.jacket.material=id===key||id===patch?materials.target:insert&&targetBelts.has(id)?materials.pick:tone;
+        r.jacket.material=id===key||id===patch?materials.target:tone;
+      }
+      dirty=true;
+    }
+    function clearPlacement(){
+      if(placementGhost){
+        const materials=new Set();
+        placementGhost.traverse(o=>{for(const m of [].concat(o.material||[]))materials.add(m);});
+        materials.forEach(m=>m.dispose());scene.remove(placementGhost);placementGhost=null;
+      }
+      placement.replaceChildren();placement.hidden=true;placementTargets=[];
+      delete host.dataset.moving;
+    }
+    function beginPlacement(g){
+      placement.hidden=false;host.dataset.moving=g.hit.id;
+      placementGhost=pieces[g.hit.id].group.clone(true);
+      placementGhost.traverse(object=>{
+        if(!object.material)return;
+        const fade=m=>{const clone=m.clone();clone.transparent=true;clone.opacity=.40;clone.depthWrite=false;return clone;};
+        object.material=Array.isArray(object.material)?object.material.map(fade):fade(object.material);
+      });
+      scene.add(placementGhost);
+      const arrangement=frame.layout;
+      placementTargets=IsoLayout.targets(arrangement,g.hit.id).map(target=>{
+        const point=project(vec(target.x,.06,target.z)),right=project(vec(target.x+2.5,.06,target.z)),down=project(vec(target.x,.06,target.z+1.5));
+        const marker=make('span','iso-drop-target');marker.dataset.insert=String(target.insert);
+        const w=Math.max(42,Math.hypot(right.x-point.x,right.y-point.y));
+        const h=target.insert?22:Math.max(36,Math.hypot(down.x-point.x,down.y-point.y));
+        marker.style.left=point.x+'px';marker.style.top=point.y+'px';marker.style.width=w+'px';marker.style.height=h+'px';
+        placement.append(marker);
+        return {...target,point,rx:w*.52,ry:target.insert?20:h*.55,marker};
+      });
+    }
+    function placementAt(x,y){
+      const rect=host.getBoundingClientRect(),px=x-rect.left,py=y-rect.top;
+      let best=1,chosen=null;
+      for(const candidate of placementTargets){
+        const score=Math.hypot((px-candidate.point.x)/candidate.rx,(py-candidate.point.y)/candidate.ry);
+        if(score<best){best=score;chosen=candidate;}
+      }
+      return chosen;
+    }
+    function movePlacement(g,x,y){
+      const chosen=placementAt(x,y);g.destination=chosen;
+      for(const candidate of placementTargets)candidate.marker.dataset.active=String(candidate===chosen);
+      if(chosen)placementGhost.position.set(chosen.x,.22,chosen.z);
+      else{
+        setRay(x,y);
+        const point=ray.ray.intersectPlane(new THREE.Plane(vec(0,1,0),-.22),new THREE.Vector3());
+        if(point)placementGhost.position.copy(point);
       }
       dirty=true;
     }
     function start(e){
-      if(lost||gesture||transition||e.button!==0||e.target.closest('[data-face],[data-insert-belt]'))return;
+      if(lost||gesture||transition||e.button!==0||e.target.closest('[data-face],[data-hose-port]'))return;
       const hit=targetAt(e.clientX,e.clientY);
-      if(!hit&&!patch&&!insert&&!focusId){
+      if(!hit&&!patch&&!focusId){
         const hose=beltUnder(e.clientX,e.clientY,null,10);
         if(hose){e.preventDefault();setPatch(hose);return;}
       }
-      if((!hit&&!insert)||(focusId&&hit?.id!==focusId))return;
-      if(hit&&!insert&&!patch&&!editable(hit.id))return;
-      const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,change:0,patch,insert};
-      if(!insert&&!patch&&hit){
-        // Choosing a station is its own gesture, even when the tap lands
-        // precisely on a note. Only an already selected part can be edited.
-        g.edit=frame?.selected===hit.id && (hit.id==='source'||hit.id==='delay') ? hit.action : null;
-        const overviewHit=e.target.closest('.iso-part-hit');
-        g.handle=inserts.has(hit.id)&&!!overviewHit;
-        if(frame?.selected==='router'&&hit.action?.type==='route-preset')g.program=hit.action.index;
+      if(!hit||(focusId&&hit.id!==focusId))return;
+      const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,change:0,patch,arrange:!patch&&!focusId};
+      if(!patch&&focusId){
+        g.edit=frame.selected===hit.id && (hit.id==='source'||hit.id==='delay') ? hit.action : null;
+        if(frame.selected==='router'&&hit.action?.type==='route-preset')g.program=hit.action.index;
         if(g.edit?.type==='phase'||g.edit?.type==='pin'){
           g.center=pieces.source.group.localToWorld(vec(.55,.81,.16));
           g.angle=angleAt(e.clientX,e.clientY,g.center);g.turn=0;
         }
       }
-      e.preventDefault();
-      gesture=g;host.setPointerCapture(e.pointerId);
+      e.preventDefault();gesture=g;host.setPointerCapture(e.pointerId);
     }
     function move(e){
       if(!gesture){
         if(e.pointerType==='mouse'&&e.target===canvas){
-          const target=insert?beltUnder(e.clientX,e.clientY,insert):modelHit(e.clientX,e.clientY);
-          const interactive=target&&(insert||(patch?targetStations.has(target.id):editable(target.id)));
-          canvas.style.cursor=interactive?'pointer':'default';
-          if(insert)markBelt(target);
+          const target=modelHit(e.clientX,e.clientY);
+          canvas.style.cursor=target?(patch?'pointer':focusId?'pointer':'grab'):'default';
         }
         return;
       }
@@ -596,17 +562,10 @@ window.IsoScene = (() => {
       if(!g.moved&&Math.hypot(dx,dy)<7)return;
       if(!g.moved){
         g.moved=true;
+        if(g.arrange)beginPlacement(g);
         if(g.edit?.type==='pin'&&g.center)g.edit={type:'phase'};
-        if(g.handle){select(g.hit.id);setInsert(g.hit.id);}
       }
-      if(g.handle){
-        const rect=host.getBoundingClientRect();
-        const over=beltUnder(e.clientX,e.clientY,g.hit.id);
-        if(over!==g.over){markBelt(over);g.over=over;}
-        ghost.dataset.ready=String(!!over);ghost.hidden=false;
-        ghost.style.left=(e.clientX-rect.left)+'px';ghost.style.top=(e.clientY-rect.top)+'px';return;
-      }
-      if(g.insert){markBelt(beltUnder(e.clientX,e.clientY,g.insert));return;}
+      if(g.arrange){movePlacement(g,e.clientX,e.clientY);return;}
       if(g.program!==undefined){
         const count=IsoFlow.routerPrograms(frame.editState).length;
         g.change=Math.max(0,Math.min(count-1,g.program+Math.round(-dy/Math.max(30,height/12))))-g.program;
@@ -623,28 +582,22 @@ window.IsoScene = (() => {
     }
     function end(e,cancelled=false){
       const g=gesture;if(!g||e.pointerId!==g.id)return;
+      const target=g.arrange&&g.moved?placementAt(e.clientX,e.clientY):null;
       gesture=null;dirty=true;lastPointerAt=performance.now();
       if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);
-      ghost.hidden=true;
-      if(cancelled){
-        if(g.handle&&g.moved)setInsert(null);
-        return;
-      }
-      if(g.insert||g.handle&&g.moved){
-        const module=g.insert||g.hit.id, over=beltUnder(e.clientX,e.clientY,module);
-        if(over)install(module,over);
-        else if(g.handle)setInsert(null);
+      clearPlacement();
+      if(cancelled)return;
+      if(g.arrange&&g.moved){
+        if(target)callbacks.movePart({id:g.hit.id,row:target.row,col:target.col,insert:target.insert});
         return;
       }
       if(g.patch){
         const hit=targetAt(e.clientX,e.clientY);if(hit)connect(hit.id);
         return;
       }
-      if(g.program!==undefined){
-        callbacks.chooseRoutePreset?.(g.program+g.change);
-      }else if(g.moved){
-        if(g.edit&&g.change)callbacks.act(commandFor(g.edit,g.change));
-      }else if(g.edit)callbacks.act(commandFor(g.edit,1));
+      if(g.program!==undefined)callbacks.chooseRoutePreset?.(g.program+g.change);
+      else if(g.moved){if(g.edit&&g.change)callbacks.act(commandFor(g.edit,g.change));}
+      else if(g.edit)callbacks.act(commandFor(g.edit,1));
       else if(g.hit&&g.hit.id!==focusId)select(g.hit.id);
     }
     host.addEventListener('pointerdown',start,opt);host.addEventListener('pointermove',move,opt);
@@ -653,7 +606,7 @@ window.IsoScene = (() => {
     host.addEventListener('lostpointercapture',e=>end(e,true),opt);
     host.addEventListener('keydown',()=>{lastPointerAt=-Infinity;},opt);
     canvas.addEventListener('webglcontextlost',e=>{
-      e.preventDefault();lost=true;host.dataset.context='lost';gesture=null;ghost.hidden=true;cancelMode();
+      e.preventDefault();lost=true;host.dataset.context='lost';cancelMode();
       callbacks.notice?.('Восстанавливаем трёхмерный стол…');
     },opt);
     canvas.addEventListener('webglcontextrestored',()=>{
@@ -683,13 +636,15 @@ window.IsoScene = (() => {
       const cableLengths=Object.fromEntries([...routes].map(([key,r])=>[key,r.path.getLength()]));
       const cableHeights=Object.fromEntries([...routes].map(([key,r])=>[key,Math.max(...r.worldSamples.map(p=>p.y))]));
       const fluidHoses=Object.fromEntries([...routes].filter(([,r])=>r.fluid.mesh.visible).map(([key,r])=>[key,r.pitches]));
-      return {webgl:true,fluidHoses,cableLengths,cableHeights,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:Object.keys(fluidHoses).length};
+      const dropTargets=placementTargets.map(({row,col,insert,x,z,point})=>({row,col,insert,worldX:x,worldZ:z,...client(point)}));
+      const positions=Object.fromEntries(Object.entries(pieces).map(([id,p])=>[id,{x:p.group.position.x,z:p.group.position.z}]));
+      return {webgl:true,dropTargets,positions,layout:frame?.layout,fluidHoses,cableLengths,cableHeights,contextLost:lost,portrait,focus:focusId,zoom:overview.half/pose.half,settling:!!transition,selectedBranch:litOutlet,nodes,ports,actions,beltPoints,links:[...routes.keys()],boxes:Object.keys(fluidHoses).length};
     }
-    face=window.IsoFace?.mount({overlay,pieces,projectLocal,callbacks:{startPatch:setPatch,startInsert:setInsert,...callbacks}});
+    face=window.IsoFace?.mount({overlay,pieces,projectLocal,callbacks});
     hoseInput=IsoHoseGesture.mount(host,{key:()=>patch,begin:setPatch,finish:connect,cancel:clearPatch,canJoin:id=>targetStations.has(id)});
     const observer=new ResizeObserver(resize);observer.observe(host);resize();
-    return {render,setPatch,setInsert,cancelMode,inspect,dispose(){
-      disposed=true;observer.disconnect();events.abort();gesture=null;face?.dispose();hoseInput?.dispose();
+    return {render,setPatch,cancelMode,inspect,dispose(){
+      disposed=true;observer.disconnect();events.abort();gesture=null;clearPlacement();face?.dispose();hoseInput?.dispose();
       for(const r of routes.values())r.fluid.dispose();
       clearGeometry(scene,true);mutedMaterials.forEach(m=>m.dispose());Object.values(materials).forEach(m=>m.dispose());
       renderer.dispose();overlay.remove();canvas.remove();

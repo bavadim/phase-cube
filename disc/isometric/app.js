@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 (() => {
   'use strict';
-  const $=id=>document.getElementById(id),F=window.IsoFlow;
+  const $=id=>document.getElementById(id),F=window.IsoFlow,L=window.IsoLayout;
   const names={source:'Нотный насос',copy:'Двойной дозатор',delay:'Камеры задержки',router:'Задвижка',keys:'Клавиши',bell:'Колокол',bin:'Слив'};
   const ports={out:'Выход',copy:'Копия',straight:'Прямо',side:'Вбок'};
   const pitchName=n=>n==null?'Пауза':['До','До♯','Ре','Ми♭','Ми','Фа','Фа♯','Соль','Соль♯','Ля','Си♭','Си'][n%12];
@@ -21,12 +21,18 @@
   }
   const signature=s=>JSON.stringify([s.source,s.routes,s.delay,Object.entries(s.links).sort()]);
   const presetKeys=Object.fromEntries(presets.map(id=>[signature(presetState(id)),id]));
-  let state=presetState(namedPreset||'hydraulic');
-  try{const raw=localStorage.getItem(storageKey);if(raw)state=F.restore(JSON.parse(raw));}catch{/* Keep the starting assembly if a save cannot be read. */}
+  let state=presetState(namedPreset||'hydraulic'),layout=L.initial();
+  try{
+    const saved=localStorage.getItem(storageKey);
+    if(saved){
+      const raw=JSON.parse(saved);state=F.restore(raw);
+      try{layout=L.restore(raw.layout);}catch{/* Recover the music even if its arrangement is damaged. */}
+    }
+  }catch{/* Keep the starting assembly if a save cannot be read. */}
   let revision=F.revision(state);
   // The second cycle includes notes that crossed the bar line in the delay.
   const stepFrames=()=>Array.from({length:F.STEPS},(_,i)=>F.tick(revision,F.STEPS+i));
-  let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,starting=false;
+  let steps=stepFrames(),scene,audio,selected=null,patch=null,starting=false;
   const previewStep=0;
   let paintPitch,dose=null,lastDoseCell=state.source.notes.find(cell=>cell!==null)??60;
   let cachedRevision,cachedTick,eventFrame,raf=0,focusAfterZoom=null;
@@ -54,7 +60,7 @@
   }
   function notice(text){$('notice').textContent=text;$('notice').hidden=!text;}
   function refresh(){
-    const mode=!!(patch||insert),focused=!!selected&&!mode;
+    const mode=!!patch,focused=!!selected&&!mode;
     $('back-to-table').hidden=!focused;
     $('return-to-shop').hidden=focused||mode;
     $('assembly').hidden=focused||mode;
@@ -67,16 +73,26 @@
     if(patch){
       const [id,port]=patch.split(':');
       $('status').textContent=names[id]+' · '+ports[port]+'. Коснитесь входа, чтобы подключить шланг.';
-    }else if(insert){$('status').textContent='Выберите соединение для детали «'+names[insert]+'».';}
-    else{$('status').textContent=focused?names[selected]:'Весь стол';}
+    }else{$('status').textContent=focused?names[selected]:'Весь стол';}
   }
-  function updateState(next,remember=true){
+  function save(){
+    try{localStorage.setItem(storageKey,JSON.stringify({...state,layout}));}catch{/* Keep session edits when storage is unavailable. */}
+  }
+  function remember(){undo.push({state,layout});if(undo.length>96)undo.shift();}
+  function updateState(next,record=true){
     if(signature(state)===signature(next))return;
     stopDose();
-    if(remember){undo.push(state);if(undo.length>96)undo.shift();}
+    if(record)remember();
     state=next;revision=F.revision(next);steps=stepFrames();audio?.queue(next);
-    try{localStorage.setItem(storageKey,JSON.stringify(next));}catch{/* Keep session edits when storage is unavailable. */}
+    save();
     notice('');refresh();
+  }
+  function movePart(action){
+    try{
+      const next=L.move(layout,action);
+      if(next===layout)return true;
+      remember();layout=next;save();notice('');refresh();return true;
+    }catch(error){notice(error.message);return false;}
   }
   function playPreview(request){
     if(audio&&!audio.wanted())request(audio).catch(err=>notice('Не удалось прослушать ноту. '+err.message));
@@ -117,8 +133,7 @@
     if(dose.step!==step){dose.step=step;dose.tick=F.tick(dose.revision,step);}
     return {...dose,age,progress:age-step};
   }
-  function patchChanged(key){patch=key;if(key){insert=null;stopDose();}refresh();}
-  function insertChanged(id){insert=id;if(id){patch=null;stopDose();}refresh();}
+  function patchChanged(key){patch=key;if(key)stopDose();refresh();}
   function cancel(){scene?.cancelMode();}
   function select(id){
     if(id!==null&&!F.EDITABLE.includes(id))return;
@@ -128,7 +143,10 @@
     notice('');refresh();
     focusAfterZoom=keyboard&&old!==id?(id?'#back-to-table':'#board [data-station="'+old+'"]'):null;
   }
-  function rewind(){const previous=undo.pop();cancel();if(previous)updateState(previous,false);}
+  function rewind(){
+    const previous=undo.pop();cancel();
+    if(previous){layout=previous.layout;updateState(previous.state,false);save();refresh();}
+  }
   function chooseRoutePreset(index){
     if(selected!=='router')return;
     if(act({type:'route-preset',index}))playPreview(engine=>engine.previewLoop(state));
@@ -153,7 +171,7 @@
     if(tick!==cachedTick||active!==cachedRevision){
       eventFrame=F.tick(active,tick);cachedTick=tick;cachedRevision=active;
     }
-    const previewRoute=selected==='router'&&!patch&&!insert&&!playing?state.routes[previewStep]:null;
+    const previewRoute=selected==='router'&&!patch&&!playing?state.routes[previewStep]:null;
     const mix=[...new Set(audio?.soundingPitches(active,time*F.STEPS,playing)??[])].sort((a,b)=>a-b);
     if(mix.join()!==lastMix){
       lastMix=mix.join();
@@ -161,7 +179,7 @@
       const bands=mix.map((p,i)=>IsoPieces.noteColor(p)+' '+(100*i/mix.length)+'% '+(100*(i+1)/mix.length)+'%');
       glass.style.setProperty('--liquid',mix.length?'linear-gradient(to right,'+bands.join(',')+')':'transparent');
     }
-    scene.render({state:active.state,editState:state,revision:active,selected,paintPitch,previewStep,previewRoute,steps,time,playing,tick:eventFrame,testFluid:localDoseFrame()});
+    scene.render({state:active.state,editState:state,layout,revision:active,selected,paintPitch,previewStep,previewRoute,steps,time,playing,tick:eventFrame,testFluid:localDoseFrame()});
     if(focusAfterZoom){
       const target=document.querySelector(focusAfterZoom);
       if(target?.getClientRects().length){target.focus({preventScroll:true});focusAfterZoom=null;}
@@ -176,12 +194,12 @@
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){
       if(menu.open){menu.open=false;menu.querySelector('summary').focus();e.preventDefault();}
-      else if(patch||insert)cancel();else if(selected)select(null);
+      else{cancel();if(selected)select(null);}
     }
     if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();rewind();}
   });
-  const callbacks={select,act,choosePitch,testDose,chooseRoutePreset,notice,patchChanged,insertChanged,
-    startPatch:key=>scene.setPatch(key),startInsert:id=>scene.setInsert(id),
+  const callbacks={select,act,movePart,choosePitch,testDose,chooseRoutePreset,notice,patchChanged,
+    startPatch:key=>scene.setPatch(key),
     connect:(from,to)=>act({type:'connect',from,to}),disconnect:from=>act({type:'disconnect',from})};
   scene=IsoScene.mount($('board'),callbacks)||IsoFlat.mount($('board'),callbacks);
   const stop=()=>{stopDose();audio?.pause();transportUI();};
@@ -189,7 +207,7 @@
     if(document.hidden){stop();cancelAnimationFrame(raf);raf=0;}else if(!raf)raf=requestAnimationFrame(render);
   });
   window.addEventListener('pagehide',stop);
-  window.IsoBench=Object.freeze({inspect:()=>({state,selected,previewStep,patch,insert,geometry:scene.inspect(),playing:audio?.playing(),time:audio?.clock(),active:audio?.audible()})});
+  window.IsoBench=Object.freeze({inspect:()=>({state,layout,selected,previewStep,patch,geometry:scene.inspect(),playing:audio?.playing(),time:audio?.clock(),active:audio?.audible()})});
   refresh();transportUI();render();
   window.IsoAudio.create({onChange:transportUI,onError:err=>notice('Ошибка звука. '+(err?.message||err))})
     .then(engine=>{audio=engine;transportUI();}).catch(err=>notice('Не удалось загрузить звук. '+err.message));
