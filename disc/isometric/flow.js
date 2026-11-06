@@ -7,6 +7,14 @@
   const STEPS = 8;
   const MAX_DELAY = 4;
   const PALETTE = Object.freeze([null, 60, 64, 67]);
+  const EDITABLE = Object.freeze(['source', 'router', 'delay']);
+  const ROUTE_PRESETS = Object.freeze([
+    ['straight', [true,true,true,true,true,true,true,true]],
+    ['alternating', [true,false,true,false,true,false,true,false]],
+    ['pairs', [true,true,false,false,true,true,false,false]],
+    ['sparse', [true,false,false,false,true,false,false,false]],
+    ['side', [false,false,false,false,false,false,false,false]]
+  ].map(([id,routes])=>Object.freeze({id,routes:Object.freeze(routes)})));
   const PORTS = Object.freeze(Object.fromEntries(Object.entries({
     source:['out'], copy:['out','copy'], delay:['out'], router:['straight','side'], keys:[], bell:[], bin:[]
   }).map(([node, ports]) => [node, Object.freeze(ports)])));
@@ -29,6 +37,15 @@
   const primary = node => node + ':' + PORTS[node][0];
   function requireThat(condition, message) {
     if (!condition) throw new Error(message);
+  }
+
+  function routePresetIndex(state) {
+    const found=ROUTE_PRESETS.findIndex(p=>p.routes.every((v,i)=>v===state.routes[i]));
+    return found<0?ROUTE_PRESETS.length:found;
+  }
+  function routerPrograms(state) {
+    return routePresetIndex(state)===ROUTE_PRESETS.length?
+      [...ROUTE_PRESETS,{id:'custom',routes:state.routes}]:ROUTE_PRESETS;
   }
 
   function verifyLinks(links) {
@@ -113,7 +130,14 @@
         if (type === 'bypass') bypass(links, node);
         else {
           requireThat(outputs.includes(from), 'Выберите выход детали.');
-          if (type === 'connect') links[from] = to;
+          if (type === 'connect') {
+            // Plugging into an occupied processor replaces its previous feed
+            // as one reversible edit. Validation still rejects feedback loops.
+            if (PROCESSORS.includes(to)) {
+              for (const port of Object.keys(links)) if (links[port] === to) delete links[port];
+            }
+            links[from] = to;
+          }
           if (type === 'disconnect') delete links[from];
           if (type === 'insert') {
             requireThat(links[from] && owner(from) !== node && links[from] !== node, 'Выберите шланг между другими деталями.');
@@ -147,6 +171,12 @@
         next.routes = [...state.routes];
         next.routes[index] = Object.hasOwn(action, 'value') ? action.value : !state.routes[index];
         break;
+      case 'route-preset': {
+        const programs=routerPrograms(state);
+        requireThat(within(index,0,programs.length-1),'Выберите ряд барабана.');
+        next.routes=programs[index].routes;
+        break;
+      }
       case 'pour':
       case 'note':
         requireThat(within(index, 0, STEPS - 1) && Number.isInteger(delta), 'Выберите штифт шестерни.');
@@ -229,5 +259,6 @@
     return Object.freeze({...revision(state),dose:{station,pitches:pitches(canonicalCell(cell))}});
   }
 
-  return Object.freeze({STEPS, MAX_DELAY, PALETTE, PORTS, pitches, tones, initial, restore, apply, revision, tick, testDose});
+  return Object.freeze({STEPS, MAX_DELAY, PALETTE, EDITABLE, ROUTE_PRESETS, routerPrograms, routePresetIndex,
+    PORTS, pitches, tones, initial, restore, apply, revision, tick, testDose});
 });

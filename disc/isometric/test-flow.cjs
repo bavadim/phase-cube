@@ -32,7 +32,10 @@ const reversed = edit(noDelay,'insert',{node:'delay',from:'router:straight'});
 assert.deepEqual(notes(Flow.revision(reversed),'bell',0,8),[[2,60],[6,67]]);
 assert.deepEqual(Flow.restore(JSON.parse(JSON.stringify(initial))),initial);
 assert.deepEqual(Flow.restore({...initial,links:{'source:out':'keys'}}).links,{'source:out':'keys'});
-assert.throws(() => edit(initial,'connect',{from:'copy:out',to:'delay'}), /занят/);
+const replugged=edit(initial,'connect',{from:'copy:out',to:'delay'});
+assert.equal(replugged.links['copy:out'],'delay');
+assert.equal(replugged.links['copy:copy'],undefined,'an occupied intake releases its old hose atomically');
+assert.equal(initial.links['copy:copy'],'delay','rewiring must preserve the previous state for undo');
 const unhooked = edit(initial,'disconnect',{from:'source:out'});
 assert.throws(() => edit(unhooked,'connect',{from:'router:side',to:'copy'}), /замкнула/);
 assert.deepEqual(unhooked.links,{...noSource(initial.links)});
@@ -57,6 +60,21 @@ assert.deepEqual(notes(Flow.revision(changed),'bell',8,16),[[8,64],[10,60],[12,6
 assert.deepEqual(edit(changed,'route',{index:2,value:false}), initial);
 assert.throws(() => edit(initial,'route',{index:8}));
 assert.throws(() => edit(initial,'route',{index:2,value:1}));
+for (let index=0; index<Flow.ROUTE_PRESETS.length; index++) {
+  const program=edit(initial,'route-preset',{index});
+  assert.deepEqual(program.routes,Flow.ROUTE_PRESETS[index].routes);
+  assert.equal(Flow.routePresetIndex(program),index);
+  const wired=Flow.restore({...program,links:{'source:out':'router','router:straight':'keys','router:side':'bell'}});
+  for (let step=0;step<8;step++) {
+    const frame=Flow.tick(Flow.revision(wired),step);
+    const route=program.routes[step]?'keys':'bell';
+    assert.deepEqual(frame.hits[route].map(p=>p.pitch),Flow.pitches(wired.source.notes[step]));
+    assert.equal(frame.hits[route==='keys'?'bell':'keys'].length,0);
+  }
+}
+assert.equal(Flow.routerPrograms(changed).at(-1).id,'custom');
+assert.equal(edit(changed,'route-preset',{index:5}),changed,'a custom saved tooth pattern remains selectable');
+assert.throws(()=>edit(initial,'route-preset',{index:5}));
 
 // Every old combination must keep its audible rhythm after restoring. Use
 // the repeated binary openings of the old wheels for an independent oracle.

@@ -2,7 +2,7 @@
 window.IsoScene = (() => {
   const stations = {
     source:{label:'Шестерня',w:3.22,d:2.08,h:1.49},
-    router:{label:'Развилка',w:2.56,d:1.99,h:1.05},
+    router:{label:'Развилка',w:2.56,d:1.99,h:2.43},
     keys:{label:'Клавиши',w:1.91,d:1.51,h:.98},
     bell:{label:'Колокол',w:1.54,d:1.44,h:1.28},
     copy:{label:'Копир',w:1.75,d:1.6,h:1.51},
@@ -131,7 +131,8 @@ window.IsoScene = (() => {
     function accessibleActivation(e){
       return !e.pointerType && e.detail===0 && performance.now()-lastPointerAt>450;
     }
-    function select(id){callbacks.select(id);}
+    const editable=id=>IsoFlow.EDITABLE.includes(id);
+    function select(id){if(id===null||editable(id))callbacks.select(id);}
     function syncTargets(){
       const state=frame?.editState||frame?.state;
       if(!state)return;
@@ -148,8 +149,8 @@ window.IsoScene = (() => {
       for(const [id,b] of Object.entries(buttons)){
         b.dataset.active=String(activeStations.has(id));
         b.dataset.destination=String(targetStations.has(id));
-        b.disabled=!!insert || (!!patch && !targetStations.has(id));
-        b.setAttribute('aria-label',(patch?'Соединить с деталью ':'Выбрать: ')+stations[id].label);
+        b.disabled=!!insert || (patch ? !targetStations.has(id) : !editable(id));
+        b.setAttribute('aria-label',(patch?'Соединить с деталью ':editable(id)?'Настроить: ':'')+stations[id].label);
       }
       placePorts();placeInsertButtons();markBelt(null);dirty=true;
     }
@@ -294,7 +295,7 @@ window.IsoScene = (() => {
     }
     function fit(id){
       const yaw=id ? .045 : (portrait ? .055 : .080);
-      const alt=id ? 1.83 : (portrait ? 1.55 : .97);
+      const alt=id==='router' ? .9 : id ? 1.83 : (portrait ? 1.55 : .97);
       orient(framingCamera,yaw,alt);
       const rect=new THREE.Box2(),point=new THREE.Vector2();
       function corner(local,station){
@@ -313,13 +314,7 @@ window.IsoScene = (() => {
       const insetY=id?Math.max(24,Math.min(50,height*.065)):height*.01;
       const sy=height/Math.max(1,height-2*insetY),sx=width/Math.max(1,width-2*insetX);
       const half=Math.max(size.x*height/width*sx,size.y*sy)/2;
-      // A tall phone has space below the step keys for the outgoing belt.
-      // Spend the spare headroom there while keeping the full keypad in view.
-      const pixel=2*half/height;
-      const lift=id==='router'&&height>width
-        ? Math.min(64,Math.max(0,((half-size.y/2)/pixel-20)*.62))
-        : 0;
-      return {cx,cy:cy-lift*pixel,half,yaw,alt};
+      return {cx,cy,half,yaw,alt};
     }
     function placeCamera(next){
       pose=next;
@@ -455,7 +450,7 @@ window.IsoScene = (() => {
       const focused=patch||insert?null:frame.selected||null;
       const connections=(patch||insert||focused)?modeState.links:frame.state.links;
       const key=JSON.stringify(connections);
-      if(layoutKey!==key)placeStations(connections);
+      if(layoutKey!==key&&!hoseInput?.dragging)placeStations(connections);
       if(focusId!==focused)aim(focused);
       moveCamera();
       const straight=frame.playing?frame.tick?.straight??frame.state.routes[Math.floor(t*8)%8]:modeState.routes[frame.previewStep??0];
@@ -473,12 +468,15 @@ window.IsoScene = (() => {
       }
       const displayTick=!frame.playing&&typeof frame.previewRoute==='boolean'?{...tick,straight:frame.previewRoute}:tick;
       const view={...frame,state:display,tick:displayTick,progress,focusPart:transition?null:focused};
+      const isolate=!!focused&&!transition;
+      table.visible=!isolate;belts.visible=!isolate;marks.visible=!isolate;
       for(const [id,part] of Object.entries(pieces)){
+        part.group.visible=!isolate||id===focused;
         const probe=frame.testFluid;
         const probing=probe&&(probe.station===id||probe.tick.activity[id].length>0||(id==='delay'&&probe.tick.pockets.length>0));
         const asleep=!probing&&!activeStations.has(id)&&id!==frame.selected&&!patch&&!insert&&!tick.activity[id]?.length;
-        if(asleep&&part.dormant)continue;
-        const muted=asleep||!!focused&&focused!==id&&!probing;
+        const muted=!!focused&&focused!==id&&!probing;
+        if(asleep&&part.dormant&&muted)continue;
         if(!muted)setDormant(part,false);
         part.update(view);
         if(muted)setDormant(part,true);
@@ -566,6 +564,7 @@ window.IsoScene = (() => {
         if(hose){e.preventDefault();setPatch(hose);return;}
       }
       if((!hit&&!insert)||(focusId&&hit?.id!==focusId))return;
+      if(hit&&!insert&&!patch&&!editable(hit.id))return;
       const g={id:e.pointerId,x:e.clientX,y:e.clientY,hit,moved:false,change:0,patch,insert};
       if(!insert&&!patch&&hit){
         // Choosing a station is its own gesture, even when the tap lands
@@ -573,10 +572,7 @@ window.IsoScene = (() => {
         g.edit=frame?.selected===hit.id && (hit.id==='source'||hit.id==='delay') ? hit.action : null;
         const overviewHit=e.target.closest('.iso-part-hit');
         g.handle=inserts.has(hit.id)&&!!overviewHit;
-        if(frame?.selected==='router'&&!overviewHit){
-          if(hit.action?.type==='cam')g.cam=hit.action.index;
-          g.flip=hit.action?.type==='lever';
-        }
+        if(frame?.selected==='router'&&hit.action?.type==='route-preset')g.program=hit.action.index;
         if(g.edit?.type==='phase'||g.edit?.type==='pin'){
           g.center=pieces.source.group.localToWorld(vec(.55,.81,.16));
           g.angle=angleAt(e.clientX,e.clientY,g.center);g.turn=0;
@@ -589,7 +585,8 @@ window.IsoScene = (() => {
       if(!gesture){
         if(e.pointerType==='mouse'&&e.target===canvas){
           const target=insert?beltUnder(e.clientX,e.clientY,insert):modelHit(e.clientX,e.clientY);
-          canvas.style.cursor=target&&(!patch||targetStations.has(target.id))?'pointer':'default';
+          const interactive=target&&(insert||(patch?targetStations.has(target.id):editable(target.id)));
+          canvas.style.cursor=interactive?'pointer':'default';
           if(insert)markBelt(target);
         }
         return;
@@ -610,6 +607,11 @@ window.IsoScene = (() => {
         ghost.style.left=(e.clientX-rect.left)+'px';ghost.style.top=(e.clientY-rect.top)+'px';return;
       }
       if(g.insert){markBelt(beltUnder(e.clientX,e.clientY,g.insert));return;}
+      if(g.program!==undefined){
+        const count=IsoFlow.routerPrograms(frame.editState).length;
+        g.change=Math.max(0,Math.min(count-1,g.program+Math.round(-dy/Math.max(30,height/12))))-g.program;
+        dirty=true;return;
+      }
       if(!g.edit)return;
       if(g.center){
         const angle=angleAt(e.clientX,e.clientY,g.center);
@@ -638,13 +640,10 @@ window.IsoScene = (() => {
         const hit=targetAt(e.clientX,e.clientY);if(hit)connect(hit.id);
         return;
       }
-      if(g.moved){
+      if(g.program!==undefined){
+        callbacks.chooseRoutePreset?.(g.program+g.change);
+      }else if(g.moved){
         if(g.edit&&g.change)callbacks.act(commandFor(g.edit,g.change));
-      }else if(g.cam!==undefined){
-        callbacks.touchCam?.(g.cam);
-      }else if(g.flip && targetAt(e.clientX,e.clientY)?.id==='router' &&
-        !document.elementFromPoint(e.clientX,e.clientY)?.closest('.iso-part-hit')){
-        callbacks.flipRoute?.();
       }else if(g.edit)callbacks.act(commandFor(g.edit,1));
       else if(g.hit&&g.hit.id!==focusId)select(g.hit.id);
     }

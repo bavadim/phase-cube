@@ -56,9 +56,10 @@ window.IsoFlat = {
       for(const [id,p] of Object.entries(layout)){
         const pos=[15+70*(p.x-loX)/(spanX||1),12+76*(p.z-loZ)/(spanZ||1)];
         const b=choice((patch?'Соединить с деталью ':'Выбрать: ')+names[id],icons[id],pos,()=>{
-          if(patch){if(callbacks.connect(patch,id))setPatch(null);}else callbacks.select(id);
+          if(patch){if(callbacks.connect(patch,id))setPatch(null);}else if(IsoFlow.EDITABLE.includes(id))callbacks.select(id);
         });
-        b.dataset.station=id;b.disabled=!!insert||!!(patch&&!can({type:'connect',from:patch,to:id}));
+        b.dataset.station=id;b.dataset.passive=String(!IsoFlow.EDITABLE.includes(id));
+        b.disabled=!!insert||(patch?!can({type:'connect',from:patch,to:id}):!IsoFlow.EDITABLE.includes(id));
         const r=b.getBoundingClientRect();
         const cx=r.left+r.width/2-box.left,y=r.top-box.top;
         bodies.push({left:(r.left-box.left)/50,right:(r.right-box.left)/50,top:y/50,bottom:(y+r.height)/50});

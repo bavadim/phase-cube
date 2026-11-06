@@ -95,6 +95,6 @@ window.IsoHoseGesture = {
       if(key.endsWith(':in')){if(actions.key())actions.finish(key.split(':')[0]);}
       else actions.begin(key);
     },capture);
-    return {reset,dispose(){reset();events.abort();guide.remove();}};
+    return {reset,get dragging(){return !!finger;},dispose(){reset();events.abort();guide.remove();}};
   }
 };

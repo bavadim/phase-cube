@@ -124,6 +124,9 @@
         return audition.playEvents(haps,0,start=>onScheduled(()=>Math.max(0,(S.getAudioContext().currentTime-start)/stepSeconds)));
       },
       stopPreview:audition.stop,
+      previewLoop(state) {
+        return audition.playEvents(pattern(S,Flow.revision(state),keys).queryArc(1,2),1);
+      },
       previewRoute(state,index) {
         return audition.playEvents(routeEvents(S,state,index,keys),1 + index / Flow.STEPS);
       },

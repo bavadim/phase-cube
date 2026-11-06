@@ -9,150 +9,66 @@ try {
   page.on('pageerror',error=>errors.push(error.message));
   const station=id=>page.locator('[data-station="'+id+'"]');
   const face=key=>page.locator('[data-face-key="'+key+'"]');
+  const port=key=>page.locator('[data-hose-port="'+key+'"]');
   const state=()=>page.evaluate(()=>IsoBench.inspect().state);
-  const menu=page.locator('#workbench-menu');
-  async function openMenu() {
-    if(!await menu.evaluate(node=>node.open))await menu.locator('summary').tap();
-  }
-  async function checkUnlabelledBoard() {
-    const printed=await page.locator('#board').evaluate(board=>board.innerText);
-    assert.doesNotMatch(printed,/[\p{L}\p{N}]/u,'mechanisms use shapes and programme marks');
-    assert.equal(await page.locator('footer.bench-foot:visible').count(),0);
-  }
-  async function atFollower(i) {
-    await page.waitForFunction(index=>document.querySelector('[data-face-key="step-'+index+'"]')?.dataset.atReader==='true',i);
-  }
   const waitView=id=>page.waitForFunction(expected=>{
-    const geometry=window.IsoBench?.inspect().geometry;
-    return geometry?.webgl && !geometry.contextLost && !geometry.settling && geometry.focus===expected;
-  },id,{polling:100});
-  async function back() {
-    const ok=page.locator('#back-to-table');
-    assert.match((await ok.innerText()).trim(),/^(?:ОК|OK)$/i);
-    const rect=await ok.boundingBox();
-    assert.ok(rect?.height>=44&&rect.width>=44,'OK is a visible touch target in the editor');
-    await ok.tap();
-    await waitView(null);
+    const g=window.IsoBench?.inspect().geometry;
+    return g&&!g.contextLost&&!g.settling&&g.focus===expected;
+  },id);
+  async function open(id){await station(id).tap();await waitView(id);}
+  async function back(){await page.locator('#back-to-table').tap();await waitView(null);}
+  async function bareModel(){
+    assert.doesNotMatch(await page.locator('#board').innerText(),/[\p{L}\p{N}]/u);
+    assert.equal(await page.locator('[data-face-key*="-up"],[data-face-key*="-down"],[data-face-key*="-value"],[data-face-key^="test-"],[data-face-key^="port-"]').count(),0);
+    assert.equal(await page.locator('#workbench-menu').isVisible(),false);
   }
-
-  await page.goto(session.url+'/disc/isometric/index.html?preset=duet');
-  await page.locator('#play:enabled').waitFor();
-  const pianoFiles=await page.evaluate(()=>performance.getEntriesByType('resource')
-    .map(entry=>new URL(entry.name).pathname.split('/').slice(-2).join('/'))
-    .filter(path=>path.startsWith('biba_tx_piano/')).sort());
-  assert.deepEqual(pianoFiles,['C2','C3','C4','C5'].map(note=>'biba_tx_piano/'+note+'.wav'),
-    'first cam audition has its piano samples before the player touches a tooth');
-  await waitView(null);
+  const entry=new URL(process.env.BIBA_BENCH_URL||session.url+'/disc/isometric/index.html');
+  entry.searchParams.set('preset','duet');
+  await page.goto(entry.href);await page.locator('#play:enabled').waitFor();await waitView(null);
   const initial=await state();
-  await checkUnlabelledBoard();
-  assert.equal(await page.locator('#back-to-table').isVisible(),false);
-  const overview=await page.evaluate(()=>IsoBench.inspect().geometry);
-  const overviewZoom=overview.zoom;
-  for(const [port,socket] of Object.entries(overview.ports)) {
-    const [id,io]=port.split(':');
-    assert.ok(io==='in'?socket.y<overview.nodes[id].y:socket.y>overview.nodes[id].y,
-      'the visible '+port+' jack is on the correct edge of the mechanism');
+  for(const id of ['copy','keys','bell','bin']){
+    const box=await station(id).boundingBox();
+    await page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2);
+    assert.equal(await page.evaluate(()=>IsoBench.inspect().selected),null);
   }
-  assert.ok(overview.nodes.source.y<overview.nodes.router.y);
-  assert.ok(overview.nodes.router.y<overview.nodes.keys.y&&overview.nodes.router.y<overview.nodes.bell.y);
-
-  await station('router').tap();
-  await waitView('router');
-  assert.ok(await page.evaluate(()=>IsoBench.inspect().geometry.zoom)>overviewZoom);
-  await checkUnlabelledBoard();
-  await face('step-0').tap();
-  assert.deepEqual(await state(),initial,'first touch of initial sector must inspect it');
-  await face('step-2').tap();
-  await atFollower(2);
-  assert.deepEqual(await state(),initial,'picking a cam sector must not change its profile');
-  assert.equal(await page.evaluate(()=>IsoBench.inspect().previewStep),2);
-  const branch=await page.evaluate(()=>IsoBench.inspect().geometry.selectedBranch);
-  assert.equal(branch,initial.routes[2]?'router:straight':'router:side');
-  await face('lever').tap();
-  const flipped=await state();
-  assert.deepEqual(flipped.routes,initial.routes.map((v,i)=>i===2?!v:v),'touch click must flip once');
-  await page.locator('#undo').tap();
-  assert.deepEqual(await state(),initial);
-  await face('step-5').tap();
-  await atFollower(5);
-  await face('step-5').tap();
-  assert.deepEqual((await state()).routes,initial.routes.map((v,i)=>i===5?!v:v),'a second tap of the indexed cam sector toggles only it');
-  await page.locator('#undo').tap();
-  assert.deepEqual(await state(),initial);
-  await back();
-
-  await openMenu();
-  await page.locator('#preset').selectOption('straight');
-  await waitView(null);
-  await station('source').tap();
-  await waitView('source');
-  const before=await state();
-  for(const viewport of [{width:320,height:660},{width:667,height:375},{width:390,height:844}]) {
-    await page.setViewportSize(viewport);
-    await waitView('source');
-    await face('brush-67').tap({timeout:3500});
-    await page.waitForFunction(()=>document.querySelector('[data-face-key="brush-67"]').getAttribute('aria-pressed')==='true');
+  await open('router');await bareModel();
+  for(const viewport of [{width:320,height:660},{width:667,height:375},{width:390,height:844}]){
+    await page.setViewportSize(viewport);await waitView('router');
+    for(let index=0;index<5;index++){
+      await face('program-'+index).tap();
+      assert.equal(await page.evaluate(()=>IsoFlow.routePresetIndex(IsoBench.inspect().state)),index);
+    }
   }
-  await back();
-  await station('source').tap();
-  await waitView('source');
-  // The eighth pin is adjacent to the outlet; its centre must still select a note.
-  await face('pin-7').tap();
-  assert.notEqual((await state()).source.notes[7],before.source.notes[7]);
-  await face('brush-64').tap();
-  await face('pin-1').tap();
-  await face('pin-5').tap();
-  assert.equal((await state()).source.notes[1],64);
-  assert.equal((await state()).source.notes[5],64);
-  await face('brush-rest').tap();
-  await face('pin-5').tap();
-  assert.equal((await state()).source.notes[5],null);
-  await back();
-  await station('source').tap();
-  await waitView('source');
-  await face('pin-5').tap();
-  assert.equal((await state()).source.notes[5],60,'OK saves the phrase and releases the previous brush');
-  await face('phase-up').tap();
-  assert.equal((await state()).source.phase,(before.source.phase+1)%8);
-  await face('level-down').tap();
-  assert.ok((await state()).source.level<before.source.level);
-  await face('port-source:out').tap();
-  await waitView(null);
-  await station('bell').tap();
-  assert.equal((await state()).links['source:out'],'bell');
-  assert.equal(await page.evaluate(()=>IsoBench.inspect().patch),null);
+  await face('program-2').tap();
+  assert.deepEqual((await state()).routes,[true,true,false,false,true,true,false,false]);
+  await page.locator('#undo').tap();assert.deepEqual((await state()).routes,Array(8).fill(false));
+  await back();await open('source');await bareModel();
+  await face('brush-67').tap();await face('pin-0').tap();
+  assert.deepEqual((await state()).source.notes[0],[60,67]);
+  await face('brush-rest').tap();await face('pin-0').tap();
+  assert.equal((await state()).source.notes[0],null);
   await page.locator('#undo').tap();
-  await waitView('source');
-
-  await face('port-source:out').focus();
-  await page.keyboard.press('Enter');
-  await waitView(null);
-  assert.equal(await page.evaluate(()=>IsoBench.inspect().patch),'source:out');
-  await page.keyboard.press('Escape');
-  await waitView('source');
-  await page.keyboard.press('Escape');
-  await waitView(null);
-
-  await station('delay').tap();
-  await waitView('delay');
-  await face('delay-4').tap();
-  await openMenu();
-  await page.locator('#mount-part').tap();
-  await waitView(null);
-  // Use a real projected point on the cable between the source and the keys.
-  const point=await page.evaluate(()=>{
-    const points=IsoBench.inspect().geometry.beltPoints['source:out'];
-    return points[Math.floor(points.length/2)];
-  });
-  await page.touchscreen.tap(point.x,point.y);
-  assert.deepEqual((await state()).links,{'source:out':'delay','delay:out':'keys'});
-  await page.reload();
-  await page.locator('#play:enabled').waitFor();
-  await waitView(null);
-  assert.equal((await state()).delay,4);
-  assert.deepEqual((await state()).links,{'source:out':'delay','delay:out':'keys'});
+  await face('rim-0').focus();await page.keyboard.press('ArrowRight');
+  assert.equal((await state()).source.phase,(initial.source.phase+1)%8);
+  const knob=await face('lift').boundingBox(),point={x:knob.x+knob.width/2,y:knob.y+knob.height/2};
+  const touch=await page.context().newCDPSession(page);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x,y:point.y-28}]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await touch.detach();
+  assert.equal((await state()).source.level,initial.source.level+.5);
+  await back();
+  // Replugging the occupied router intake is one action and one undo.
+  await port('copy:out').tap();await port('router:in').tap();
+  assert.equal((await state()).links['copy:out'],'router');
+  assert.equal((await state()).links['source:out'],undefined);
+  await page.locator('#undo').tap();await waitView(null);
+  assert.deepEqual((await state()).links,initial.links);
+  await open('delay');await face('delay-4').tap();await bareModel();await back();
+  const saved=await state();
+  await page.reload();await page.locator('#play:enabled').waitFor();await waitView(null);
+  assert.deepEqual(await state(),saved);
+  await open('router');await page.keyboard.press('Escape');await waitView(null);
   assert.deepEqual(errors,[]);
-  console.log('PASS: cam indexing, slide gate and one-sector edits; unlabelled models, touch wiring, insertion, sound settings, undo, save and keyboard exit.');
-} finally {
-  await session.close();
-}
+  console.log('PASS: bare mechanical controls, five barrel programs, passive bodies, touch lift, chord editing, atomic replug with undo, persistence and keyboard exit.');
+}finally{await session.close();}

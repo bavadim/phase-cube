@@ -19,7 +19,7 @@
 /* The small ring belongs to the physical nozzle. Its hit area extends beyond
    the ring for fingers; an outlet becomes an intake target only while patching. */
 .iso-board .hose-jack{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:44px;height:44px;
-  padding:0;border:0;background:transparent;color:#315c56;box-shadow:none;border-radius:50%;pointer-events:auto;touch-action:none;cursor:grab}
+  padding:0;border:0;background:transparent;color:#315c56;box-shadow:none;border-radius:50%;pointer-events:auto;touch-action:none;cursor:grab;z-index:3}
 .hose-jack::before{content:"";width:12px;height:12px;border:2px solid #375c56;background:#f7eacb;
   border-radius:50%;box-shadow:0 0 0 2px #eed3a0,inset 0 0 0 2px #dba55f}
 .hose-jack[data-connected=true]::before{background:#52877b;box-shadow:0 0 0 2px #e5c798,inset 0 0 0 2px #d5ac72}

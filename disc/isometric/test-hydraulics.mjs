@@ -42,17 +42,17 @@ try{
   assert.equal((await state()).links['delay:out'],undefined);
   await port('delay:out').tap();await port('bell:in').tap();
   assert.deepEqual((await state()).links,initial.links);
-  await open('copy');await face('test-copy').tap();
+  const copier=await station('copy').boundingBox();
+  await page.touchscreen.tap(copier.x+copier.width/2,copier.y+copier.height/2);
+  await settle(null);
   assert.deepEqual((await state()).links,initial.links);
-  await back();
   await open('delay');
   await face('delay-4').tap();
   assert.equal((await state()).delay,4);
-  await face('test-delay').tap();
   await page.waitForFunction(()=>document.querySelector('#mix-glass').dataset.pitches==='60,64,67');
   await back();
   await page.reload();await page.locator('#play:enabled').waitFor();
   assert.equal((await state()).delay,4);
   assert.deepEqual(errors,[]);
-  console.log('PASS: authored chords, audible mix from different branches, detach and reattach, test dose and the four-step delay.');
+  console.log('PASS: authored chords, mix from different branches, detach and reattach, passive copier and chamber-selected delay.');
 }finally{await session.close();}

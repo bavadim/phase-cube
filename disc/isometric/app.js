@@ -22,28 +22,44 @@
   const signature=s=>JSON.stringify([s.source,s.routes,s.delay,Object.entries(s.links).sort()]);
   const presetKeys=Object.fromEntries(presets.map(id=>[signature(presetState(id)),id]));
   let state=presetState(namedPreset||'hydraulic');
-  try{const raw=localStorage.getItem(storageKey);if(raw)state=F.restore(JSON.parse(raw));}catch{/* Start from the duet if a saved bench cannot be read. */}
+  try{const raw=localStorage.getItem(storageKey);if(raw)state=F.restore(JSON.parse(raw));}catch{/* Keep the starting assembly if a save cannot be read. */}
   let revision=F.revision(state);
   // The second cycle includes notes that crossed the bar line in the delay.
   const stepFrames=()=>Array.from({length:F.STEPS},(_,i)=>F.tick(revision,F.STEPS+i));
-  let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,previewStep=0,picked=false,starting=false;
+  let steps=stepFrames(),scene,audio,selected=null,patch=null,insert=null,starting=false;
+  const previewStep=0;
   let paintPitch,dose=null,lastDoseCell=state.source.notes.find(cell=>cell!==null)??60;
   let cachedRevision,cachedTick,eventFrame,raf=0,focusAfterZoom=null;
   let lastMix='';
   const undo=[],menu=$('workbench-menu');
+  function bindButton(id,perform){
+    const button=$(id);
+    let press=null,released=-Infinity;
+    button.addEventListener('pointerdown',event=>{
+      if(event.isPrimary&&event.button===0)press={id:event.pointerId,x:event.clientX,y:event.clientY};
+    });
+    button.addEventListener('pointerup',event=>{
+      const start=press;press=null;
+      if(!start||start.id!==event.pointerId)return;
+      released=performance.now();
+      if(Math.hypot(event.clientX-start.x,event.clientY-start.y)>14||button.disabled)return;
+      event.preventDefault();perform();
+    });
+    button.addEventListener('pointercancel',()=>{press=null;});
+    // Mobile browsers may omit click after a captured drag. Native keyboard
+    // activation still comes through click; pointer release is handled above.
+    button.addEventListener('click',event=>{
+      if(!event.pointerType&&event.detail===0&&performance.now()-released>350)perform();
+    });
+  }
   function notice(text){$('notice').textContent=text;$('notice').hidden=!text;}
   function refresh(){
     const mode=!!(patch||insert),focused=!!selected&&!mode;
-    const movable=['copy','router','delay'].includes(selected);
-    const links=Object.entries(state.links);
     $('back-to-table').hidden=!focused;
     $('return-to-shop').hidden=focused||mode;
     $('assembly').hidden=focused||mode;
-    $('mount-part').hidden=!(focused&&movable&&links.some(([key,to])=>to!==selected&&!key.startsWith(selected+':')));
-    $('bypass-part').hidden=!(focused&&movable&&links.some(([,to])=>to===selected));
-    menu.hidden=mode||(focused&&$('mount-part').hidden&&$('bypass-part').hidden);
+    menu.hidden=mode||focused;
     if(menu.hidden)menu.open=false;
-    menu.querySelector('summary').setAttribute('aria-label',focused?'Действия с деталью':'Меню верстака');
     $('cancel-mode').hidden=!mode;$('unplug').hidden=!(patch&&state.links[patch]);
     $('preset').value=presetKeys[signature(state)]||'custom';
     $('undo').disabled=!undo.length;$('undo').hidden=!undo.length||mode;
@@ -105,32 +121,17 @@
   function insertChanged(id){insert=id;if(id){patch=null;stopDose();}refresh();}
   function cancel(){scene?.cancelMode();}
   function select(id){
-    if(id!==null&&!Object.hasOwn(names,id))return;
+    if(id!==null&&!F.EDITABLE.includes(id))return;
     const old=selected,keyboard=document.activeElement?.matches(':focus-visible');
     cancel();selected=id;menu.open=false;
-    if(old!==id){picked=false;paintPitch=undefined;stopDose();}
+    if(old!==id){paintPitch=undefined;stopDose();}
     notice('');refresh();
     focusAfterZoom=keyboard&&old!==id?(id?'#back-to-table':'#board [data-station="'+old+'"]'):null;
   }
   function rewind(){const previous=undo.pop();cancel();if(previous)updateState(previous,false);}
-  function audition(){
-    playPreview(engine=>engine.previewRoute(state,previewStep));
-  }
-  function announceCamStep(){
-    const port=state.routes[previewStep]?'straight':'side';
-    const dest=names[state.links['router:'+port]]||'Выход свободен';
-    $('status').textContent='Положение '+(previewStep+1)+' · '+ports[port]+' · '+dest;
-  }
-  function pickStep(i){
-    if(!Number.isInteger(i)||i<0||i>=F.STEPS)return;
-    previewStep=i;picked=true;announceCamStep();audition();
-  }
-  function flipRoute(){
-    if(act({type:'route',index:previewStep})){picked=true;announceCamStep();audition();}
-  }
-  function touchCam(i){
-    if(picked&&i===previewStep)flipRoute();
-    else pickStep(i);
+  function chooseRoutePreset(index){
+    if(selected!=='router')return;
+    if(act({type:'route-preset',index}))playPreview(engine=>engine.previewLoop(state));
   }
   function transportUI(){
     const running=Boolean(audio?.wanted());
@@ -160,19 +161,17 @@
       const bands=mix.map((p,i)=>IsoPieces.noteColor(p)+' '+(100*i/mix.length)+'% '+(100*(i+1)/mix.length)+'%');
       glass.style.setProperty('--liquid',mix.length?'linear-gradient(to right,'+bands.join(',')+')':'transparent');
     }
-    scene.render({state:active.state,editState:state,revision:active,selected,paintPitch,previewStep,picked,previewRoute,steps,time,playing,tick:eventFrame,testFluid:localDoseFrame()});
+    scene.render({state:active.state,editState:state,revision:active,selected,paintPitch,previewStep,previewRoute,steps,time,playing,tick:eventFrame,testFluid:localDoseFrame()});
     if(focusAfterZoom){
       const target=document.querySelector(focusAfterZoom);
       if(target?.getClientRects().length){target.focus({preventScroll:true});focusAfterZoom=null;}
     }
     raf=requestAnimationFrame(render);
   }
-  $('preset').onchange=()=>{const id=$('preset').value;select(null);previewStep=0;updateState(presetState(id));};
-  $('back-to-table').onclick=()=>select(null);$('cancel-mode').onclick=cancel;
-  $('mount-part').onclick=()=>{menu.open=false;scene.setInsert(selected);};
-  $('bypass-part').onclick=()=>{menu.open=false;act({type:'bypass',node:selected});};
-  $('unplug').onclick=()=>{if(patch&&act({type:'disconnect',from:patch}))cancel();};
-  $('undo').onclick=rewind;$('play').onclick=toggleAudio;
+  $('preset').onchange=()=>{const id=$('preset').value;select(null);updateState(presetState(id));};
+  bindButton('back-to-table',()=>select(null));bindButton('cancel-mode',cancel);
+  bindButton('unplug',()=>{if(patch&&act({type:'disconnect',from:patch}))cancel();});
+  bindButton('undo',rewind);bindButton('play',toggleAudio);
   document.addEventListener('pointerdown',e=>{if(menu.open&&!menu.contains(e.target))menu.open=false;});
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){
@@ -181,7 +180,7 @@
     }
     if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();rewind();}
   });
-  const callbacks={select,act,choosePitch,testDose,notice,patchChanged,insertChanged,pickStep,touchCam,flipRoute,
+  const callbacks={select,act,choosePitch,testDose,chooseRoutePreset,notice,patchChanged,insertChanged,
     startPatch:key=>scene.setPatch(key),startInsert:id=>scene.setInsert(id),
     connect:(from,to)=>act({type:'connect',from,to}),disconnect:from=>act({type:'disconnect',from})};
   scene=IsoScene.mount($('board'),callbacks)||IsoFlat.mount($('board'),callbacks);

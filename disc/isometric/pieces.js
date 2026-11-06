@@ -10,7 +10,8 @@ window.IsoPieces = (() => {
     ivory: '#f5e8cd', edge: '#374751', ink: '#27363d', rubber: '#233239',
     mint: '#50b7a5', teal: '#237d76', orange: '#ec7851', brick: '#b45438',
     gold: '#e7b04b', brass: '#dcc18a', steel: '#adc7c3', paper: '#fff4d7',
-    plum: '#8f6c95', violet: '#b494be', wood: '#a5664c'
+    plum: '#8f6c95', violet: '#b494be', wood: '#a5664c',
+    passive: '#737e7d', cast: '#b9c0b8'
   };
   const noteColors = [
     pigments.orange,'#d27392','#e79a68','#bd819a', '#60c5b6','#749dbe',
@@ -167,7 +168,7 @@ window.IsoPieces = (() => {
     return {x:.55+.95*Math.sin(a),y:1.241,z:.13+.95*Math.cos(a)};
   }
   function source(root) {
-    const drive={wheel:null,angle:0};
+    const drive={wheel:null,handle:null,angle:0,level:1};
     sourceDrives.set(root,drive);
     mounting(root,3.22,2.08,'teal');
     // The meniscus sits below the lip; the fourth glass is empty for rests.
@@ -197,9 +198,6 @@ window.IsoPieces = (() => {
     gear(rim,big,module,.25,0,0,0,'teal');
     const smallWheel = gear(smallRim,small,module,.245,0,0,0,'brass');
     cyl(smallRim,.29,.31,.055,0,.265,0,'orange');
-    for (let i=0;i<3;i++) {
-      const a=i*TAU/3; cyl(smallRim,.048,.046,.018,.195*Math.sin(a),.303,.195*Math.cos(a),'brick',14);
-    }
     cyl(smallRim,.088,.105,.10,0,.315,0,'brass',6);
     const sleeve = group(root,x,.71,z);
     action(cyl(sleeve,.63,.64,.09,0,0,0,'edge'),'phase');
@@ -238,6 +236,8 @@ window.IsoPieces = (() => {
         const editing=f.focusPart==='source';
         sleeve.visible=!editing;sleeve.rotation.y=turn-phase*TAU/8;
         handle.position.y=.045+.145*level;
+        stem.visible=!editing;drive.level=level;
+        if(drive.handle)drive.handle.position.y=1.39+.19*level;
         notes.forEach((pitch,i)=>{
           pins[i].set(IsoFlow.pitches(pitch));
         });
@@ -257,29 +257,29 @@ window.IsoPieces = (() => {
     sleeve.rotation.x=Math.PI/2;return sleeve;
   }
   function copier(root) {
-    mounting(root,1.75,1.60,'teal');
+    mounting(root,1.75,1.60,'passive');
     // Positive-displacement twin head: the manifold charges two equal
     // cylinders. A common stroke ejects a full measure from each branch.
     const xLeft=-.44,xRight=.44,y=.57;
-    pipe(root,[[0,.29,-.88],[0,.446,-.46],[0,.446,-.12]],.074,'brass');
-    pipe(root,[[xLeft,.446,-.12],[xRight,.446,-.12]],.063,'teal');
+    pipe(root,[[0,.29,-.88],[0,.446,-.46],[0,.446,-.12]],.074,'cast');
+    pipe(root,[[xLeft,.446,-.12],[xRight,.446,-.12]],.063,'passive');
     const crosshead=group(root), button=group(root,0,.664,-.56);
-    plate(crosshead,1.14,.12,.15,0,y,-.56,'teal',.057);
+    plate(crosshead,1.14,.12,.15,0,y,-.56,'passive',.057);
     cyl(button,.16,.183,.10,0,-.025,0,'ink');
-    cyl(button,.138,.154,.080,0,.040,0,'orange');
+    cyl(button,.138,.154,.080,0,.040,0,'steel');
     const cylinders=[xLeft,xRight].map(x=>{
       horizontalSleeve(root,x,y,.08,.208,.79,'glass');
       for(const z of [-.29,.47]){
-        horizontalSleeve(root,x,y,z,.222,.07,'brass');
+        horizontalSleeve(root,x,y,z,.222,.07,'cast');
         horizontalSleeve(root,x,y,z+.035,.191,.027,'edge');
       }
       // A slim glint reveals a curved transparent wall even when empty.
       rod(root,[x-.105,y+.176,-.23],[x-.105,y+.176,.38],.010,'ivory');
-      pipe(root,[[x,y,.48],[x,.39,.66],[x,.29,.85]],.073,'teal');
+      pipe(root,[[x,y,.48],[x,.39,.66],[x,.29,.85]],.073,'passive');
       const piston=group(crosshead,x,y,-.245);
       horizontalSleeve(piston,0,0,-.16,.045,.40,'steel');
       horizontalSleeve(piston,0,0,0,.179,.065,'edge');
-      horizontalSleeve(piston,0,0,.039,.174,.022,'brass');
+      horizontalSleeve(piston,0,0,.039,.174,.022,'cast');
       const dose=liquid(root,x,y,-.202,.164,.164,.62);
       dose.body.name=x===xLeft?'copy:copy':'copy:out';
       dose.body.rotation.x=Math.PI/2;
@@ -366,7 +366,8 @@ window.IsoPieces = (() => {
 
   const CAM = Object.freeze({x:-.35, z:-.105, scale:.85, low:.77, high:1.047, pitch:TAU/8});
   const travel = CAM.high-CAM.low;
-  const camPoses=new WeakMap();
+  const camPoses=new WeakMap(), barrelPoses=new WeakMap();
+  const barrelBase=.49, barrelSpacing=.30;
   const smooth=t=>t*t*(3-2*t);
   const wrap=(n,m)=>(n%m+m)%m;
   function camRadius(unit,previous,raised,next) {
@@ -428,73 +429,87 @@ window.IsoPieces = (() => {
     const bench=group(root);bench.scale.set(CAM.scale,1,CAM.scale);
     mounting(bench,3.02,2.34,'edge');
     const {x,z,pitch}=CAM;
-    cyl(bench,.665,.69,.082,x,.405,z,'edge',48);
-    // The black waist and axle are part of this same cam, not a second wheel.
-    const wheel=group(bench,x,.49,z);
-    cyl(wheel,.633,.626,.122,0,.035,0,'brass',56);
-    const cells=Array.from({length:8},(_,i)=>{
-      const arm=action(group(wheel),'cam',i);arm.rotation.y=-i*pitch;
-      const tooth=mesh(arm,camSector(false,false,false),'mint',0,.078,0);
-      const rim=cyl(arm,.101,.119,.032,.613,.222,0,'ink',24);
-      const sample=liquid(arm,.613,.240,0,.082,.082,.029);
-      return {tooth,rim,sample};
-    });
-    cyl(wheel,.335,.343,.154,0,.137,0,'edge',48);
-    cyl(wheel,.234,.256,.155,0,.262,0,'brass',8);
-    cyl(wheel,.112,.134,.055,0,.358,0,'teal',16);
-    // Single permanent brass rivet sets the origin of the cycle.
-    cyl(wheel,.040,.046,.019,.265,.224,0,'paper',16);
+    const barrel=group(bench,x,0,z), rows=[];
+    const shaft=cyl(bench,.115,.13,2.0,x,1.31,z,'steel',24);
+    cyl(bench,.34,.40,.12,x,.414,z,'brass',40);
+    const crown=cyl(bench,.22,.23,.09,x,2.19,z,'teal',24);
     const green='#287e6d', amber='#bf653b';
     const lowX=x+CAM.low+.10+.21, highX=lowX+travel;
     function outlet(px,points,tone) {
-      for(let i=1;i<points.length;i++)rod(bench,points[i-1],points[i],.085,tone);
-      for(const p of points.slice(1,-1))ball(bench,.085,...p,tone);
+      pipe(bench,points,.085,tone);
       cyl(bench,.158,.168,.07,px,.444,.665,tone,28);
       cyl(bench,.099,.102,.035,px,.489,.665,tone===green?'#73c9ad':'#e4a06a',28);
     }
     outlet(highX,[[highX,.404,.665],[highX,.391,.91],[.88,.31,1.185]],green);
     outlet(lowX,[[lowX,.399,.665],[.49,.394,.99],[-.40,.391,.99],[-.565,.31,1.185]],amber);
-    // Incoming manifold under the cam and the bearings on which the valve slides.
-    const inlet=[[.47,.31,-1.18],[.47,.40,-.92],[1.12,.40,-.76],[1.24,.40,-.56],
-      [1.24,.40,.47],[1.11,.40,.665],[lowX,.40,.665]];
-    for(let i=1;i<inlet.length;i++)rod(bench,inlet[i-1],inlet[i],.068,'brass');
-    for(const p of inlet.slice(1,-1))ball(bench,.068,...p,'brass');
+    pipe(bench,[[.47,.31,-1.18],[.47,.40,-.92],[1.12,.40,-.76],[1.24,.40,-.56],
+      [1.24,.40,.47],[1.11,.40,.665],[lowX,.40,.665]],.068,'brass');
     for(const zz of [.50,.826])rod(bench,[lowX-.29,.521,zz],[highX+.28,.521,zz],.036,'steel');
-    const carriage=action(group(bench,0,0,0),'lever');
+    const carriage=group(bench);
     const plateShape=rounded(.82,.41,.065), aperture=new T.Path();
     aperture.absarc(0,0,.113,0,TAU,true);plateShape.holes.push(aperture);
     mesh(carriage,geometry('ported-valve',()=>extrude(plateShape,.065,.007)),'steel',.21,.524,.665);
-    rod(carriage,[0,.645,z],[.21,.609,.11],.043,'brass');
-    rod(carriage,[.21,.609,.11],[.21,.578,.50],.049,'brass');
-    cyl(carriage,.102,.105,.151,0,.630,z,'edge',24);
-    cyl(carriage,.049,.053,.031,0,.720,z,'brass',16);
-    const grip=cyl(carriage,.115,.148,.095,.21,.658,.333,'teal',24);
-    bead(carriage,.095,.013,.21,.708,.333,'ivory');
-    const drive=createCamDrive();
-    camPoses.set(root,drive.pose);
-    let lastRoutes,lastScore;
+    // The selected cam presses one follower. Its vertical link transfers the
+    // same horizontal displacement to the two-way valve at the mounting plate.
+    rod(carriage,[0,.61,z],[.21,.59,.15],.043,'brass');
+    rod(carriage,[.21,.59,.15],[.21,.578,.50],.049,'brass');
+    const selector=action(group(carriage),'route-preset',0);
+    const roller=cyl(selector,.102,.105,.15,0,0,z,'edge',24);
+    cyl(selector,.049,.053,.027,0,.09,z,'steel',16);
+    const grip=cyl(selector,.12,.13,.10,.17,.045,z+.20,'teal',24);
+    const stem=cyl(carriage,.034,.034,1,0,.99,z,'brass',12);
+    const drive=createCamDrive(), pose=drive.pose;
+    Object.assign(pose,{count:0,selected:0,followerY:.63,rows:[]});
+    camPoses.set(root,pose);barrelPoses.set(root,pose);
+    let signature='', lastTime=performance.now();
+    function programRows(programs){
+      const next=programs.map(p=>p.routes.map(Number).join('')).join('/');
+      if(next===signature)return;
+      signature=next;
+      while(rows.length<programs.length){
+        const index=rows.length, row=action(group(barrel,0,barrelBase+index*barrelSpacing,0),'route-preset',index);
+        const core=cyl(row,.625,.625,.145,0,.08,0,'brass',48);
+        const cells=Array.from({length:8},(_,i)=>{
+          const arm=group(row);arm.rotation.y=-i*pitch;
+          return mesh(arm,camSector(false,false,false),'mint',0,.078,0);
+        });
+        rows.push({body:row,core,cells});
+      }
+      rows.forEach((row,index)=>{
+        row.body.visible=index<programs.length;
+        if(!row.body.visible)return;
+        const routes=programs[index].routes;
+        row.cells.forEach((tooth,i)=>{
+          tooth.geometry=camSector(routes[(i+7)%8],routes[i],routes[(i+1)%8]);
+        });
+      });
+      pose.count=programs.length;
+      pose.rows=programs.map((_,i)=>({x:(x+.49)*CAM.scale,y:barrelBase+i*barrelSpacing+.17,z:(z+.53)*CAM.scale}));
+      crown.position.y=barrelBase+(programs.length-1)*barrelSpacing+.31;
+      const length=crown.position.y-.40;
+      shaft.scale.y=length/2;shaft.position.y=.40+length/2;
+    }
     return {
       ports:{in:vec(.4,.31,-1.16),straight:vec(.75,.31,1.16),side:vec(-.48,.31,1.16)},
-      needsFrame:()=>drive.pose.animating,
+      needsFrame:()=>pose.animating||Math.abs(pose.followerY-(barrelBase+pose.selected*barrelSpacing+.14))>.001,
       update(f) {
         const s=f.selected==='router'&&!f.playing?(f.editState||f.state):f.state;
-        const route=s.routes,pose=drive.update(f,route);
-        wheel.rotation.y=pose.angle;
-        if(lastRoutes!==route){
-          cells.forEach(({tooth},i)=>{
-            tooth.geometry=camSector(route[(i+7)%8],route[i],route[(i+1)%8]);
-            tooth.material=paint(route[i]?'#63b5a2':'#e29b62');
-          });
-          lastRoutes=route;
-        }
-        if(lastScore!==f.steps){
-          cells.forEach(({rim,sample},i)=>{
-            const pitches=IsoFlow.tones(f.steps?.[i]?.activity.router||[]);
-            rim.scale.setScalar(pitches.length?1:.65);
-            sample.set(pitches);
-          });
-          lastScore=f.steps;
-        }
+        const programs=IsoFlow.routerPrograms(s), route=s.routes;
+        programRows(programs);
+        pose.selected=IsoFlow.routePresetIndex(s);
+        drive.update(f,route);
+        barrel.rotation.y=pose.angle;
+        rows.forEach((row,index)=>{
+          const active=index===pose.selected;
+          row.core.material=paint(active?'brass':'cast');
+          row.cells.forEach(tooth=>{tooth.material=paint(active?'mint':'#6e9290');});
+        });
+        const now=performance.now(), dt=Math.min(.05,(now-lastTime)/1000);lastTime=now;
+        const target=barrelBase+pose.selected*barrelSpacing+.14;
+        pose.followerY+=(target-pose.followerY)*(1-Math.exp(-24*dt));
+        if(Math.abs(target-pose.followerY)<.001)pose.followerY=target;
+        selector.position.y=pose.followerY;selector.userData.action.index=pose.selected;
+        stem.scale.y=Math.max(.03,pose.followerY-.61);stem.position.y=(pose.followerY+.61)/2;
         carriage.position.x=x+pose.radius+.10;
         grip.material=paint(route[pose.reader]?green:amber);
       }
@@ -513,10 +528,10 @@ window.IsoPieces = (() => {
     };
   }
   function keys(root) {
-    mounting(root,1.91,1.51,'brick');
-    plate(root,1.75,.22,1.15,0,.465,0,'wood',.14);
+    mounting(root,1.91,1.51,'passive');
+    plate(root,1.75,.22,1.15,0,.465,0,'passive',.14);
     plate(root,1.58,.11,.82,0,.615,.121,'ink',.04);
-    plate(root,1.72,.24,.29,0,.665,-.39,'orange');
+    plate(root,1.72,.24,.29,0,.665,-.39,'cast');
     const fill=receiverWindow(root,0,.797,-.39,.73,.113,0,-.81);
     const keyboard=[];
     for (let i=0;i<7;i++) {
@@ -538,20 +553,20 @@ window.IsoPieces = (() => {
   }
 
   function bell(root) {
-    mounting(root,1.54,1.44,'teal');
+    mounting(root,1.54,1.44,'passive');
     cyl(root,.475,.535,.135,.08,.423,0,'edge');
-    cyl(root,.424,.450,.10,.08,.523,0,'brass');
+    cyl(root,.424,.450,.10,.08,.523,0,'cast');
     const dome=group(root,.08,.573,0);
     const fill=receiverWindow(root,-.08,.612,-.530,.40,.105,-.21,-.76);
     lathe(dome,[[.002,.007],[.45,.007],[.459,.035],[.435,.066],[.41,.19],
-      [.35,.34],[.255,.448],[.14,.50],[.047,.524],[.002,.524]],0,0,0,'gold');
-    bead(dome,.45,.021,0,.031,0,'brass');
+      [.35,.34],[.255,.448],[.14,.50],[.047,.524],[.002,.524]],0,0,0,'steel');
+    bead(dome,.45,.021,0,.031,0,'cast');
     cyl(dome,.073,.095,.055,0,.532,0,'edge');
-    ball(dome,.06,0,.584,0,'brass');
+    ball(dome,.06,0,.584,0,'cast');
     const hammer=group(root,-.52,.43,.29);
     cyl(hammer,.088,.106,.11,0,0,0,'edge');
-    rod(hammer,[0,0,0],[.10,.37,-.03],.036,'brass');
-    ball(hammer,.095,.10,.37,-.03,'orange');
+    rod(hammer,[0,0,0],[.10,.37,-.03],.036,'cast');
+    ball(hammer,.095,.10,.37,-.03,'cast');
     return {ports:{in:vec(-.21,.29,-.90)},update(f) {
       fill(f,'bell');
       const strike=hit(f,'bell');
@@ -561,8 +576,8 @@ window.IsoPieces = (() => {
   }
 
   function bin(root) {
-    mounting(root,1.46,1.38,'teal');
-    pipe(root,[[0,.29,-.76],[0,.58,-.42],[0,.62,-.28]],.083,'brass');
+    mounting(root,1.46,1.38,'passive');
+    pipe(root,[[0,.29,-.76],[0,.58,-.42],[0,.62,-.28]],.083,'cast');
     lathe(root,[[.16,0],[.32,.075],[.484,.212],[.48,.255],[.42,.25],[.23,.118],[.12,.111]],
       0,.37,.09,'steel');
     bead(root,.469,.022,0,.622,.09,'ivory');
@@ -595,21 +610,16 @@ window.IsoPieces = (() => {
     const shell=group(parent), caps=new Map(),windows=new Map();
     let scoreWheel;
     shell.name=id+'-service';shell.visible=false;
-    function casework(w,d,x,z,tone) {
-      plate(shell,w,.19,d,x,.23,z,'edge',.13);
-      plate(shell,w-.04,.10,d-.05,x,.37,z,tone,.11);
-      for(const dx of [-1,1])for(const dz of [-1,1]) {
-        cyl(shell,.025,.032,.016,x+dx*(w/2-.085),.43,z+dz*(d/2-.085),'brass',8);
-      }
-    }
     if(id==='source'){
       const drive=sourceDrives.get(parent);
       scoreWheel=group(shell,.55,0,.13);drive.wheel=scoreWheel;scoreWheel.rotation.y=drive.angle;
-      cyl(scoreWheel,1.115,1.105,.093,0,1.13,0,'edge',64);
+      action(cyl(scoreWheel,1.115,1.105,.093,0,1.13,0,'edge',64),'phase');
       cyl(scoreWheel,.775,.78,.016,0,1.18,0,'teal',64);
       bead(scoreWheel,.71,.012,0,1.196,0,'mint');
-      cyl(scoreWheel,.205,.230,.13,0,1.245,0,'brass',8);
-      cyl(scoreWheel,.103,.122,.022,0,1.324,0,'teal');
+      cyl(scoreWheel,.17,.20,.43,0,1.39,0,'brass',16);
+      drive.handle=action(group(shell,.55,1.39+.19*drive.level,.13),'level');
+      cyl(drive.handle,.27,.25,.13,0,0,0,'gold',12);
+      cyl(drive.handle,.11,.13,.035,0,.09,0,'brass',12);
       for(let i=0;i<3;i++){
         const bar=group(scoreWheel);
         bar.rotation.y=i*TAU/3;
@@ -624,14 +634,8 @@ window.IsoPieces = (() => {
         shape.lineTo(0,.105);shape.closePath();return extrude(shape,.035,.005);
       });
       mesh(shell,tip,'paper',.55,1.24,1.335);
-      // Pull-out service shelf stops short of the output jack.
-      casework(2.91,.94,-.36,1.67,'teal');
+
       for(let i=0;i<4;i++)rod(shell,[(i-1.5)*.8,.39,-1.88],[(i-1.5)*.8,.39,-.54],.055,'brass');
-      for(const x of [-1,1])rod(shell,[x,.23,.82],[x,.23,1.39],.075,'brass');
-    }
-    if(['keys','bell','bin'].includes(id)){
-      casework(2.80,1.16,0,1.34,'edge');
-      for(const x of [-.46,.46])rod(shell,[x,.23,.57],[x,.23,1.05],.060,'brass');
     }
     function key(key,x,y,z,w,d,round) {
       const pin=scoreWheel&&key.startsWith('pin-');
@@ -655,5 +659,9 @@ window.IsoPieces = (() => {
     function capFluid(key,pitches){windows.get(key)?.set(pitches);}
     return {shell,key,capColor,capFluid};
   }
-  return Object.freeze({create,noteColor,serviceFace,scorePin,CAM,camRadius,createCamDrive,camPose:root=>camPoses.get(root)});
+  function sourcePhase(){return {x:.55,y:1.24,z:.13,radius:1.115};}
+  function sourceLevel(root){return {x:.55,y:1.39+.19*(sourceDrives.get(root)?.level??1),z:.13};}
+  function routerRow(root,index){return barrelPoses.get(root)?.rows[index];}
+  return Object.freeze({create,noteColor,serviceFace,scorePin,sourcePhase,sourceLevel,routerRow,
+    barrelPose:root=>barrelPoses.get(root),CAM,camRadius,createCamDrive,camPose:root=>camPoses.get(root)});
 })();
